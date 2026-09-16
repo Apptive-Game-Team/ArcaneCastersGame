@@ -18,12 +18,14 @@ public record GameResultDto(
         Long winUserId,
         Long lossUserId,
         Duration duration,
-        List<StatisticCardDto> cards,
+        List<StatisticDeckDto> decks,
         List<StatisticMagicDto> magics,
         Map<String, UpdateTimeStatistic> updateTimeStatisticMap
 ) {
-    public record StatisticCardDto(
-            long cardId,
+    // One row of the deck the player brought into the match: a magic and how many
+    // copies of it were in the deck. Distinct from StatisticMagicDto, which counts casts.
+    public record StatisticDeckDto(
+            long magicId,
             long userId,
             int count
     ) {

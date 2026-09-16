@@ -121,16 +121,16 @@ CREATE TABLE statistic_game_sessions (
     ended_at TIMESTAMP WITH TIME ZONE
 );
 
-CREATE TABLE statistic_game_cards (
+CREATE TABLE statistic_game_decks (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL,
     statistic_game_id BIGINT NOT NULL REFERENCES statistic_games(id) ON DELETE CASCADE,
-    card_id BIGINT NOT NULL REFERENCES magics(id),
+    magic_id BIGINT NOT NULL REFERENCES magics(id),
     count INT
 );
 
-CREATE INDEX idx_statistic_game_card_user_id_statistic_game_id
-    ON statistic_game_cards(user_id, statistic_game_id);
+CREATE INDEX idx_statistic_game_deck_user_id_statistic_game_id
+    ON statistic_game_decks(user_id, statistic_game_id);
 
 CREATE TABLE statistic_game_magics (
     id BIGSERIAL PRIMARY KEY,

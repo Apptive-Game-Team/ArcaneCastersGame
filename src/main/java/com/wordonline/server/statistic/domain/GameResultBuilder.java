@@ -13,7 +13,7 @@ import com.wordonline.server.deck.dto.CardDto;
 import com.wordonline.server.game.domain.SessionType;
 import com.wordonline.server.game.dto.Master;
 import com.wordonline.server.statistic.dto.GameResultDto;
-import com.wordonline.server.statistic.dto.GameResultDto.StatisticCardDto;
+import com.wordonline.server.statistic.dto.GameResultDto.StatisticDeckDto;
 import com.wordonline.server.statistic.dto.GameResultDto.StatisticMagicDto;
 
 import lombok.Setter;
@@ -23,7 +23,7 @@ public class GameResultBuilder {
 
     private long leftUserId;
     private long rightUserId;
-    private final List<StatisticCardDto> cardDtos = new ArrayList<>();
+    private final List<StatisticDeckDto> deckDtos = new ArrayList<>();
     private final List<StatisticMagicDto> magicDtos = new ArrayList<>();
     private final Map<String, UpdateTimeStatistic> updateTimeStatisticMap = new HashMap<>();
 
@@ -57,24 +57,24 @@ public class GameResultBuilder {
         addInterval(FRAME_STATISTIC_NAME, nowNanos - previous);
     }
 
-    public void recordCards(long userId, List<CardDto> cardDtos) {
-        Map<Long, Long> counts = cardDtos.stream()
+    public void recordDeck(long userId, List<CardDto> deckCards) {
+        Map<Long, Long> counts = deckCards.stream()
                 .collect(Collectors.groupingBy(CardDto::id, Collectors.counting()));
 
         for (Map.Entry<Long, Long> entry : counts.entrySet()) {
-            long cardId = entry.getKey();
+            long magicId = entry.getKey();
             int count = entry.getValue().intValue();
 
-            Optional<StatisticCardDto> existing = this.cardDtos.stream()
-                    .filter(c -> c.cardId() == cardId && c.userId() == userId)
+            Optional<StatisticDeckDto> existing = this.deckDtos.stream()
+                    .filter(d -> d.magicId() == magicId && d.userId() == userId)
                     .findFirst();
 
             if (existing.isPresent()) {
-                StatisticCardDto old = existing.get();
-                this.cardDtos.remove(old);
-                this.cardDtos.add(new StatisticCardDto(cardId, userId, old.count() + count));
+                StatisticDeckDto old = existing.get();
+                this.deckDtos.remove(old);
+                this.deckDtos.add(new StatisticDeckDto(magicId, userId, old.count() + count));
             } else {
-                this.cardDtos.add(new StatisticCardDto(cardId, userId, count));
+                this.deckDtos.add(new StatisticDeckDto(magicId, userId, count));
             }
         }
     }
@@ -118,7 +118,7 @@ public class GameResultBuilder {
                 winId,
                 lossId,
                 duration,
-                cardDtos,
+                deckDtos,
                 magicDtos,
                 updateTimeStatisticMap
         );
