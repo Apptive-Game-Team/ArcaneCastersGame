@@ -37,8 +37,8 @@ public class StatisticService {
         builder.setLeftUserId(leftUserId);
         builder.setRightUserId(rightUserId);
 
-        saveDeck(leftUserId, builder);
-        saveDeck(rightUserId, builder);
+        saveDeck(leftUserId, gameContext.getSessionObject().getLeftDeckCardIds(), builder);
+        saveDeck(rightUserId, gameContext.getSessionObject().getRightDeckCardIds(), builder);
 
         gameResultBuilderMap.put(gameContext, builder);
     }
@@ -50,8 +50,8 @@ public class StatisticService {
                 );
     }
 
-    private void saveDeck(long userId, GameResultBuilder builder) {
-        List<CardDto> cardDtos = deckService.getParticipantDeckCards(userId);
+    private void saveDeck(long userId, List<Long> magicIds, GameResultBuilder builder) {
+        List<CardDto> cardDtos = deckService.getCardsByMagicIds(magicIds);
         builder.recordCards(userId, cardDtos);
     }
 
