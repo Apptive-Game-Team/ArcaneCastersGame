@@ -30,7 +30,8 @@ public class SessionObjectFactory {
         return switch (sessionType) {
             case PVE -> createPveSessionObject(sessionId, uid1, sessionDto.scenarioId());
             case Practice -> createPracticeSessionObject(sessionId, uid1, uid2);
-            case PVP -> createPvpSessionObject(sessionId, uid1, uid2);
+            case PVP -> createPvpSessionObject(sessionId, uid1, uid2,
+                    sessionDto.leftDeckCardIds(), sessionDto.rightDeckCardIds());
         };
     }
 
@@ -52,9 +53,11 @@ public class SessionObjectFactory {
         return SessionType.PVP;
     }
 
-    private SessionObject createPvpSessionObject(String sessionId, long uid1, long uid2) {
-        List<Long> leftCards = deckService.getParticipantCards(uid1);
-        List<Long> rightCards = deckService.getParticipantCards(uid2);
+    private SessionObject createPvpSessionObject(String sessionId, long uid1, long uid2,
+                                                  List<Long> leftDeckCardIds,
+                                                  List<Long> rightDeckCardIds) {
+        List<Long> leftCards = deckService.getParticipantCards(uid1, leftDeckCardIds);
+        List<Long> rightCards = deckService.getParticipantCards(uid2, rightDeckCardIds);
         return new SessionObject(sessionId, uid1, uid2, simpMessagingTemplate, leftCards, rightCards, SessionType.PVP);
     }
 
