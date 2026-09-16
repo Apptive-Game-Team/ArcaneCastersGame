@@ -96,6 +96,14 @@ Do not add production schema, seed, backfill, or gameplay data SQL under
 repository and publish that commit before publishing game-server code that
 depends on it. Test-only H2 fixtures remain under `src/test/resources`.
 
+## Project Skills
+
+This repository keeps its own skills under `.agents/skills/`. Read the one that covers the task before starting. An agent that only auto-loads skills from its own home directory does not see these, so open the file by path.
+
+- `.agents/skills/make-magic/SKILL.md` — scaffold a new game magic (Magic class and SQL registration) when asked to create or add a magic.
+- `.agents/skills/make-parameter/SKILL.md` — decide whether a prefab value belongs in `parameters` or stays a code constant, and write the idempotent SQL for it.
+- `.agents/skills/make-prefab/SKILL.md` — scaffold a new game prefab (`PrefabType` entry, `PrefabInitializer`, and optional runtime components) when asked to create or add a prefab, or when a new magic needs its own prefab.
+
 ## Architecture & Game Engine Reference
 
 For in-depth explanations of the server systems, refer to the following developer documentation:
