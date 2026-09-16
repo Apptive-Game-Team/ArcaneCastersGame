@@ -74,6 +74,18 @@ public abstract class Mob extends Component implements Damageable, GaugeComponen
         }
     }
 
+    public int drainHpAboveFraction(float floorFraction) {
+        int floorHp = (int) Math.ceil(maxHp * Math.clamp(floorFraction, 0f, 1f));
+        int drainedHp = Math.max(0, hp - floorHp);
+        if (drainedHp == 0) {
+            return 0;
+        }
+
+        hp -= drainedHp;
+        gameObject.applyUpdate();
+        return drainedHp;
+    }
+
     public void applyDamage(AttackInfo attackInfo) {
         if (gameObject.isDying()) {
             return;

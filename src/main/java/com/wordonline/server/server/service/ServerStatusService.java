@@ -69,6 +69,10 @@ public class ServerStatusService {
         // Every write, boot and heartbeat alike, so the row always names the process that is
         // actually holding the sessions. The lobby reads a stale id as "those sessions are gone".
         server.setInstanceId(serverInstanceIdProvider.getInstanceId());
+        // Same reasoning as instanceId above. ServerIdentityProperties already strips a
+        // trailing slash; blank (unset) still has to become NULL rather than "".
+        String internalBaseUrl = serverIdentityProperties.internalBaseUrl();
+        server.setInternalBaseUrl(internalBaseUrl == null || internalBaseUrl.isBlank() ? null : internalBaseUrl);
         serverRepository.save(server);
     }
 }

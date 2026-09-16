@@ -1,6 +1,5 @@
 package com.wordonline.server.game.domain.magic.implement.shoot;
 
-import com.wordonline.server.game.domain.magic.CardType;
 import com.wordonline.server.game.domain.magic.Magic;
 import com.wordonline.server.game.domain.object.Vector3;
 import com.wordonline.server.game.dto.Master;
@@ -16,7 +15,6 @@ public class VineFanMagic extends Magic {
     private final VineTossMagic vineTossMagic;
 
     public VineFanMagic(VineTossMagic vineTossMagic) {
-        super(CardType.Shoot);
         this.vineTossMagic = vineTossMagic;
     }
 

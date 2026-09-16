@@ -11,6 +11,7 @@ import com.wordonline.server.game.service.bot.BotCounterEvaluator;
 import com.wordonline.server.game.service.system.BotAgentSystem;
 import com.wordonline.server.game.service.system.ComponentUpdateSystem;
 import com.wordonline.server.game.service.system.FeverTimeSystem;
+import com.wordonline.server.game.service.system.GameActionSystem;
 import com.wordonline.server.game.service.system.GameObjectAddRemoteSystem;
 import com.wordonline.server.game.service.system.GameObjectStateInitialSystem;
 import com.wordonline.server.game.service.system.PhysicSystem;
@@ -63,7 +64,8 @@ class SnapshotBuildFrequencyTest {
 
     private WordOnlineLoop loop() {
         return new WordOnlineLoop(mock(MmrService.class), mock(UserService.class), gameContext,
-                mock(Parameters.class), mock(SyncFrameDataSystem.class), mock(BotAgentSystem.class),
+                mock(Parameters.class), mock(SyncFrameDataSystem.class), mock(GameActionSystem.class),
+                mock(BotAgentSystem.class),
                 mock(FeverTimeSystem.class), mock(GameObjectStateInitialSystem.class),
                 mock(ComponentUpdateSystem.class), mock(PhysicSystem.class),
                 mock(GameObjectAddRemoteSystem.class), mock(DatabaseMagicParser.class),

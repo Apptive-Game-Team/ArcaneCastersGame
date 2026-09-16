@@ -32,7 +32,7 @@ public class Totem extends Mob {
 
     @Override
     public void start() {
-        gameObject.drawCircle(Vector3.ZERO, healRange, GizmoCategory.AttackRange);
+        gameObject.drawCircle(Vector3.ZERO, CombatRange.reachFrom(gameObject, healRange), GizmoCategory.AttackRange);
     }
 
     @Override

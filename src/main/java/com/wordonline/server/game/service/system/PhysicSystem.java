@@ -168,20 +168,33 @@ public class PhysicSystem implements CollisionSystem, GameSystem {
     public void checkAndHandleCollisions(List<GameObject> gameObjects) {
         collidedPairs.forEach(
                 gameObjectPair -> {
+                    GameObject a = gameObjectPair.a();
+                    GameObject b = gameObjectPair.b();
 
-                    if (gameObjectPair.a().getMaster() == gameObjectPair.b().getMaster() &&
-                            gameObjectPair.b().getMaster() != Master.None) {
+                    if (a.isDestroyed() || b.isDestroyed()) {
                         return;
                     }
 
-                    if (gameObjectPair.a().isDestroyed() || gameObjectPair.b().isDestroyed()) {
+                    a.getComponents(Collidable.class).forEach(collidable -> collidable.onCollision(b));
+                    b.getComponents(Collidable.class).forEach(collidable -> collidable.onCollision(a));
+
+                    if (isSameSide(a, b)) {
                         return;
                     }
 
-                    gameObjectPair.a().getComponents(Collidable.class).forEach(collidable -> collidable.onCollision(gameObjectPair.b()));
-                    gameObjectPair.b().getComponents(Collidable.class).forEach(collidable -> collidable.onCollision(gameObjectPair.a()));
+                    // a friendly reaction above may have destroyed one of the two objects
+                    if (a.isDestroyed() || b.isDestroyed()) {
+                        return;
+                    }
+
+                    a.getComponents(Collidable.class).forEach(collidable -> collidable.onCollisionWithEnemy(b));
+                    b.getComponents(Collidable.class).forEach(collidable -> collidable.onCollisionWithEnemy(a));
                 }
         );
+    }
+
+    private boolean isSameSide(GameObject a, GameObject b) {
+        return a.getMaster() == b.getMaster() && b.getMaster() != Master.None;
     }
 
     // apply rigidbody velocity and clear velocity

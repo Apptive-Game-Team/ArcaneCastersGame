@@ -1,6 +1,5 @@
 package com.wordonline.server.game.service;
 
-import com.wordonline.server.game.domain.magic.parser.DatabaseMagicParser;
 import com.wordonline.server.game.repository.CountingTagRepository;
 import org.junit.jupiter.api.Test;
 
@@ -17,7 +16,7 @@ class MagicMetadataServiceCacheTest {
     @Test
     void magicTagsAreServedFromMemoryAfterTheFirstCall() {
         CountingTagRepository tagRepository = tagRepository();
-        MagicMetadataService service = new MagicMetadataService(mock(DatabaseMagicParser.class), tagRepository);
+        MagicMetadataService service = new MagicMetadataService(tagRepository);
 
         assertThat(service.getMagicTags(7L)).isEqualTo(MAGIC_TAGS);
         assertThat(service.getMagicTags(7L)).isEqualTo(MAGIC_TAGS);
@@ -28,7 +27,7 @@ class MagicMetadataServiceCacheTest {
     @Test
     void invalidatingClearsBothTheServiceCacheAndTheRepositoryCaches() {
         CountingTagRepository tagRepository = tagRepository();
-        MagicMetadataService service = new MagicMetadataService(mock(DatabaseMagicParser.class), tagRepository);
+        MagicMetadataService service = new MagicMetadataService(tagRepository);
 
         service.getMagicTags(7L);
         tagRepository.getGameObjectTags("rock_slime");

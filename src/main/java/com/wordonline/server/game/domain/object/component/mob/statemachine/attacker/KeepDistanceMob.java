@@ -6,9 +6,9 @@ import com.wordonline.server.game.domain.object.component.mob.Mob;
 import com.wordonline.server.game.domain.object.component.mob.detector.ClosestEnemyDetector;
 import com.wordonline.server.game.domain.object.component.mob.detector.Detector;
 import com.wordonline.server.game.domain.object.component.mob.detector.TargetRelation;
-import com.wordonline.server.game.domain.object.component.physic.CircleCollider;
 import com.wordonline.server.game.domain.object.component.physic.RigidBody;
 import com.wordonline.server.game.dto.Status;
+import com.wordonline.server.game.util.CombatRange;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -19,7 +19,6 @@ public class KeepDistanceMob extends Mob {
     private final float preferredRange;
     private RigidBody rigidBody;
     private GameObject target;
-    private float targetRadius;
     private float detectTimer;
 
     public KeepDistanceMob(GameObject gameObject, int maxHp, float speed, int targetMask, float preferredRange) {
@@ -47,8 +46,7 @@ public class KeepDistanceMob extends Mob {
             return;
         }
 
-        double distance = gameObject.getPosition().distance(target.getPosition()) - targetRadius;
-        if (distance > preferredRange + RANGE_TOLERANCE) {
+        if (CombatRange.horizontalEdgeDistance(gameObject, target) > preferredRange + RANGE_TOLERANCE) {
             moveTowardTarget();
         }
     }
@@ -64,11 +62,6 @@ public class KeepDistanceMob extends Mob {
 
     private void detectTarget() {
         target = detector.detect(gameObject);
-        targetRadius = target == null
-                ? 0f
-                : target.getFirstCircleCollider()
-                        .map(CircleCollider::getRadius)
-                        .orElse(0f);
     }
 
     private boolean isValidTarget(GameObject target) {

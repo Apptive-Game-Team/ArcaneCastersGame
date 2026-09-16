@@ -8,6 +8,7 @@ import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.Vector3;
 import com.wordonline.server.game.domain.object.component.Component;
 import com.wordonline.server.game.domain.object.component.Damageable;
+import com.wordonline.server.game.domain.object.component.IntervalAttacker;
 import com.wordonline.server.game.domain.object.component.mob.detector.ClosestEnemyDetector;
 import com.wordonline.server.game.domain.object.component.mob.detector.Detector;
 import com.wordonline.server.game.domain.object.component.mob.detector.TargetRelation;
@@ -17,7 +18,7 @@ import lombok.Getter;
 
 import java.util.List;
 
-public class Tower extends Component {
+public class Tower extends Component implements IntervalAttacker {
 
     private static final float DEFAULT_ATTACK_DURATION = 0.2f;
     private static final float SPLASH_RADIUS = 1f;
@@ -55,7 +56,7 @@ public class Tower extends Component {
     @Override
     public void start() {
         detector = new ClosestEnemyDetector(getGameContext(), targetMask);
-        gameObject.drawCircle(Vector3.ZERO, attackRange, GizmoCategory.AttackRange);
+        gameObject.drawCircle(Vector3.ZERO, CombatRange.reachFrom(gameObject, attackRange), GizmoCategory.AttackRange);
     }
 
     @Override

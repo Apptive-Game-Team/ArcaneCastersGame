@@ -46,8 +46,8 @@ class PushShotTest {
 
         PushShot pushShot = new PushShot(shotObject, 4, 3f);
         pushShot.setTarget(Vector3.RIGHT);
-        pushShot.onCollision(target);
-        pushShot.onCollision(target);
+        pushShot.onCollisionWithEnemy(target);
+        pushShot.onCollisionWithEnemy(target);
 
         verify(damageable, times(1)).onDamaged(any());
         assertThat(componentsToAdd).singleElement().isInstanceOf(TimedMassPush.class);

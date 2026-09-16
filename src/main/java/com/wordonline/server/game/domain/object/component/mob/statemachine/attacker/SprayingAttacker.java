@@ -9,6 +9,7 @@ import com.wordonline.server.game.domain.AttackInfo;
 import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.Vector3;
 import com.wordonline.server.game.domain.object.component.Component;
+import com.wordonline.server.game.domain.object.component.effect.EffectApplication;
 import com.wordonline.server.game.domain.object.component.effect.receiver.EffectReceiver;
 import com.wordonline.server.game.domain.object.component.mob.Mob;
 import com.wordonline.server.game.dto.Effect;
@@ -46,7 +47,7 @@ public class SprayingAttacker extends BehaviorMob {
         mobs.stream().map(Component::getGameObject)
                 .filter(gameObject1 -> gameObject1.hasComponent(EffectReceiver.class))
                 .map(gameObject1 -> gameObject1.getComponent(EffectReceiver.class))
-                .forEach(effectReceiver -> effectReceiver.onReceive(effect));
+                .forEach(effectReceiver -> effectReceiver.onReceive(new EffectApplication(effect, gameObject)));
         return true;
     };
 

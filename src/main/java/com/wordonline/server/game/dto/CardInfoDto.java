@@ -1,21 +1,19 @@
 package com.wordonline.server.game.dto;
 
-import com.wordonline.server.game.domain.magic.CardType;
 import lombok.Data;
 
 import java.util.ArrayList;
 import java.util.List;
 
 @Data
-// This class is used to send card information to the client
+// This class is used to send card information to the client. Each entry is one magics.id.
 public class CardInfoDto {
-    private final List<CardType> added;
+    private final List<Long> added;
 
     public CardInfoDto() {added = new ArrayList<>();}
-    public CardInfoDto(List<CardType> added) {this.added = added;}
+    public CardInfoDto(List<Long> added) {this.added = added;}
 
-    public void addCard(CardType card) {
-        added.add(card);
+    public void addCard(long magicId) {
+        added.add(magicId);
     }
 }
-

@@ -28,10 +28,10 @@ class PlayerPrefabInitializerTest {
         when(parameters.object(GameObjectKey.PLAYER)).thenReturn(playerParameters);
         when(playerParameters.intValue(ParameterKey.HP)).thenReturn(250);
 
-        PlayerData leftPlayerData = new PlayerData(null, parameters);
+        PlayerData leftPlayerData = new PlayerData(null);
         GameSessionData gameSessionData = new GameSessionData(
                 leftPlayerData,
-                new PlayerData(null, parameters)
+                new PlayerData(null)
         );
         GameContext gameContext = mock(GameContext.class);
         when(gameContext.getGameSessionData()).thenReturn(gameSessionData);

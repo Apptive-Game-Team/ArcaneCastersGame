@@ -1,10 +1,7 @@
 package com.wordonline.server.auth.config;
 
-import java.security.interfaces.RSAPublicKey;
-
 import lombok.RequiredArgsConstructor;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.actuate.autoconfigure.security.servlet.EndpointRequest;
 import org.springframework.boot.actuate.health.HealthEndpoint;
 import org.springframework.boot.actuate.metrics.export.prometheus.PrometheusScrapeEndpoint;
@@ -28,8 +25,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableMethodSecurity
 public class WebSecurityConfig {
 
-    @Value("${jwt.public.key}")
-    private RSAPublicKey rsaPublicKey;
+    private final AccountProperties accountProperties;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
@@ -62,7 +58,7 @@ public class WebSecurityConfig {
 
     @Bean
     public JwtDecoder jwtDecoder() {
-        return NimbusJwtDecoder.withPublicKey(rsaPublicKey).build();
+        return NimbusJwtDecoder.withJwkSetUri(accountProperties.jwksUri()).build();
     }
 
     @Bean

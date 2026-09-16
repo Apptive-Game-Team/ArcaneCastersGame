@@ -1,11 +1,8 @@
 package com.wordonline.server.game.domain.magic.parser;
 
-import java.util.List;
-
-import com.wordonline.server.game.domain.magic.CardType;
 import com.wordonline.server.game.domain.magic.Magic;
 
 public interface MagicParser {
-    // This method is used to parse the magic cards
-    Magic parseMagic(long userId, List<CardType> cards);
+    // Resolves one magic card the player is holding, and refuses it when the player does not own it.
+    Magic parseMagic(long userId, long magicId);
 }

@@ -1,8 +1,11 @@
 package com.wordonline.server.game.domain.parameter;
 
 public enum ParameterKey {
+    ACCELERATION("acceleration"),
     ATTACK_INTERVAL("attack_interval"),
+    ATTACK_OFFSET("attack_offset"),
     ATTACK_RANGE("attack_range"),
+    BEAM_WIDTH("beam_width"),
     BUFF_DURATION("buff_duration"),
     CHAIN_COUNT("chain_count"),
     CHAIN_DAMAGE("chain_damage"),
@@ -11,6 +14,7 @@ public enum ParameterKey {
     DAMAGE("damage"),
     DETECTION_RANGE("detection_range"),
     DURATION("duration"),
+    EFFECT_RADIUS("effect_radius"),
     FEVER_DURATION("fever_duration"),
     FALL_GRAVITY("fall_gravity"),
     HEAL_AMOUNT("heal_amount"),
@@ -20,6 +24,7 @@ public enum ParameterKey {
     MAX_MANA("max_mana"),
     MIN_DAMAGE("min_damage"),
     PROJECTILE_SPEED("projectile_speed"),
+    PULL_MASS_LIMIT("pull_mass_limit"),
     PUSH_FORCE("push_force"),
     PUSH_RANGE_X("push_range_x"),
     PUSH_RANGE_Y("push_range_y"),
@@ -37,7 +42,11 @@ public enum ParameterKey {
     Z_FORCE("z_force"),
     SPEED("speed"),
 
-    SUB_ATTACK_RANGE("sub_attack_range");
+    SUB_ATTACK_RANGE("sub_attack_range"),
+    SUB_ATTACK_INTERVAL("sub_attack_interval"),
+
+    TRIGGER_DELAY("trigger_delay"),
+    STUN_DURATION("stun_duration");
 
     private final String dbName;
 

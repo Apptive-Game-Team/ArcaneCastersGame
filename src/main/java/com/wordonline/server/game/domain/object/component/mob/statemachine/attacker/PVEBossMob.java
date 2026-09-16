@@ -1,6 +1,6 @@
 package com.wordonline.server.game.domain.object.component.mob.statemachine.attacker;
 
-import com.wordonline.server.game.domain.magic.CardType;
+import com.wordonline.server.game.domain.magic.implement.spawn.AbstractSpawnMagic;
 import com.wordonline.server.game.domain.magic.Magic;
 import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.pve.PveObjectiveTarget;
@@ -52,7 +52,8 @@ public class PVEBossMob extends BehaviorMob implements PveObjectiveTarget {
             return false;
         }
 
-        GameObject castTarget = magic.magicType == CardType.Spawn ? gameObject : target;
+        // A spawn puts its bodies down where the caster stands; everything else lands on the target.
+        GameObject castTarget = magic instanceof AbstractSpawnMagic ? gameObject : target;
         if (castTarget == null) {
             return false;
         }

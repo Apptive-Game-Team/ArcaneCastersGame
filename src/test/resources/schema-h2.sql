@@ -10,18 +10,22 @@ CREATE TABLE users (
     novice_progress REAL NOT NULL DEFAULT 0.5
 );
 
-CREATE TABLE cards (
-    id BIGINT PRIMARY KEY,
-    name VARCHAR(10) NOT NULL,
-    card_type VARCHAR(255) NOT NULL
+-- A card is a magic now: magics is the card catalogue, and cards / user_cards / magic_cards
+-- are gone. element replaces the card combination as where a magic's element comes from.
+CREATE TABLE magics (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL UNIQUE,
+    element VARCHAR(10) NOT NULL DEFAULT 'None'
+        CHECK (element IN ('Fire', 'Water', 'Lightning', 'Rock', 'Nature', 'Wind', 'None')),
+    access_type VARCHAR(10) NOT NULL DEFAULT 'DEFAULT'
 );
 
-CREATE TABLE user_cards (
+CREATE TABLE user_magics (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL REFERENCES users(id),
-    card_id BIGINT NOT NULL REFERENCES cards(id),
-    count INT NOT NULL DEFAULT 1,
-    UNIQUE (card_id, user_id)
+    magic_id BIGINT NOT NULL REFERENCES magics(id),
+    count INT NOT NULL DEFAULT 3,
+    UNIQUE (user_id, magic_id)
 );
 
 CREATE TABLE decks (
@@ -33,12 +37,13 @@ CREATE TABLE decks (
 ALTER TABLE users
 ADD FOREIGN KEY (selected_deck_id) REFERENCES decks(id);
 
+-- deck_cards keeps its name and points at magics instead of cards.
 CREATE TABLE deck_cards (
     id BIGSERIAL PRIMARY KEY,
     deck_id BIGINT NOT NULL REFERENCES decks(id),
-    card_id BIGINT NOT NULL REFERENCES cards(id),
+    magic_id BIGINT NOT NULL REFERENCES magics(id),
     count INT NOT NULL DEFAULT 1,
-    UNIQUE (card_id, deck_id)
+    UNIQUE (magic_id, deck_id)
 );
 
 ALTER TABLE users
@@ -69,9 +74,9 @@ CREATE TABLE parameter_values(
         UNIQUE (parameter_id, game_object_id)
 );
 
-ALTER TABLE user_cards
-    DROP CONSTRAINT user_cards_user_id_fkey,
-    ADD CONSTRAINT user_cards_user_id_fkey
+ALTER TABLE user_magics
+    DROP CONSTRAINT user_magics_user_id_fkey,
+    ADD CONSTRAINT user_magics_user_id_fkey
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
 
 ALTER TABLE decks
@@ -85,11 +90,6 @@ ALTER TABLE deck_cards
         FOREIGN KEY (deck_id) REFERENCES decks(id) ON DELETE CASCADE;
 
 -- Statistic tables
-CREATE TABLE magics (
-    id BIGSERIAL PRIMARY KEY,
-    name VARCHAR(255)
-);
-
 CREATE TABLE statistic_games (
     id BIGSERIAL PRIMARY KEY,
     outcome VARCHAR(16) NOT NULL DEFAULT 'WIN' CHECK (outcome IN ('WIN', 'DRAW', 'ABANDONED')),
@@ -121,16 +121,16 @@ CREATE TABLE statistic_game_sessions (
     ended_at TIMESTAMP WITH TIME ZONE
 );
 
-CREATE TABLE statistic_game_cards (
+CREATE TABLE statistic_game_decks (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL,
     statistic_game_id BIGINT NOT NULL REFERENCES statistic_games(id) ON DELETE CASCADE,
-    card_id BIGINT NOT NULL REFERENCES cards(id),
+    magic_id BIGINT NOT NULL REFERENCES magics(id),
     count INT
 );
 
-CREATE INDEX idx_statistic_game_card_user_id_statistic_game_id
-    ON statistic_game_cards(user_id, statistic_game_id);
+CREATE INDEX idx_statistic_game_deck_user_id_statistic_game_id
+    ON statistic_game_decks(user_id, statistic_game_id);
 
 CREATE TABLE statistic_game_magics (
     id BIGSERIAL PRIMARY KEY,
@@ -161,12 +161,6 @@ CREATE TABLE statistic_update_time (
 
 CREATE INDEX idx_statistic_update_time_statistic_game_id
     ON statistic_update_time(statistic_game_id);
-
-CREATE TABLE magic_cards (
-    id BIGSERIAL PRIMARY KEY,
-    magic_id BIGINT REFERENCES magics(id),
-    card_id BIGINT REFERENCES cards(id)
-);
 
 CREATE TABLE bot_personas (
     user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE CHECK (user_id < 0),

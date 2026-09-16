@@ -34,7 +34,7 @@ class ServerStatusServiceTest {
     void setUp() {
         serverStatusService = new ServerStatusService(
                 serverRepository,
-                new ServerIdentityProperties("https", "game.example.com", 7777, 64),
+                new ServerIdentityProperties("https", "game.example.com", 7777, 64, "http://ac-game-blue:8080/"),
                 serverInstanceIdProvider);
     }
 
@@ -57,6 +57,24 @@ class ServerStatusServiceTest {
         assertThat(saved.getMaxSessions()).isEqualTo(64);
         assertThat(saved.getLastHeartbeatAt()).isAfterOrEqualTo(before);
         assertThat(saved.getInstanceId()).isEqualTo(serverInstanceIdProvider.getInstanceId());
+        // setUp configures a trailing slash; ServerIdentityProperties strips it before the
+        // service ever sees the value.
+        assertThat(saved.getInternalBaseUrl()).isEqualTo("http://ac-game-blue:8080");
+    }
+
+    @Test
+    void blankInternalBaseUrlIsWrittenAsNullRatherThanEmptyString() {
+        ServerStatusService service = new ServerStatusService(
+                serverRepository,
+                new ServerIdentityProperties("https", "game.example.com", 7777, 64, "   "),
+                serverInstanceIdProvider);
+        when(serverRepository.findByDomainAndPort("game.example.com", 7777)).thenReturn(Optional.empty());
+
+        service.publishHeartbeat(1);
+
+        ArgumentCaptor<Server> captor = ArgumentCaptor.forClass(Server.class);
+        verify(serverRepository).save(captor.capture());
+        assertThat(captor.getValue().getInternalBaseUrl()).isNull();
     }
 
     @Test
@@ -76,7 +94,7 @@ class ServerStatusServiceTest {
     @Test
     void findTargetBotSessionsReturnsTheAdminOverrideFromTheOwnRow() {
         Server server = new Server(1L, "https", "game.example.com", 7777, ServerType.GAME,
-                ServerState.ACTIVE, Instant.now(), 0, 64, null, 4);
+                ServerState.ACTIVE, Instant.now(), 0, 64, null, null, 4);
         when(serverRepository.findByDomainAndPort("game.example.com", 7777)).thenReturn(Optional.of(server));
 
         assertThat(serverStatusService.findTargetBotSessions()).contains(4);

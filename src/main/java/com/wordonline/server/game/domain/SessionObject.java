@@ -1,6 +1,5 @@
 package com.wordonline.server.game.domain;
 
-import com.wordonline.server.game.domain.magic.CardType;
 import com.wordonline.server.game.dto.Master;
 import com.wordonline.server.game.dto.PingChecker;
 import com.wordonline.server.game.service.CardDeck;
@@ -78,8 +77,8 @@ public class SessionObject {
                          long leftUserId,
                          long rightUserId,
                          SimpMessagingTemplate template,
-                         List<CardType> leftUserCards,
-                         List<CardType> rightUserCards,
+                         List<Long> leftUserCards,
+                         List<Long> rightUserCards,
                          SessionType sessionType,
                          Long scenarioId) {
         this.sessionId = sessionId;
@@ -111,8 +110,8 @@ public class SessionObject {
                          long leftUserId,
                          long rightUserId,
                          SimpMessagingTemplate template,
-                         List<CardType> leftUserCards,
-                         List<CardType> rightUserCards,
+                         List<Long> leftUserCards,
+                         List<Long> rightUserCards,
                          SessionType sessionType) {
         this(sessionId, leftUserId, rightUserId, template, leftUserCards, rightUserCards, sessionType, null);
     }
@@ -121,8 +120,8 @@ public class SessionObject {
                          long leftUserId,
                          long rightUserId,
                          SimpMessagingTemplate template,
-                         List<CardType> leftUserCards,
-                         List<CardType> rightUserCards) {
+                         List<Long> leftUserCards,
+                         List<Long> rightUserCards) {
         this(sessionId, leftUserId, rightUserId, template, leftUserCards, rightUserCards, SessionType.PVP, null);
     }
 
@@ -187,7 +186,7 @@ public class SessionObject {
     // Called from the debug HTTP endpoint, off the loop thread. The hand and the deck are plain
     // loop-thread collections now, so resetting them is queued like any other input. The user id
     // assignment stays inline because callers read it back straight after the call.
-    public void setLeftUser(long userId, List<CardType> cards) {
+    public void setLeftUser(long userId, List<Long> cards) {
         leftUserId = userId;
         leftUserDestination = userDestination(userId);
         GameContext gameContext = getGameContext();
@@ -197,7 +196,7 @@ public class SessionObject {
         });
     }
 
-    public void setRightUser(long userId, List<CardType> cards) {
+    public void setRightUser(long userId, List<Long> cards) {
         rightUserId = userId;
         rightUserDestination = userDestination(userId);
         GameContext gameContext = getGameContext();

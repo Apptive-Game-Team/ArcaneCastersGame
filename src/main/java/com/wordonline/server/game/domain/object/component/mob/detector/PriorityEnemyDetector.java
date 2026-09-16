@@ -4,6 +4,7 @@ import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.component.Damageable;
 import com.wordonline.server.game.dto.Status;
 import com.wordonline.server.game.service.GameContext;
+import com.wordonline.server.game.util.CombatRange;
 
 import java.util.Comparator;
 import java.util.List;
@@ -43,7 +44,7 @@ public class PriorityEnemyDetector implements Detector {
         if (!TargetRelation.canAttack(self, target)) return false;
         if (!target.hasComponent(Damageable.class)) return false;
         if ((TargetMask.of(target) & targetMask) == 0) return false;
-        if (self.getPosition().distance(target.getPosition()) > maxRange) return false;
+        if (!CombatRange.contains(self, target, maxRange)) return false;
 
         return priority.contains(TargetCategory.of(target));
     }

@@ -1,6 +1,5 @@
 package com.wordonline.server.game.domain.magic.implement.drop;
 
-import com.wordonline.server.game.domain.magic.CardType;
 import com.wordonline.server.game.domain.magic.Magic;
 import com.wordonline.server.game.domain.parameter.GameObjectKey;
 import com.wordonline.server.game.domain.parameter.ParameterKey;
@@ -13,10 +12,6 @@ import org.springframework.stereotype.Component;
 
 @Component("chicken_commando")
 public class ChickenCommandoMagic extends Magic {
-
-    public ChickenCommandoMagic() {
-        super(CardType.Drop);
-    }
 
     @Override
     public void run(GameContext gameContext, Master master, Vector3 position) {

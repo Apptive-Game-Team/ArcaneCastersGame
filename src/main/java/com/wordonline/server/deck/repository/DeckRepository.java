@@ -1,7 +1,6 @@
 package com.wordonline.server.deck.repository;
 
 import com.wordonline.server.deck.dto.CardsDto;
-import com.wordonline.server.game.domain.magic.CardType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
@@ -13,30 +12,29 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class DeckRepository {
 
+    // deck_cards keeps its table name and points at magics instead of cards.
     private static final String GET_SELECTED_DECK = """
             SELECT
-              cards.id AS id,
-              cards.name AS name,
-              cards.card_type AS card_type,
+              magics.id AS id,
+              magics.name AS name,
               deck_cards.count AS count
             FROM
               users
             JOIN decks ON decks.id = users.selected_deck_id
             JOIN deck_cards ON deck_cards.deck_id = decks.id
-            JOIN cards ON cards.id = deck_cards.card_id
+            JOIN magics ON magics.id = deck_cards.magic_id
             WHERE users.id = :userId;
             """;
 
     private static final String GET_DECK = """
             SELECT
-              cards.id AS id,
-              cards.name AS name,
-              cards.card_type AS card_type,
+              magics.id AS id,
+              magics.name AS name,
               deck_cards.count AS count
             FROM
             decks
             JOIN deck_cards ON deck_cards.deck_id = decks.id
-            JOIN cards ON cards.id = deck_cards.card_id
+            JOIN magics ON magics.id = deck_cards.magic_id
             WHERE decks.id = :deckId;
             """;
 
@@ -53,7 +51,7 @@ public class DeckRepository {
                 .param("userId", userId)
                 .query((rs, num) ->
                     new CardsDto(rs.getLong("id"),
-                            CardType.valueOf(rs.getString("name")),
+                            rs.getString("name"),
                             rs.getInt("count"))
                 ).list();
     }
@@ -63,7 +61,7 @@ public class DeckRepository {
                 .param("deckId", deckId)
                 .query((rs, num) ->
                         new CardsDto(rs.getLong("id"),
-                                CardType.valueOf(rs.getString("name")),
+                                rs.getString("name"),
                                 rs.getInt("count"))
                 ).list();
     }

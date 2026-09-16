@@ -23,7 +23,7 @@ public class PushShot extends Shot implements Collidable {
     }
 
     @Override
-    public void onCollision(GameObject otherObject) {
+    public void onCollisionWithEnemy(GameObject otherObject) {
         if (otherObject == gameObject) return;
         if (otherObject.getMaster() == gameObject.getMaster()) return;
 

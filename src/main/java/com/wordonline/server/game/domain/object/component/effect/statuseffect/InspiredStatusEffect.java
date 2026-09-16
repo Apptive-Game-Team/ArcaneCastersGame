@@ -2,10 +2,8 @@ package com.wordonline.server.game.domain.object.component.effect.statuseffect;
 
 import com.wordonline.server.game.domain.magic.ElementType;
 import com.wordonline.server.game.domain.object.GameObject;
+import com.wordonline.server.game.domain.object.component.IntervalAttacker;
 import com.wordonline.server.game.domain.object.component.effect.StatusEffectKey;
-import com.wordonline.server.game.domain.object.component.mob.simple.TimedBehaviorMob;
-import com.wordonline.server.game.domain.object.component.mob.simple.Tower;
-import com.wordonline.server.game.domain.object.component.mob.statemachine.attacker.BehaviorMob;
 import com.wordonline.server.game.dto.Effect;
 
 public class InspiredStatusEffect extends BaseStatusEffect {
@@ -20,20 +18,7 @@ public class InspiredStatusEffect extends BaseStatusEffect {
 
     @Override
     public void start() {
-        BehaviorMob behaviorMob = gameObject.getComponent(BehaviorMob.class);
-        if (behaviorMob != null) {
-            behaviorMob.getAttackInterval().setModifierPercent(ATTACK_INTERVAL_MODIFIER);
-        }
-
-        TimedBehaviorMob timedBehaviorMob = gameObject.getComponent(TimedBehaviorMob.class);
-        if (timedBehaviorMob != null) {
-            timedBehaviorMob.getAttackInterval().setModifierPercent(ATTACK_INTERVAL_MODIFIER);
-        }
-
-        Tower tower = gameObject.getComponent(Tower.class);
-        if (tower != null) {
-            tower.getAttackInterval().setModifierPercent(ATTACK_INTERVAL_MODIFIER);
-        }
+        applyAttackSpeedModifier(ATTACK_INTERVAL_MODIFIER);
     }
 
     @Override
@@ -42,21 +27,13 @@ public class InspiredStatusEffect extends BaseStatusEffect {
 
     @Override
     protected void expire() {
-        BehaviorMob behaviorMob = gameObject.getComponent(BehaviorMob.class);
-        if (behaviorMob != null) {
-            behaviorMob.getAttackInterval().setModifierPercent(0f);
-        }
-
-        TimedBehaviorMob timedBehaviorMob = gameObject.getComponent(TimedBehaviorMob.class);
-        if (timedBehaviorMob != null) {
-            timedBehaviorMob.getAttackInterval().setModifierPercent(0f);
-        }
-
-        Tower tower = gameObject.getComponent(Tower.class);
-        if (tower != null) {
-            tower.getAttackInterval().setModifierPercent(0f);
-        }
-
+        applyAttackSpeedModifier(0f);
         super.expire();
+    }
+
+    private void applyAttackSpeedModifier(float modifier) {
+        for (IntervalAttacker attacker : gameObject.getComponents(IntervalAttacker.class)) {
+            attacker.getAttackInterval().setModifierPercent(modifier);
+        }
     }
 }

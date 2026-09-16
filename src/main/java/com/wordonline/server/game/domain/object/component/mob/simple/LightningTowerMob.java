@@ -98,7 +98,7 @@ public class LightningTowerMob extends TimedBehaviorMob {
     @Override
     public void start() {
         detector = new ClosestEnemyDetector(getGameContext(), TargetMask.ANY.bit);
-        gameObject.drawCircle(Vector3.ZERO, attackRange, GizmoCategory.AttackRange);
+        gameObject.drawCircle(Vector3.ZERO, CombatRange.reachFrom(gameObject, attackRange), GizmoCategory.AttackRange);
         gameObject.drawCircle(Vector3.ZERO, chainRadius, GizmoCategory.DetectionRange);
     }
 

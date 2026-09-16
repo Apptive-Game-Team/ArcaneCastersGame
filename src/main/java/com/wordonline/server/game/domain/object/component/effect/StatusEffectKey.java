@@ -17,4 +17,5 @@ public enum StatusEffectKey {
     Panic_Receive,
     Bubble_Receive,
     Overcharge_Receive,
+    TrapStun_Receive,
 }

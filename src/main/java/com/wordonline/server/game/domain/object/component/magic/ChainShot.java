@@ -65,7 +65,7 @@ public class ChainShot extends Shot implements Collidable {
     }
 
     @Override
-    public void onCollision(GameObject other) {
+    public void onCollisionWithEnemy(GameObject other) {
         if(!isActive) return;
         if (other.getMaster() == gameObject.getMaster()) return;
 

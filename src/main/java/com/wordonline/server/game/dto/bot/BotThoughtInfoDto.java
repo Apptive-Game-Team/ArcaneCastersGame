@@ -1,6 +1,5 @@
 package com.wordonline.server.game.dto.bot;
 
-import com.wordonline.server.game.domain.magic.CardType;
 import com.wordonline.server.game.domain.object.Vector3;
 import com.wordonline.server.game.dto.Master;
 
@@ -12,13 +11,13 @@ public record BotThoughtInfoDto(
         Master botSide,
         String ruleId,
         String reason,
-        List<CardType> cards,
+        List<Long> cards,
         Vector3 target
 ) {
     public BotThoughtInfoDto(Master botSide,
                              String ruleId,
                              String reason,
-                             List<CardType> cards,
+                             List<Long> cards,
                              Vector3 target) {
         this("botThought", botSide, ruleId, reason, List.copyOf(cards), new Vector3(target));
     }

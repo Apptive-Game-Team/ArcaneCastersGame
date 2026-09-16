@@ -26,8 +26,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * Attack range is a cylinder: horizontal edge distance and vertical center distance must each be
- * within the configured range.
+ * Attack range is a cylinder by default: horizontal edge distance and vertical center distance must
+ * each be within the configured range. A mob constructed with verticalRangeIgnored holds a hover
+ * height it only leaves once it commits, so it engages on horizontal distance alone.
  */
 class AerialEngagementTest {
 
@@ -49,16 +50,52 @@ class AerialEngagementTest {
     }
 
     @Test
-    void hoveringMobCannotAttackWhenVerticalGapExceedsRange() {
+    void hoveringMobAttacksAGroundTargetItIsStandingOver() {
         GameObject groundTarget = groundTarget();
-        GameObject flyer = aerialObject();
-        TestAerialMob mob = new TestAerialMob(flyer, groundTarget);
+        GameObject flyer = hoveringObject();
+        TestAerialMob mob = new TestAerialMob(flyer, groundTarget, true);
         flyer.getComponents().add(mob);
         mob.start();
 
         runFrames(mob, 40);
 
-        assertThat(mob.attacked).isFalse();
+        assertThat(mob.attacked)
+                .as("aerial mob hovering directly over its target must engage")
+                .isTrue();
+    }
+
+    @Test
+    void hoveringMobStillWaitsWhileTheHorizontalGapExceedsRange() {
+        GameObject groundTarget = groundTarget();
+        GameObject flyer = hoveringObject();
+        flyer.setPosition(new Vector3(ATTACK_RANGE + 5f, HOVER_HEIGHT, 0f));
+        TestAerialMob mob = new TestAerialMob(flyer, groundTarget, true);
+        flyer.getComponents().add(mob);
+        mob.start();
+
+        runFrames(mob, 3);
+
+        assertThat(mob.attacked)
+                .as("dropping the vertical term must not widen the horizontal reach")
+                .isFalse();
+    }
+
+    @Test
+    void groundMobKeepsTheVerticalTermOfTheRangeCheck() {
+        GameObject groundTarget = groundTarget();
+        GameObject walker = new GameObject(Master.LeftPlayer, PrefabType.RockSlime, new Vector3(0f, HOVER_HEIGHT, 0f), gameContext);
+        walker.setStatus(Status.Idle);
+        walker.addCollider(new CircleCollider(walker, 0.5f, false));
+        walker.getComponents().add(new RigidBody(walker, 1));
+        TestAerialMob mob = new TestAerialMob(walker, groundTarget, false);
+        walker.getComponents().add(mob);
+        mob.start();
+
+        runFrames(mob, 40);
+
+        assertThat(mob.attacked)
+                .as("a mob with no hover keeps the cylindrical check, so the vertical gap blocks it")
+                .isFalse();
     }
 
     @Test
@@ -68,7 +105,7 @@ class AerialEngagementTest {
         walker.setStatus(Status.Idle);
         walker.addCollider(new CircleCollider(walker, 0.5f, false));
         walker.getComponents().add(new RigidBody(walker, 1));
-        TestAerialMob mob = new TestAerialMob(walker, groundTarget);
+        TestAerialMob mob = new TestAerialMob(walker, groundTarget, false);
         walker.getComponents().add(mob);
         mob.start();
 
@@ -81,8 +118,8 @@ class AerialEngagementTest {
 
     @Test
     void diveProgressCompletesInsteadOfProducingNaNAtEqualAltitude() {
-        GameObject flyer = aerialObject();
-        TestAerialMob mob = new TestAerialMob(flyer, groundTarget());
+        GameObject flyer = hoveringObject();
+        TestAerialMob mob = new TestAerialMob(flyer, groundTarget(), true);
         flyer.getComponents().add(mob);
 
         float sameAltitude = mob.exposeDiveProgress(new Vector3(0f, HOVER_HEIGHT, 0f), HOVER_HEIGHT);
@@ -99,7 +136,7 @@ class AerialEngagementTest {
         }
     }
 
-    private GameObject aerialObject() {
+    private GameObject hoveringObject() {
         GameObject flyer = new GameObject(Master.LeftPlayer, PrefabType.WindSpirit, new Vector3(0f, HOVER_HEIGHT, 0f), gameContext);
         flyer.setStatus(Status.Idle);
         flyer.addCollider(new CircleCollider(flyer, 0.3f, false));
@@ -120,8 +157,8 @@ class AerialEngagementTest {
     private static class TestAerialMob extends BehaviorMob {
         private boolean attacked;
 
-        private TestAerialMob(GameObject gameObject, GameObject forcedTarget) {
-            super(gameObject, 10, 1f, TargetMask.ANY.bit, 0f, ATTACK_RANGE, null);
+        private TestAerialMob(GameObject gameObject, GameObject forcedTarget, boolean verticalRangeIgnored) {
+            super(gameObject, 10, 1f, TargetMask.ANY.bit, 0f, ATTACK_RANGE, null, verticalRangeIgnored);
             setBehavior(target -> {
                 attacked = true;
                 return true;

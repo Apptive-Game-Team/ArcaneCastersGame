@@ -2,6 +2,7 @@ package com.wordonline.server.game.domain.bot;
 
 import com.wordonline.server.bot.domain.BotPersona;
 import com.wordonline.server.game.domain.SessionObject;
+import com.wordonline.server.game.domain.magic.parser.DatabaseMagicParser;
 import com.wordonline.server.game.domain.object.Vector3;
 import com.wordonline.server.game.domain.magic.parser.MagicParser;
 import com.wordonline.server.game.dto.bot.BotThoughtInfoDto;
@@ -96,7 +97,7 @@ public final class BotAgent {
         {
             long readyAtMillis = System.currentTimeMillis() + persona.normalizedThinkingTimeMs();
             pendingDecision = new PendingDecision(decision, readyAtMillis);
-            log.debug("[BotAgent {}] Decision scheduled: {} at {}, readyAt={}", botSide, decision.playCards(), decision.target(), readyAtMillis);
+            log.debug("[BotAgent {}] Decision scheduled: {} at {}, readyAt={}", botSide, decision.magicId(), decision.target(), readyAtMillis);
             dispatchPendingDecisionIfReady();
         } else {
             log.trace("[BotAgent {}] No action decided", botSide);
@@ -112,11 +113,11 @@ public final class BotAgent {
         pendingDecision = null;
         lastDecision = decision;
 
-        log.debug("[BotAgent {}] Dispatching decision: {} at {}", botSide, decision.playCards(), decision.target());
+        log.debug("[BotAgent {}] Dispatching decision: {} at {}", botSide, decision.magicId(), decision.target());
         InputRequestDto inputRequestDto = new InputRequestDto();
         inputRequestDto.setType("useMagic");
         inputRequestDto.setId(NEXT_ID.getAndIncrement());
-        inputRequestDto.setCards(decision.playCards());
+        inputRequestDto.setMagicId(decision.magicId());
         inputRequestDto.setPosition(decision.target());
         botAction.useCard(sessionObject, inputRequestDto, botSide);
         castDeadline.recordCast(System.currentTimeMillis());
@@ -132,7 +133,7 @@ public final class BotAgent {
         BotBrain.InputDecision decision = lastDecision;
         if (decision == null) {
             decision = new BotBrain.InputDecision(
-                    List.of(),
+                    DatabaseMagicParser.INVALID_MAGIC_ID,
                     new Vector3(BotSideUtil.getPlayerPosition(botSide)),
                     "idle.observing",
                     "No action has been selected yet; observing the battlefield.");
@@ -146,7 +147,9 @@ public final class BotAgent {
                 botSide,
                 decision.ruleId(),
                 decision.reason(),
-                decision.playCards(),
+                decision.magicId() == DatabaseMagicParser.INVALID_MAGIC_ID
+                        ? List.of()
+                        : List.of(decision.magicId()),
                 decision.target()));
     }
 

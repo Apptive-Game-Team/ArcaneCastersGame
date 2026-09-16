@@ -34,12 +34,15 @@ public class VineColonyPrefabInitializer extends PrefabInitializer {
                 new SummonMob(
                         gameObject,
                         vineColonyParameters.intValue(ParameterKey.HP),
-                        vineColonyParameters.intValue(ParameterKey.DAMAGE),
+                        0,
                         vineColonyParameters.intValue(ParameterKey.ATTACK_INTERVAL),
                         vineColonyParameters.intValue(ParameterKey.ATTACK_RANGE),
                         PrefabType.Vine
                 ));
-        gameObject.addComponent(new TimedSelfDestroyer(gameObject, vineColonyParameters.floatValue(ParameterKey.DURATION)));
+        gameObject.addComponent(new TimedSelfDestroyer(
+                gameObject,
+                vineColonyParameters.floatValue(ParameterKey.DURATION)
+        ));
         gameObject.setElement(ElementType.NATURE);
         gameObject.getComponents().add(new CommonEffectReceiver(gameObject));
     }

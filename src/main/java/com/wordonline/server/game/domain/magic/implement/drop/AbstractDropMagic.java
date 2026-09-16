@@ -1,7 +1,6 @@
 package com.wordonline.server.game.domain.magic.implement.drop;
 
 import com.wordonline.server.game.config.GameConfig;
-import com.wordonline.server.game.domain.magic.CardType;
 import com.wordonline.server.game.domain.magic.Magic;
 import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.Vector3;
@@ -21,7 +20,6 @@ public abstract class AbstractDropMagic extends Magic {
     }
 
     protected AbstractDropMagic(PrefabType prefabType, float initialHeight) {
-        super(CardType.Drop);
         this.prefabType = prefabType;
         this.initialHeight = initialHeight;
     }

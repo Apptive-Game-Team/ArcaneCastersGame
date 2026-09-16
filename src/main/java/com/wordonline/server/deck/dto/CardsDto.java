@@ -1,18 +1,13 @@
 package com.wordonline.server.deck.dto;
 
-import com.wordonline.server.game.domain.magic.CardType;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
+// One deck_cards row: the magic on the card, and how many copies of it the deck holds.
 @Getter
 @AllArgsConstructor
 public class CardsDto {
     private final long id;
-    private final CardType name;
-    private final CardType.Type type;
+    private final String name;
     public int count;
-
-    public CardsDto(long id, CardType cardType, int count) {
-        this(id, cardType, cardType.getType(), count);
-    }
 }

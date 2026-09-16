@@ -24,7 +24,7 @@ public class WindBladeShot extends Shot {
     }
 
     @Override
-    public void onCollision(GameObject otherObject) {
+    public void onCollisionWithEnemy(GameObject otherObject) {
         if (otherObject == gameObject) {
             return;
         }

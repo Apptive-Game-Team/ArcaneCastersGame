@@ -1,6 +1,5 @@
 package com.wordonline.server.game.domain.magic.implement.build;
 
-import com.wordonline.server.game.domain.magic.CardType;
 import com.wordonline.server.game.domain.magic.Magic;
 import com.wordonline.server.game.domain.magic.ObjectSummoningMagic;
 import com.wordonline.server.game.domain.object.GameObject;
@@ -15,7 +14,6 @@ public abstract class AbstractSummonMagic extends Magic implements ObjectSummoni
     private final PrefabType prefabType;
 
     public AbstractSummonMagic(PrefabType prefabType) {
-        super(CardType.Build);
         this.prefabType = prefabType;
     }
 

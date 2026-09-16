@@ -1,6 +1,5 @@
 package com.wordonline.server.game.domain.magic.implement.shoot;
 
-import com.wordonline.server.game.domain.magic.CardType;
 import com.wordonline.server.game.domain.magic.Magic;
 import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.Vector3;
@@ -18,10 +17,6 @@ public class VineTossMagic extends Magic {
     private static final int VINE_COUNT = 6;
     private static final float VINE_SPACING = 1f;
     private static final float VINE_SPAWN_INTERVAL = 0.12f;
-
-    public VineTossMagic() {
-        super(CardType.Shoot);
-    }
 
     @Override
     public void run(GameContext gameContext, Master master, Vector3 position) {

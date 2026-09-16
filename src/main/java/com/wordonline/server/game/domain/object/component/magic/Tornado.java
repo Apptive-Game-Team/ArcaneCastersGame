@@ -111,7 +111,7 @@ public class Tornado extends MagicComponent implements Collidable {
     }
 
     @Override
-    public void onCollision(GameObject otherObject) {
+    public void onCollisionWithEnemy(GameObject otherObject) {
 
         List<Damageable> attackables = otherObject.getComponents(Damageable.class);
         if (attackables.isEmpty()) return;

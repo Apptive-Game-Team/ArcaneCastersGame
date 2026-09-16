@@ -8,9 +8,7 @@ import static org.mockito.Mockito.when;
 import org.junit.jupiter.api.Test;
 
 import com.wordonline.server.game.domain.GameSessionData;
-import com.wordonline.server.game.domain.Parameters;
 import com.wordonline.server.game.domain.PlayerData;
-import com.wordonline.server.game.domain.magic.CardType;
 import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.Vector3;
 import com.wordonline.server.game.domain.object.prefab.PrefabType;
@@ -20,8 +18,8 @@ import com.wordonline.server.game.dto.Master;
 // bot executor thread. These tests fail if any part of it goes back to referencing live state.
 class BotEyeTest {
 
-    private final PlayerData leftPlayerData = new PlayerData(null, mock(Parameters.class));
-    private final PlayerData rightPlayerData = new PlayerData(null, mock(Parameters.class));
+    private final PlayerData leftPlayerData = new PlayerData(null);
+    private final PlayerData rightPlayerData = new PlayerData(null);
     private final GameSessionData sessionData = new GameSessionData(leftPlayerData, rightPlayerData);
 
     private GameObject gameObject(Master master, PrefabType type, Vector3 position) {
@@ -36,13 +34,13 @@ class BotEyeTest {
     @Test
     void copiesWhatTheSideCanSee() {
         leftPlayerData.mana = 7;
-        leftPlayerData.cards.add(CardType.Fire);
+        leftPlayerData.cards.add(34L);
         sessionData.gameObjects.add(gameObject(Master.RightPlayer, PrefabType.Player, new Vector3(1, 0, 2)));
 
         BotEye eye = BotEye.observe(sessionData, Master.LeftPlayer);
 
         assertThat(eye.mana()).isEqualTo(7);
-        assertThat(eye.cardList()).containsExactly(CardType.Fire);
+        assertThat(eye.cardList()).containsExactly(34L);
         assertThat(eye.gameObjectList()).singleElement().satisfies(visible -> {
             assertThat(visible.master()).isEqualTo(Master.RightPlayer);
             assertThat(visible.type()).isEqualTo(PrefabType.Player);
@@ -67,7 +65,7 @@ class BotEyeTest {
     @Test
     void isNotAffectedByLaterChangesToTheWorldOrTheHand() {
         leftPlayerData.mana = 7;
-        leftPlayerData.cards.add(CardType.Fire);
+        leftPlayerData.cards.add(34L);
         sessionData.gameObjects.add(gameObject(Master.RightPlayer, PrefabType.Player, new Vector3(1, 0, 2)));
 
         BotEye eye = BotEye.observe(sessionData, Master.LeftPlayer);
@@ -77,7 +75,7 @@ class BotEyeTest {
         sessionData.gameObjects.clear();
 
         assertThat(eye.mana()).isEqualTo(7);
-        assertThat(eye.cardList()).containsExactly(CardType.Fire);
+        assertThat(eye.cardList()).containsExactly(34L);
         assertThat(eye.gameObjectList()).hasSize(1);
     }
 
@@ -85,7 +83,7 @@ class BotEyeTest {
     void handsOutListsTheBotThreadCannotWriteTo() {
         BotEye eye = BotEye.observe(sessionData, Master.LeftPlayer);
 
-        assertThatThrownBy(() -> eye.cardList().add(CardType.Fire))
+        assertThatThrownBy(() -> eye.cardList().add(34L))
                 .isInstanceOf(UnsupportedOperationException.class);
         assertThatThrownBy(() -> eye.gameObjectList().clear())
                 .isInstanceOf(UnsupportedOperationException.class);
@@ -95,11 +93,11 @@ class BotEyeTest {
     void readsTheManaAndHandOfTheSideItIsAskedAbout() {
         leftPlayerData.mana = 1;
         rightPlayerData.mana = 9;
-        rightPlayerData.cards.add(CardType.Water);
+        rightPlayerData.cards.add(12L);
 
         BotEye eye = BotEye.observe(sessionData, Master.RightPlayer);
 
         assertThat(eye.mana()).isEqualTo(9);
-        assertThat(eye.cardList()).containsExactly(CardType.Water);
+        assertThat(eye.cardList()).containsExactly(12L);
     }
 }

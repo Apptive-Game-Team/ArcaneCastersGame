@@ -11,7 +11,7 @@ Physics calculations run on every tick inside [PhysicSystem.java](file:///Users/
 ```
 1. calculateCollisions() -> Find overlapping colliders (CollisionChecker)
 2. applyCollisionsResponses() -> Apply velocity impulses to RigidBodies
-3. checkAndHandleCollisions() -> Fire onCollision() triggers for Collidables
+3. checkAndHandleCollisions() -> Fire onCollision()/onCollisionWithEnemy() triggers for Collidables
 4. onUpdateEnd() -> Apply velocities to positions & clear collided pairs
 ```
 
@@ -37,10 +37,13 @@ Physics calculations run on every tick inside [PhysicSystem.java](file:///Users/
 
 ### Phase 3: Collision Event Dispatching (`checkAndHandleCollisions`)
 - Evaluates the game events from the collision.
-- **Rule**: Skips collisions between objects owned by the same player:
+- Invokes `collidable.onCollision(other)` on all `Collidable` components of both GameObjects,
+  for **every** pair, friendly ones included. E.g., this is where an electric shot overcharges
+  the caster's own lightning summons through `AllyOverchargeProvider`.
+- **Rule**: Skips the enemy dispatch for objects owned by the same player:
   `if (a.getMaster() == b.getMaster() && b.getMaster() != Master.None) return;`
-- If the objects belong to opposing sides (or are neutral/None), invokes:
-  `collidable.onCollision(other)` on all `Collidable` components of both GameObjects.
+- If the objects belong to opposing sides (or are neutral/None), also invokes:
+  `collidable.onCollisionWithEnemy(other)` on all `Collidable` components of both GameObjects.
 - E.g., this is where projectiles apply damage to `Damageable` components and destroy themselves.
 
 ### Phase 4: Velocity Integration (`onUpdateEnd`)

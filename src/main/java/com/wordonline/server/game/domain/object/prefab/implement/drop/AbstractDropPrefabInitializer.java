@@ -35,7 +35,6 @@ public abstract class AbstractDropPrefabInitializer extends PrefabInitializer {
             case FIRE -> GameObjectKey.FIRE_DROP;
             case NATURE -> GameObjectKey.NATURE_DROP;
             case ROCK -> GameObjectKey.ROCK_DROP;
-            case LIGHTNING -> GameObjectKey.LIGHTNING_DROP;
             case WIND -> GameObjectKey.WIND_DROP;
             default -> GameObjectKey.DROP;
         };
@@ -46,7 +45,6 @@ public abstract class AbstractDropPrefabInitializer extends PrefabInitializer {
             case ElementType.FIRE -> PrefabType.FireDrop;
             case ElementType.NATURE -> PrefabType.NatureDrop;
             case ElementType.ROCK -> PrefabType.RockDrop;
-            case ElementType.LIGHTNING -> PrefabType.LightningDrop;
             case ElementType.WIND -> PrefabType.WindDrop;
             default -> null;
         };

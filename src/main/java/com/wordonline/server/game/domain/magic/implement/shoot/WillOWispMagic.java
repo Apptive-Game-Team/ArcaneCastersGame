@@ -1,6 +1,5 @@
 package com.wordonline.server.game.domain.magic.implement.shoot;
 
-import com.wordonline.server.game.domain.magic.CardType;
 import com.wordonline.server.game.domain.magic.Magic;
 import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.Vector3;
@@ -12,10 +11,6 @@ import org.springframework.stereotype.Component;
 
 @Component("will_o_wisp")
 public class WillOWispMagic extends Magic {
-    public WillOWispMagic() {
-        super(CardType.Shoot);
-    }
-
     @Override
     public void run(GameContext gameContext, Master master, Vector3 position) {
         run(gameContext, master, gameContext.findPlayerGameObject(master)

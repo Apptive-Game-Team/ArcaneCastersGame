@@ -49,7 +49,7 @@ public class Shot extends MagicComponent implements Collidable {
     }
 
     @Override
-    public void onCollision(GameObject otherObject) {
+    public void onCollisionWithEnemy(GameObject otherObject) {
         // 이미 폭발 시도했다면 무시(다중 충돌 방지)
         if (explosionTriggered) return;
 

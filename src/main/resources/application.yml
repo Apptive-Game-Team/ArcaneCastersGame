@@ -5,6 +5,10 @@ server:
   domain: ${DOMAIN}
   heartbeat-interval-ms: ${HEARTBEAT_INTERVAL_MS:10000}
   max-sessions: ${MAX_SESSIONS:100}
+  # Scheme+host+port other services on the same docker network reach this process at, e.g.
+  # http://ac-game-blue:8080. Empty by default so environments that do not set it still boot;
+  # ServerStatusService then writes NULL and readers fall back to the public address.
+  internal-base-url: ${INTERNAL_BASE_URL:}
 
 # Metrics run on their own port so the public app port never serves /actuator.
 # Health and Prometheus endpoints allow unauthenticated scrapes.
@@ -66,6 +70,10 @@ bot:
     pool-size: ${BOT_EXECUTOR_POOL_SIZE:0}
     queue-capacity: ${BOT_EXECUTOR_QUEUE_CAPACITY:64}
 
+# account mints every JWT this server verifies; the JwtDecoder fetches account's JSON Web
+# Key Set from url + /.well-known/jwks (see AccountProperties). No local public key is kept
+# here any more, so a cold start needs account reachable, and a running match cannot let a
+# player reconnect while account is down.
 team6515:
   server:
     account:
@@ -79,10 +87,6 @@ lobby:
   service-token-path: ${JWT_FILE_PATH:}
   request-timeout: ${LOBBY_REQUEST_TIMEOUT_MS:1000}
   max-attempts: ${LOBBY_MAX_ATTEMPTS:2}
-
-jwt:
-  public:
-    key: ${JWT_PUBLIC_KEY}
 
 # Operational alerts. The webhook is the one the log appender already uses; leaving
 # DISCORD_WEBHOOK_URL unset disables alerting. cooldown is how long an ongoing episode stays

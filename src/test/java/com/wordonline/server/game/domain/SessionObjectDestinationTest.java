@@ -5,7 +5,6 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 
-import com.wordonline.server.game.domain.magic.CardType;
 import com.wordonline.server.game.service.GameContext;
 import com.wordonline.server.game.service.WordOnlineLoop;
 
@@ -70,6 +69,6 @@ class SessionObjectDestinationTest {
 
     private SessionObject sessionObject(long leftUserId, long rightUserId) {
         return new SessionObject(SESSION_ID, leftUserId, rightUserId, template,
-                List.<CardType>of(), List.<CardType>of());
+                List.<Long>of(), List.<Long>of());
     }
 }

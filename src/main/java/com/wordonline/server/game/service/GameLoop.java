@@ -2,7 +2,6 @@ package com.wordonline.server.game.service;
 
 import com.wordonline.server.game.config.GameConfig;
 import com.wordonline.server.game.domain.*;
-import com.wordonline.server.game.domain.magic.CardType;
 import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.Vector3;
 import com.wordonline.server.game.domain.object.prefab.PrefabType;
@@ -172,10 +171,10 @@ public abstract class GameLoop implements Runnable {
                 long startTime = System.currentTimeMillis();
 
                 try {
-                    // Every write to game state happens on this thread: first the input, bot and
-                    // ping actions other threads queued since the last frame, then the frame itself.
-                    // Nothing else mutates it, so no lock is taken here or anywhere below.
-                    gameContext.drainActions();
+                    // Every write to game state happens on this thread. update() runs
+                    // GameActionSystem first, applying the input, bot and ping actions other
+                    // threads queued since the last frame, and nothing else mutates game state,
+                    // so no lock is taken here or anywhere below.
                     update();
                 } catch (Exception e) {
                     log.error("[ERROR] {}", e.getMessage(), e);
@@ -267,7 +266,7 @@ public abstract class GameLoop implements Runnable {
     }
 
     public SnapshotResponseDto getLastSnapshot(Long userId) {
-        List<CardType> cards;
+        List<Long> cards;
         if (gameContext.getSessionObject().getLeftUserId() == userId) {
             cards = gameContext.getGameSessionData().leftPlayerData.cards;
         } else if (gameContext.getSessionObject().getRightUserId() == userId) {

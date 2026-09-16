@@ -59,6 +59,16 @@ public class Server {
     private String instanceId;
 
     /**
+     * Internal network base URL (scheme, host, port) other services on the same docker network
+     * can reach this process at, e.g. {@code http://ac-game-blue:8080}. Never has a trailing
+     * slash. Null when this process has not reported one; readers fall back to the public
+     * {@code protocol://domain:port} address.
+     */
+    @Setter
+    @Column(name = "internal_base_url", length = 255)
+    private String internalBaseUrl;
+
+    /**
      * Admin override for the bot scheduler's target session count. Written by the admin server;
      * mapped read-only here so the whole-row heartbeat save cannot write back a stale value and
      * undo an admin change made between read and save. {@code null} means no override; the
@@ -72,6 +82,6 @@ public class Server {
     }
 
     public Server(String protocol, String domain, int port, ServerType serverType, ServerState state) {
-        this(null, protocol, domain, port, serverType, state, null, 0, 100, null, null);
+        this(null, protocol, domain, port, serverType, state, null, 0, 100, null, null, null);
     }
 }

@@ -1001,3 +1001,142 @@ WHERE pv.game_object_id = go.id
   AND pv.parameter_id = p.id
   AND go.name = 'dimension_toad'
   AND p.name = 'panic_duration';
+
+WITH required_game_objects AS (
+    SELECT object_name
+    FROM (
+        VALUES
+            ('evil_ent')
+    ) AS required(object_name)
+),
+inserted_game_objects AS (
+    INSERT INTO game_objects(name)
+    SELECT object_name
+    FROM required_game_objects required
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM game_objects go
+        WHERE go.name = required.object_name
+    )
+    RETURNING id, name
+),
+target_game_objects AS (
+    SELECT id, name FROM inserted_game_objects
+    UNION ALL
+    SELECT go.id, go.name
+    FROM game_objects go
+    JOIN required_game_objects required ON required.object_name = go.name
+),
+required_parameters AS (
+    SELECT parameter_name
+    FROM (
+        VALUES
+            ('mass'),
+            ('radius'),
+            ('hp'),
+            ('speed'),
+            ('damage'),
+            ('attack_interval'),
+            ('attack_range'),
+            ('projectile_speed'),
+            ('sub_damage'),
+            ('sub_attack_range'),
+            ('sub_speed'),
+            ('sub_attack_interval'),
+            ('pull_mass_limit'),
+            ('quantity')
+    ) AS params(parameter_name)
+),
+inserted_parameters AS (
+    INSERT INTO parameters(name)
+    SELECT parameter_name
+    FROM required_parameters rp
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM parameters p
+        WHERE p.name = rp.parameter_name
+    )
+    RETURNING id, name
+),
+target_parameters AS (
+    SELECT id, name FROM inserted_parameters
+    UNION ALL
+    SELECT p.id, p.name
+    FROM parameters p
+    JOIN required_parameters rp ON rp.parameter_name = p.name
+),
+parameter_seed_values AS (
+    SELECT *
+    FROM (
+        VALUES
+            ('evil_ent', 'mass', 10.0),
+            ('evil_ent', 'radius', 1.2),
+            ('evil_ent', 'hp', 180.0),
+            ('evil_ent', 'speed', 0.45),
+            ('evil_ent', 'damage', 9.0),
+            ('evil_ent', 'attack_interval', 1.8),
+            ('evil_ent', 'attack_range', 5.0),
+            ('evil_ent', 'projectile_speed', 14.0),
+            ('evil_ent', 'sub_damage', 28.0),
+            ('evil_ent', 'sub_attack_range', 6.0),
+            ('evil_ent', 'sub_speed', 4.0),
+            ('evil_ent', 'sub_attack_interval', 12.0),
+            ('evil_ent', 'pull_mass_limit', 5.0),
+            ('evil_ent', 'quantity', 1.0)
+    ) AS seed(game_object_name, parameter_name, parameter_value)
+)
+INSERT INTO parameter_values(game_object_id, parameter_id, value)
+SELECT tgo.id, tp.id, psv.parameter_value
+FROM target_game_objects tgo
+JOIN parameter_seed_values psv ON psv.game_object_name = tgo.name
+JOIN target_parameters tp ON tp.name = psv.parameter_name
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM parameter_values pv
+    WHERE pv.game_object_id = tgo.id
+      AND pv.parameter_id = tp.id
+);
+
+WITH required_tags AS (
+    SELECT tag_name
+    FROM (
+        VALUES
+            ('TYPE_Unit'),
+            ('CAT_Large'),
+            ('CAT_Ranged'),
+            ('CAT_CC')
+    ) AS tags(tag_name)
+),
+inserted_tags AS (
+    INSERT INTO tags(name)
+    SELECT tag_name
+    FROM required_tags rt
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM tags t
+        WHERE t.name = rt.tag_name
+    )
+    RETURNING id, name
+),
+target_tags AS (
+    SELECT id, name FROM inserted_tags
+    UNION ALL
+    SELECT t.id, t.name
+    FROM tags t
+    JOIN required_tags rt ON rt.tag_name = t.name
+),
+target_game_object AS (
+    SELECT id
+    FROM game_objects
+    WHERE name = 'evil_ent'
+)
+INSERT INTO game_object_tags(game_object_id, tag_id)
+SELECT tgo.id, tt.id
+FROM target_game_object tgo
+JOIN target_tags tt ON TRUE
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM game_object_tags got
+    WHERE got.game_object_id = tgo.id
+      AND got.tag_id = tt.id
+);

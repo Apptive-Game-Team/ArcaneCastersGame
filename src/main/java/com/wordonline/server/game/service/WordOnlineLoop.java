@@ -13,6 +13,7 @@ import com.wordonline.server.game.dto.Master;
 import com.wordonline.server.game.service.system.BotAgentSystem;
 import com.wordonline.server.game.service.system.ComponentUpdateSystem;
 import com.wordonline.server.game.service.system.FeverTimeSystem;
+import com.wordonline.server.game.service.system.GameActionSystem;
 import com.wordonline.server.game.service.system.GameObjectAddRemoteSystem;
 import com.wordonline.server.game.service.system.GameObjectStateInitialSystem;
 import com.wordonline.server.game.service.system.PhysicSystem;
@@ -29,6 +30,7 @@ import lombok.extern.slf4j.Slf4j;
 public class WordOnlineLoop extends GameLoop {
 
     private final SyncFrameDataSystem frameDataSystem;
+    private final GameActionSystem gameActionSystem;
     private final BotAgentSystem botSystem;
     private final FeverTimeSystem feverTimeSystem;
     private final GameObjectStateInitialSystem gameObjectStateInitialSystem;
@@ -44,7 +46,8 @@ public class WordOnlineLoop extends GameLoop {
 
     public WordOnlineLoop(MmrService mmrService,
                           UserService userService, GameContext gameContext,
-                          Parameters parameters, SyncFrameDataSystem frameDataSystem, BotAgentSystem botSystem,
+                          Parameters parameters, SyncFrameDataSystem frameDataSystem,
+                          GameActionSystem gameActionSystem, BotAgentSystem botSystem,
             FeverTimeSystem feverTimeSystem,
                           GameObjectStateInitialSystem gameObjectStateInitialSystem,
                           ComponentUpdateSystem componentUpdateSystem, PhysicSystem physicSystem,
@@ -52,6 +55,7 @@ public class WordOnlineLoop extends GameLoop {
                           BotPersonaService botPersonaService, BotCounterEvaluator botCounterEvaluator) {
         super(mmrService, userService, gameContext, parameters);
         this.frameDataSystem = frameDataSystem;
+        this.gameActionSystem = gameActionSystem;
         this.botSystem = botSystem;
         this.feverTimeSystem = feverTimeSystem;
         this.gameObjectStateInitialSystem = gameObjectStateInitialSystem;
@@ -157,6 +161,10 @@ public class WordOnlineLoop extends GameLoop {
     }
 
     protected void update() {
+        // External producers enqueue only. This first system phase applies their work on the loop
+        // thread before any system reads or mutates the frame's game state.
+        gameActionSystem.update(gameContext);
+
         // Initial DTOs
         frameDataSystem.earlyUpdate(gameContext);
 

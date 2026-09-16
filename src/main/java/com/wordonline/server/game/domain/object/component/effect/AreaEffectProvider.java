@@ -40,7 +40,8 @@ public class AreaEffectProvider extends Component {
         List<GameObject> gameObjects = getGameContext().overlapSphereAll(gameObject, radius);
         gameObjects.stream()
                 .filter(target -> target.getComponent(EffectReceiver.class) != null)
-                .forEach(target -> target.getComponent(EffectReceiver.class).onReceive(effect));
+                .forEach(target -> target.getComponent(EffectReceiver.class)
+                        .onReceive(new EffectApplication(effect, gameObject)));
     }
 
     @Override

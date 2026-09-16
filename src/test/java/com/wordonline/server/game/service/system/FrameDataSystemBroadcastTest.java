@@ -125,6 +125,6 @@ class FrameDataSystemBroadcastTest {
     }
 
     private PlayerData playerData() {
-        return new PlayerData(mock(ManaCharger.class), mock(Parameters.class));
+        return new PlayerData(mock(ManaCharger.class));
     }
 }

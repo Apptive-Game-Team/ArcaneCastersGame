@@ -11,8 +11,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import java.util.List;
-
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.security.authorization.AuthorizationDeniedException;
@@ -20,7 +18,6 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import com.wordonline.server.auth.domain.PrincipalDetails;
 import com.wordonline.server.game.domain.SessionObject;
-import com.wordonline.server.game.domain.magic.CardType;
 import com.wordonline.server.game.domain.object.Vector3;
 import com.wordonline.server.game.dto.Master;
 import com.wordonline.server.game.dto.PingChecker;
@@ -112,21 +109,21 @@ class InputControllerTest {
 
         InputRequestDto request = new InputRequestDto();
         request.setType("selectCard");
-        request.setCard(CardType.Fire);
+        request.setMagicId(34L);
 
         controller.handleInput("room-5", 7L, request, principal(7L));
 
-        verify(gameContext, never()).selectCard(anyLong(), any());
+        verify(gameContext, never()).selectCard(anyLong(), anyLong());
 
         drainQueuedAction("selectCard");
 
-        verify(gameContext).selectCard(7L, CardType.Fire);
+        verify(gameContext).selectCard(7L, 34L);
     }
 
     private static InputRequestDto magicRequest() {
         InputRequestDto dto = new InputRequestDto();
         dto.setType("useMagic");
-        dto.setCards(List.of(CardType.Fire));
+        dto.setMagicId(34L);
         dto.setPosition(Vector3.ZERO);
         dto.setId(1);
         return dto;

@@ -2,7 +2,6 @@ package com.wordonline.server.deck.service;
 
 import com.wordonline.server.deck.dto.*;
 import com.wordonline.server.deck.repository.DeckRepository;
-import com.wordonline.server.game.domain.magic.CardType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,15 +17,16 @@ public class DeckService {
 
     private final DeckRepository deckRepository;
 
+    /** The deck as it is dealt: one entry per physical card, each entry a magics.id. */
     @Transactional(readOnly = true)
-    public List<CardType> getSelectedCards(long userId) {
-        return mapToCardType(
+    public List<Long> getSelectedCards(long userId) {
+        return mapToMagicIds(
                 deckRepository.getSelectedDeck(userId)
         );
     }
 
     @Transactional(readOnly = true)
-    public List<CardType> getParticipantCards(long participantId) {
+    public List<Long> getParticipantCards(long participantId) {
         return getSelectedCards(participantId);
     }
 
@@ -57,16 +57,16 @@ public class DeckService {
         return cardDtos;
     }
 
-    private List<CardType> mapToCardType(List<CardsDto> cardDtos) {
-        List<CardType> cardTypes = new ArrayList<>();
+    private List<Long> mapToMagicIds(List<CardsDto> cardDtos) {
+        List<Long> magicIds = new ArrayList<>();
         cardDtos.forEach(
                 cardsDto ->
-                        cardTypes.addAll(
-                                Stream.generate(cardsDto::getName)
+                        magicIds.addAll(
+                                Stream.generate(cardsDto::getId)
                                         .limit(cardsDto.getCount())
                                         .toList()
                         )
             );
-        return cardTypes;
+        return magicIds;
     }
 }

@@ -2,12 +2,13 @@ package com.wordonline.server.game.domain.object.component.mob.simple;
 
 import com.wordonline.server.game.domain.Stat;
 import com.wordonline.server.game.domain.object.GameObject;
+import com.wordonline.server.game.domain.object.component.IntervalAttacker;
 import com.wordonline.server.game.domain.object.component.mob.Mob;
 
 import lombok.Getter;
 import lombok.Setter;
 
-public abstract class TimedBehaviorMob extends Mob {
+public abstract class TimedBehaviorMob extends Mob implements IntervalAttacker {
 
     @Getter
     private final Stat attackInterval;

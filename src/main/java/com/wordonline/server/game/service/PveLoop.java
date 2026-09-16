@@ -28,6 +28,7 @@ public class PveLoop extends WordOnlineLoop {
                    GameContext gameContext,
                    com.wordonline.server.game.domain.Parameters parameters,
                    com.wordonline.server.game.service.system.SyncFrameDataSystem frameDataSystem,
+                   com.wordonline.server.game.service.system.GameActionSystem gameActionSystem,
                    com.wordonline.server.game.service.system.BotAgentSystem botSystem,
                    com.wordonline.server.game.service.system.FeverTimeSystem feverTimeSystem,
                    com.wordonline.server.game.service.system.GameObjectStateInitialSystem gameObjectStateInitialSystem,
@@ -40,7 +41,7 @@ public class PveLoop extends WordOnlineLoop {
                    PveScenarioRegistry pveScenarioRegistry,
                    PveScenarioInstaller pveScenarioInstaller,
                    PveScriptSystem pveScriptSystem) {
-        super(mmrService, userService, gameContext, parameters, frameDataSystem, botSystem, feverTimeSystem,
+        super(mmrService, userService, gameContext, parameters, frameDataSystem, gameActionSystem, botSystem, feverTimeSystem,
                 gameObjectStateInitialSystem, componentUpdateSystem, physicSystem, gameObjectAddRemoveSystem, magicParser,
                 botPersonaService, botCounterEvaluator);
         this.pveScenarioRegistry = pveScenarioRegistry;

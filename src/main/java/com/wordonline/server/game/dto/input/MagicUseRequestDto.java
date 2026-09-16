@@ -1,13 +1,10 @@
 package com.wordonline.server.game.dto.input;
 
-import com.wordonline.server.game.domain.magic.CardType;
 import com.wordonline.server.game.domain.object.Vector3;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
-import java.util.List;
 
 @Getter
 @Setter
@@ -15,7 +12,8 @@ import java.util.List;
 @NoArgsConstructor
 public class MagicUseRequestDto {
     private String type;
-    private List<CardType> cards;
+    // The magics.id of the single card the player cast.
+    private long magicId;
     private int id;
     private Vector3 position;
 }

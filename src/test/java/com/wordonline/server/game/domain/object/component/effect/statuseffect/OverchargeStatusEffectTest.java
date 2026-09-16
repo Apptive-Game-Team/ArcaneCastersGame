@@ -115,6 +115,34 @@ class OverchargeStatusEffectTest {
     }
 
     @Test
+    void doesNotEmitElectricShotBeyondRangeTwo() {
+        GameObject owner = mock(GameObject.class);
+        GameObject target = mock(GameObject.class);
+        GameContext gameContext = mock(GameContext.class);
+        ObjectsInfoDtoBuilder dtoBuilder = mock(ObjectsInfoDtoBuilder.class);
+        Mob mob = mock(Mob.class);
+        Damageable damageable = mock(Damageable.class);
+        when(owner.getGameContext()).thenReturn(gameContext);
+        when(owner.getComponent(Mob.class)).thenReturn(mob);
+        when(mob.getSpeed()).thenReturn(new Stat(10f));
+        when(owner.getMaster()).thenReturn(Master.LeftPlayer);
+        when(owner.getPosition()).thenReturn(Vector3.ZERO);
+        when(target.getMaster()).thenReturn(Master.RightPlayer);
+        when(target.getPosition()).thenReturn(new Vector3(2.01f, 0f, 0f));
+        when(target.getComponents(Damageable.class)).thenReturn(List.of(damageable));
+        when(gameContext.getActiveGameObjects()).thenReturn(List.of(owner, target));
+        when(gameContext.getObjectsInfoDtoBuilder()).thenReturn(dtoBuilder);
+        when(gameContext.getDeltaTime()).thenReturn(1f);
+
+        OverchargeStatusEffect effect = new OverchargeStatusEffect(owner, 2f);
+        effect.start();
+        effect.update();
+
+        verifyNoInteractions(dtoBuilder);
+        verifyNoInteractions(damageable);
+    }
+
+    @Test
     void reapplicationExtendsPendingEffectWithoutAddingAnotherComponent() {
         GameObject owner = mock(GameObject.class);
         GameContext gameContext = mock(GameContext.class);

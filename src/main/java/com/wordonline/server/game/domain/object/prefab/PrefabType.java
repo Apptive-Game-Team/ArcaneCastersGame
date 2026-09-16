@@ -17,12 +17,17 @@ public enum PrefabType {
     WaterExplode("water_explode_prefab"),
     WaterField("water_field_prefab"),
     WaterSlime("water_slime_prefab"),
+    SeaSerpent("sea_serpent_prefab"),
+    TidalWarhead("tidal_warhead_prefab"),
+    GroundTidalWarhead("ground_tidal_warhead_prefab"),
+    TidalWarheadExplosion("tidal_warhead_explosion_prefab"),
 
     // rock ========================================================
     RockRolling("rock_rolling_prefab"),
     RockExplode("rock_explode_prefab"),
     RockSlime("rock_slime_prefab"),
     RockSummon("rock_summon_prefab"),
+    BoulderStrike("boulder_strike_prefab"),
 
     // electric ========================================================
     ElectricShot("electric_shot_prefab"),
@@ -36,6 +41,7 @@ public enum PrefabType {
     VineToss("vine_toss_prefab"),
     LeafExplode("leaf_explode_prefab"),
     LeafField("leaf_field_prefab"),
+    GrassGenerator("grass_generator_prefab"),
     LeafSlime("leaf_slime_prefab"),
 
     // wind ========================================================
@@ -47,9 +53,12 @@ public enum PrefabType {
     // 상위 마법 ========================================================
     GroundCannon("ground_cannon_prefab"),
     GroundTower("ground_tower_prefab"),
+    DragonTower("dragon_tower_prefab"),
+    DragonFlame("dragon_flame_prefab"),
     ManaWell("mana_well_prefab"),
     AquaArcher("aqua_archer_prefab"),
     RockGolem("rock_golem_prefab"),
+    WallGolem("wall_golem_prefab"),
     StormRider("storm_rider_prefab"),
     FireSpirit("fire_spirit_prefab"),
     ThunderSpirit("thunder_spirit_prefab"),
@@ -65,7 +74,6 @@ public enum PrefabType {
     FireDrop("fire_drop_prefab"),
     NatureDrop("nature_drop_prefab"),
     RockDrop("rock_drop_prefab"),
-    LightningDrop("lightning_drop_prefab"),
     WindDrop("wind_drop_prefab"),
     RallyingTotem("rallying_totem_prefab"),
 
@@ -82,16 +90,20 @@ public enum PrefabType {
     VineSpirit("vine_spirit_prefab"),
     ThunderBird("thunder_bird_prefab"),
     CloudDragon("cloud_dragon_prefab"),
+    EvilEnt("evil_ent_prefab"),
 
     // 베타전 마지막 상위 마법
     RockMage("rock_mage_prefab"),
     VineColony("vine_colony_prefab"),
+    TitanRemnant("titan_remnant_prefab"),
 
     // 부수적 생산 프리팹
     Vine("vine_prefab"),
     MagmaFist("magma_fist_prefab"),
     MeteorDrop("meteor_drop_prefab"),
     CraterEmber("crater_ember_prefab"),
+    TitanFist("titan_fist_prefab"),
+    FireworkShell("firework_shell_prefab"),
 
     // PVE
     PveNatureSlimeNest("pve_nature_slime_nest_prefab"),
@@ -103,7 +115,11 @@ public enum PrefabType {
     EmberSpirit("fire_slime_prefab"),
     SeedSpirit("seed_spirit_prefab"),
     ZapMouse("zap_mouse_prefab"),
+    StormStag("storm_stag_prefab"),
     WindSpirit("wind_spirit_prefab"),
+    BombSprite("bomb_sprite_prefab"),
+    BombSpriteBomb("bomb_sprite_bomb_prefab"),
+    BombSpriteExplosion("bomb_sprite_explosion_prefab"),
     MiniRock("mini_rock_prefab"),
     RockRemnant("rock_remnant_prefab"),
 
@@ -127,12 +143,15 @@ public enum PrefabType {
     GiantVine("giant_vine_prefab"),
     SeedNest("seed_nest_prefab"),
     Crater("crater_prefab"),
+    FireworkTower("firework_tower_prefab"),
     BubbleGenerator("bubble_generator_prefab"),
     ElectricTower("electric_tower_prefab"),
+    ShockTrap("shock_trap_prefab"),
 
     FireLordSpirit("fire_lord_spirit_prefab"),
     BubbleSpirit("bubble_spirit_prefab"),
     Towerback("towerback_prefab"),
+    RepairTotem("repair_totem_prefab"),
     FireChildSpirit("fire_child_spirit_prefab"),
     DimensionToad("dimension_toad_prefab"),
     FireTadpole("fire_tadpole_prefab"),

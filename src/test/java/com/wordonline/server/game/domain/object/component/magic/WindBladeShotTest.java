@@ -27,7 +27,7 @@ class WindBladeShotTest {
         when(target.getMaster()).thenReturn(Master.RightPlayer);
         when(target.getComponents(Damageable.class)).thenReturn(List.of(damageable));
 
-        new WindBladeShot(shotObject, 9, 5f).onCollision(target);
+        new WindBladeShot(shotObject, 9, 5f).onCollisionWithEnemy(target);
 
         verify(damageable).onDamaged(org.mockito.ArgumentMatchers.any());
         verify(target, never()).getComponent(EffectReceiver.class);

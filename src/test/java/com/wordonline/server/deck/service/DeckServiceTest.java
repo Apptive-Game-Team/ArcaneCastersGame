@@ -2,7 +2,6 @@ package com.wordonline.server.deck.service;
 
 import com.wordonline.server.deck.dto.CardsDto;
 import com.wordonline.server.deck.repository.DeckRepository;
-import com.wordonline.server.game.domain.magic.CardType;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -18,9 +17,9 @@ class DeckServiceTest {
     void loadsBotDeckFromNegativeUserSelectedDeck() {
         DeckRepository repository = mock(DeckRepository.class);
         DeckService service = new DeckService(repository);
-        when(repository.getSelectedDeck(-7)).thenReturn(List.of(new CardsDto(1, CardType.Fire, 2)));
+        when(repository.getSelectedDeck(-7)).thenReturn(List.of(new CardsDto(34, "leafair", 2)));
 
-        assertThat(service.getParticipantCards(-7)).containsExactly(CardType.Fire, CardType.Fire);
+        assertThat(service.getParticipantCards(-7)).containsExactly(34L, 34L);
         verify(repository).getSelectedDeck(-7);
     }
 }

@@ -47,7 +47,7 @@ public class WindTotemPrefabInitializer extends PrefabInitializer {
                 gameObject,
                 (int)(windTotemParameters.doubleValue(ParameterKey.HP) * windTotemParameters.doubleValue(ParameterKey.ATTACK_INTERVAL) / windTotemParameters.doubleValue(ParameterKey.DAMAGE))
         ));
-        gameObject.setElement(ElementType.ROCK);
+        gameObject.setElement(ElementType.WIND);
         gameObject.addComponent(new CommonEffectReceiver(gameObject));
     }
 }

@@ -1,6 +1,3 @@
-jwt:
-  public:
-    key: classpath:/key/public.pem
 spring:
   datasource:
     url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1

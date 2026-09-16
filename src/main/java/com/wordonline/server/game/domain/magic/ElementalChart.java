@@ -6,11 +6,15 @@ import java.util.List;
 public abstract class ElementalChart {
     // row: ATK, col: DEF
     private static final float[][] CHART = {
-            // DEF    ATK  NONE   FIRE   NATURE  WATER  LIGHTNING  ROCK   WIND
+            // Row and column are indexed by ElementType.ordinal(), so the order here is the
+            // declaration order of the enum. It used to read NATURE before WATER, which is not
+            // the enum order: the numbers were right and only the labels were wrong, so anyone
+            // editing a cell by counting along the header changed the wrong pair.
+            // DEF    ATK  NONE   FIRE   WATER  NATURE  LIGHTNING  ROCK   WIND
             /* NONE    */ { 1f,    1f,    1f,    1f,    1f,       1f,   1f    },
             /* FIRE    */ { 1f,    1f,  0.5f,    2f,    1f,       1f,   1f    },
-            /* NATURE   */ { 1f,    2f,    1f,  0.5f,    1f,       1f,   1f    },
-            /* WATER   */ { 1f,  0.5f,    2f,    1f,    2f,     0.5f,   1f    },
+            /* WATER   */ { 1f,    2f,    1f,  0.5f,    1f,       1f,   1f    },
+            /* NATURE  */ { 1f,  0.5f,    2f,    1f,    2f,     0.5f,   1f    },
             /* LIGHTNING*/ { 1f,    1f,    1f,    1f,    1f,       1f,   1f    },
             /* ROCK    */ { 1f,  0.5f,    1.5f, 1.5f,  0.5f,       1.5f,   0.5f    },
             /* WIND    */ { 1f,    1f,    1f,    1f,    2f,       2f,   1f    },

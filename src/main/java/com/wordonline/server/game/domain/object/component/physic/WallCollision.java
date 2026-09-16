@@ -10,7 +10,7 @@ public class WallCollision extends Component implements Collidable {
     }
 
     @Override
-    public void onCollision(GameObject otherObject) {
+    public void onCollisionWithEnemy(GameObject otherObject) {
     }
 
     @Override

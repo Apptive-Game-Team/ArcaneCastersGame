@@ -38,10 +38,13 @@ public class WindSpiritPrefabInitializer extends PrefabInitializer {
         gameObject.addComponent(new SelfDestructMob(gameObject,
                 windSpiritParameters.intValue(ParameterKey.HP),
                 windSpiritParameters.floatValue(ParameterKey.SPEED),
-                TargetMask.ANY.bit,
+                TargetMask.AIR.bit,
                 windSpiritParameters.intValue(ParameterKey.DAMAGE),
                 windSpiritParameters.floatValue(ParameterKey.ATTACK_INTERVAL),
-                windSpiritParameters.floatValue(ParameterKey.ATTACK_RANGE)));
+                windSpiritParameters.floatValue(ParameterKey.ATTACK_RANGE),
+                // The spirit hovers until it commits, so it engages on horizontal distance alone.
+                true,
+                1f));
         gameObject.setElement(ElementType.WIND);
         gameObject.addComponent(new CommonEffectReceiver(gameObject));
     }

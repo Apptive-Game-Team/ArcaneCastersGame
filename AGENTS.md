@@ -30,7 +30,7 @@ The project uses `spring-boot-starter-test`, JUnit Platform, Spring Security tes
 
 ## Commit & Pull Request Guidelines
 Match the recent commit style: short imperative subjects with an optional scope, for example `refactor(component): use addComponent helper` or `feature(deactivebot)`. Keep commits focused on one concern. PRs should include a clear summary, linked issue or task, test notes, and any API or gameplay impact. For protocol, DTO, or debug-visual changes, include sample payloads or screenshots when helpful.
-Name issue branches with the pattern `<issue-label>/<issue-number>`, for example `feature/253`.
+Name issue branches with the pattern `<issue-label>/<issue-number>`, for example `feature/253`. When no issue covers the work yet, create the issue before you create the branch: the branch name's number and prefix both come from it. Never open a branch named after the change instead of the issue.
 
 Every issue and pull request must set an assignee and a label. Do not leave either blank.
 
@@ -95,6 +95,14 @@ Do not add production schema, seed, backfill, or gameplay data SQL under
 `src/main/resources`. Add a new versioned Flyway migration in the database
 repository and publish that commit before publishing game-server code that
 depends on it. Test-only H2 fixtures remain under `src/test/resources`.
+
+## Project Skills
+
+This repository keeps its own skills under `.agents/skills/`. Read the one that covers the task before starting. An agent that only auto-loads skills from its own home directory does not see these, so open the file by path.
+
+- `.agents/skills/make-magic/SKILL.md` — scaffold a new game magic (Magic class and SQL registration) when asked to create or add a magic.
+- `.agents/skills/make-parameter/SKILL.md` — decide whether a prefab value belongs in `parameters` or stays a code constant, and write the idempotent SQL for it.
+- `.agents/skills/make-prefab/SKILL.md` — scaffold a new game prefab (`PrefabType` entry, `PrefabInitializer`, and optional runtime components) when asked to create or add a prefab, or when a new magic needs its own prefab.
 
 ## Architecture & Game Engine Reference
 

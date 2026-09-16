@@ -43,12 +43,26 @@ public class ObjectsInfoDtoBuilder {
         return result;
     }
 
+    /** 굵기를 정하지 않은 projection. 클라이언트가 자기 기본값으로 그린다. */
+    private static final float NO_WIDTH = 0f;
+
     public void createProjection(GameObject start, GameObject end, String type, float duration) {
         createProjection(
                 new ReferenceProjectileTarget(start.getId()),
                 new ReferenceProjectileTarget(end.getId()),
                 type,
                 duration
+        );
+    }
+
+    /** 살아 있는 두 오브젝트를 잇는, 굵기까지 실은 projection. */
+    public void createProjection(GameObject start, GameObject end, String type, float duration, float width) {
+        createProjection(
+                new ReferenceProjectileTarget(start.getId()),
+                new ReferenceProjectileTarget(end.getId()),
+                type,
+                duration,
+                width
         );
     }
 
@@ -62,7 +76,20 @@ public class ObjectsInfoDtoBuilder {
     }
 
     public void createProjection(ProjectileTarget start, ProjectileTarget destination, String type, float duration) {
-        projectileDtos.add(new ProjectileDto(type, start, destination, duration));
+        createProjection(start, destination, type, duration, NO_WIDTH);
+    }
+
+    /**
+     * 굵기를 함께 실어 보내는 projection. 한 방의 세기가 시전마다 달라지는 마법이 쓴다 —
+     * spirit_bomb 의 빔이 그렇다. 굵기가 고정인 projection 은 위의 overload 를 그대로 쓴다.
+     */
+    public void createProjection(
+            ProjectileTarget start,
+            ProjectileTarget destination,
+            String type,
+            float duration,
+            float width) {
+        projectileDtos.add(new ProjectileDto(type, start, destination, duration, width));
     }
 
     public void createGameObject(GameObject gameObject) {

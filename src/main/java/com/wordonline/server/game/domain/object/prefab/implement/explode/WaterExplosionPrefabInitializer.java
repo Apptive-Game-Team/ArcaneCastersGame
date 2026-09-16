@@ -32,7 +32,7 @@ public class WaterExplosionPrefabInitializer extends PrefabInitializer {
                 waterExplosionParameters.floatValue(ParameterKey.RADIUS),
                 true
         ));
-        gameObject.setElement(ElementType.FIRE);
+        gameObject.setElement(ElementType.WATER);
         gameObject.addComponent(new EffectProvider(gameObject, Effect.Burn));
         gameObject.addComponent(new WaterExplode(
                 gameObject,

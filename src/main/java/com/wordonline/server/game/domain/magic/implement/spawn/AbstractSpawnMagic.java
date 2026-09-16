@@ -2,7 +2,6 @@ package com.wordonline.server.game.domain.magic.implement.spawn;
 
 import java.util.concurrent.ThreadLocalRandom;
 
-import com.wordonline.server.game.domain.magic.CardType;
 import com.wordonline.server.game.domain.magic.Magic;
 import com.wordonline.server.game.domain.magic.ObjectSummoningMagic;
 import com.wordonline.server.game.domain.object.GameObject;
@@ -20,11 +19,16 @@ public abstract class AbstractSpawnMagic extends Magic implements ObjectSummonin
 
     private final PrefabType prefabType;
     private final GameObjectParameters parameters;
+    private final float spawnHeight;
 
     protected AbstractSpawnMagic(PrefabType prefabType, GameObjectParameters parameters) {
-        super(CardType.Spawn);
+        this(prefabType, parameters, 0f);
+    }
+
+    protected AbstractSpawnMagic(PrefabType prefabType, GameObjectParameters parameters, float spawnHeight) {
         this.prefabType = prefabType;
         this.parameters = parameters;
+        this.spawnHeight = spawnHeight;
     }
 
     @Override
@@ -49,13 +53,13 @@ public abstract class AbstractSpawnMagic extends Magic implements ObjectSummonin
 
     private Vector3 spawnPosition(Vector3 position, int quantity) {
         if (quantity == 1) {
-            return new Vector3(position.getX(), 0, position.getZ());
+            return new Vector3(position.getX(), spawnHeight, position.getZ());
         }
 
         ThreadLocalRandom random = ThreadLocalRandom.current();
         float randomX = random.nextFloat(-SPAWN_RANGE, SPAWN_RANGE);
         float randomZ = random.nextFloat(-SPAWN_RANGE, SPAWN_RANGE);
-        return new Vector3(position.getX() + randomX, 0, position.getZ() + randomZ);
+        return new Vector3(position.getX() + randomX, spawnHeight, position.getZ() + randomZ);
     }
 
     protected Master getMaster(Master master) {

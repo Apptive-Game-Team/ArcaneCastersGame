@@ -21,7 +21,9 @@ public class ThunderBirdMob extends BehaviorMob {
 
     public ThunderBirdMob(GameObject gameObject, int maxHp,
             float speed, int targetMask, int damage, float attackInterval, float attackRange) {
-        super(gameObject, maxHp, speed, targetMask, attackInterval, attackRange, null);
+        // The bird engages from its hover height and only then dives, so the vertical gap to a
+        // ground target must not gate the engagement.
+        super(gameObject, maxHp, speed, targetMask, attackInterval, attackRange, null, true);
         setBehavior(predicate);
         this.damage = damage;
     }

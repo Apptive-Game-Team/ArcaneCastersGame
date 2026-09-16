@@ -3,7 +3,6 @@ package com.wordonline.server.game.controller;
 import com.wordonline.server.auth.domain.PrincipalDetails;
 import com.wordonline.server.session.service.SessionService;
 import com.wordonline.server.game.domain.SessionObject;
-import com.wordonline.server.game.domain.magic.CardType;
 import com.wordonline.server.game.dto.input.InputRequestDto;
 import com.wordonline.server.game.dto.input.InputResponseDto;
 import com.wordonline.server.game.dto.input.MagicUseRequestDto;
@@ -71,18 +70,13 @@ public class InputController {
             }
             case "selectCard" -> {
                 log.trace("selectCard arrived {}", userId);
-                CardType card = inputRequestDto.toCardSelect().card();
-                gameContext.submitAction("selectCard", () -> gameContext.selectCard(userId, card));
+                long magicId = inputRequestDto.toCardAim().magicId();
+                gameContext.submitAction("selectCard", () -> gameContext.selectCard(userId, magicId));
             }
             case "unselectCard" -> {
                 log.trace("unselectCard arrived {}", userId);
-                CardType card = inputRequestDto.toCardUnselect().card();
-                gameContext.submitAction("unselectCard", () -> gameContext.unselectCard(userId, card));
-            }
-            case "cancelCard" -> {
-                log.trace("cancelCard arrived {}", userId);
-                inputRequestDto.toCardCancel();
-                gameContext.submitAction("cancelCard", () -> gameContext.unselectAllCard(userId));
+                long magicId = inputRequestDto.toCardAim().magicId();
+                gameContext.submitAction("unselectCard", () -> gameContext.unselectCard(userId, magicId));
             }
             case null, default -> log.warn("Unknown input type: {}", inputRequestDto.getType());
         }

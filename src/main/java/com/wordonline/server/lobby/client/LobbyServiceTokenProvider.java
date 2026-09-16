@@ -14,9 +14,10 @@ import com.wordonline.server.lobby.config.LobbyProperties;
 /**
  * Supplies the service-to-service bearer token used for lobby calls.
  *
- * <p>This server only holds {@code JWT_PUBLIC_KEY} and therefore cannot mint a JWT of its
- * own, so it mirrors the lobby's outbound convention: a token issued elsewhere is dropped on
- * disk and read from a configured path. Nothing here ever logs the token value.
+ * <p>This server only verifies JWTs against account's JSON Web Key Set and therefore cannot
+ * mint a JWT of its own, so it mirrors the lobby's outbound convention: a token issued
+ * elsewhere is dropped on disk and read from a configured path. Nothing here ever logs the
+ * token value.
  *
  * <p>The token is read lazily and cached only on success, so a token file that is mounted
  * after boot still gets picked up without a restart. Swapping the credential mechanism

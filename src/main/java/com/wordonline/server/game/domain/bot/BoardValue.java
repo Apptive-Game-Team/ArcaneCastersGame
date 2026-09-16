@@ -1,7 +1,6 @@
 package com.wordonline.server.game.domain.bot;
 
 import com.wordonline.server.game.domain.Parameters;
-import com.wordonline.server.game.domain.magic.CardType;
 import com.wordonline.server.game.domain.magic.Magic;
 import com.wordonline.server.game.domain.magic.ObjectSummoningMagic;
 import com.wordonline.server.game.domain.magic.parser.DatabaseMagicParser;
@@ -90,18 +89,18 @@ final class BoardValue {
                                                              BotSpellStats spellStats) {
         Map<PrefabType, Integer> prices = new EnumMap<>(PrefabType.class);
         try {
-            for (Map.Entry<List<CardType>, Magic> entry : magicParser.getAllMagicRecipeMap().entrySet()) {
-                if (!(entry.getValue() instanceof ObjectSummoningMagic summoning)) {
+            for (Magic magic : magicParser.getAllMagics()) {
+                if (!(magic instanceof ObjectSummoningMagic summoning)) {
                     continue;
                 }
 
-                int recipeCost = spellStats.totalManaCost(entry.getKey());
-                if (recipeCost >= BotSpellStats.UNKNOWN_MANA_COST) {
+                int castCost = spellStats.manaCost(magic);
+                if (castCost >= BotSpellStats.UNKNOWN_MANA_COST) {
                     continue;
                 }
 
                 int quantity = Math.max(1, summoning.summonedQuantity());
-                prices.merge(summoning.summonedPrefab(), recipeCost / quantity, Math::min);
+                prices.merge(summoning.summonedPrefab(), castCost / quantity, Math::min);
             }
         } catch (RuntimeException e) {
             log.debug("[BoardValue] Could not price the summon catalogue; every unit counts as free", e);

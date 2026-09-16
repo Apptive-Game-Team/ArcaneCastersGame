@@ -2,7 +2,6 @@ package com.wordonline.server.game.dto.bot;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.wordonline.server.game.domain.magic.CardType;
 import com.wordonline.server.game.domain.object.Vector3;
 import com.wordonline.server.game.dto.Master;
 import org.junit.jupiter.api.Test;
@@ -21,7 +20,7 @@ class BotThoughtInfoContractTest {
                 Master.RightPlayer,
                 "combo.mob-cluster",
                 "Explosion targets three mobs.",
-                List.of(CardType.Water, CardType.Explode),
+                List.of(34L),
                 new Vector3(5, 0, 6));
 
         JsonNode json = objectMapper.valueToTree(dto);
@@ -30,7 +29,7 @@ class BotThoughtInfoContractTest {
         assertThat(json.get("botSide").asText()).isEqualTo("RightPlayer");
         assertThat(json.get("ruleId").asText()).isEqualTo("combo.mob-cluster");
         assertThat(json.get("reason").asText()).contains("three mobs");
-        assertThat(json.get("cards").get(0).asText()).isEqualTo("Water");
+        assertThat(json.get("cards").get(0).asLong()).isEqualTo(34L);
         assertThat(json.get("target").get("z").asDouble()).isEqualTo(6.0);
     }
 }

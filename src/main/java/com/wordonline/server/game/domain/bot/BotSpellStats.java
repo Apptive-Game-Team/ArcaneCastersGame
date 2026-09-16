@@ -1,30 +1,27 @@
 package com.wordonline.server.game.domain.bot;
 
 import com.wordonline.server.game.domain.Parameters;
-import com.wordonline.server.game.domain.magic.CardType;
-
-import java.util.List;
+import com.wordonline.server.game.domain.magic.Magic;
 
 /**
- * Card-level gameplay parameters the bot needs to evaluate a recipe before casting it.
+ * Gameplay parameters the bot needs to evaluate one magic card before casting it.
  *
- * <p>Values are read per card type rather than per concrete magic, because the recipe is only
- * resolved into a {@code Magic} once the cast reaches {@code MagicInputHandler}. Damage and radius
- * are therefore an approximation of the spell that will actually spawn; mana cost is exact, since
- * {@code PlayerData.useCards} charges the cost of every card in the recipe.
+ * <p>A card is one magic, so mana cost is exactly what {@code MagicInputHandler} charges. Damage
+ * and radius are still an approximation: they are read from the same parameter row the cast reads,
+ * which does not describe every object the spell eventually spawns.
  */
 public final class BotSpellStats {
 
     /**
-     * Charged when a card has no {@code mana_cost} row. Deliberately unaffordable so a recipe with
+     * Charged when a magic has no {@code mana_cost} row. Deliberately unaffordable so a card with
      * unknown pricing is skipped instead of being cast and rejected by the input handler.
      */
     static final int UNKNOWN_MANA_COST = 9_999;
 
-    /** Used when a magic card has no {@code damage} row, so blast scoring still ranks by coverage. */
+    /** Used when a magic has no {@code damage} row, so blast scoring still ranks by coverage. */
     static final double UNKNOWN_DAMAGE = 8.0;
 
-    /** Used when a magic card has no {@code radius} row (for example {@code spawn}). */
+    /** Used when a magic has no {@code radius} row (for example a summon). */
     static final double UNKNOWN_BLAST_RADIUS = 0.5;
 
     private final Parameters parameters;
@@ -33,33 +30,30 @@ public final class BotSpellStats {
         this.parameters = parameters;
     }
 
-    /**
-     * Total mana the recipe costs, summed over every card, matching what the input handler charges.
-     */
-    public int totalManaCost(List<CardType> recipe) {
-        int total = 0;
-        for (CardType card : recipe) {
-            total += (int) parameters.getValueOrDefault(card.name(), "mana_cost", UNKNOWN_MANA_COST);
-            if (total >= UNKNOWN_MANA_COST) {
-                return UNKNOWN_MANA_COST;
-            }
-        }
-        return total;
+    /** Mana the cast costs, matching what the input handler charges. */
+    public int manaCost(Magic magic) {
+        return (int) parameters.getValueOrDefault(key(magic), "mana_cost", UNKNOWN_MANA_COST);
     }
 
     /** Maximum distance from the caster the target position may be. */
-    public double castRange(CardType mainCard) {
-        return parameters.getValueOrDefault(mainCard.name(), "range", 0.0);
+    public double castRange(Magic magic) {
+        return parameters.getValueOrDefault(key(magic), "range", 0.0);
     }
 
     /** Radius around the target position that the spell is expected to cover. */
-    public double blastRadius(CardType mainCard) {
-        return parameters.getValueOrDefault(mainCard.name(), "radius", UNKNOWN_BLAST_RADIUS);
+    public double blastRadius(Magic magic) {
+        return parameters.getValueOrDefault(key(magic), "radius", UNKNOWN_BLAST_RADIUS);
     }
 
     /** Expected damage applied to each covered target. */
-    public double damagePerTarget(CardType mainCard) {
-        double damage = parameters.getValueOrDefault(mainCard.name(), "damage", UNKNOWN_DAMAGE);
+    public double damagePerTarget(Magic magic) {
+        double damage = parameters.getValueOrDefault(key(magic), "damage", UNKNOWN_DAMAGE);
         return damage > 0 ? damage : UNKNOWN_DAMAGE;
+    }
+
+    // The same key MagicInputHandler reads the cast with, so the bot never prices a cast
+    // differently from the handler that charges it.
+    private static String key(Magic magic) {
+        return magic.name;
     }
 }

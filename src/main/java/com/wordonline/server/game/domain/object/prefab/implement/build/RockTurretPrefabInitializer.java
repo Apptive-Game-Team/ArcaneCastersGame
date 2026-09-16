@@ -41,7 +41,10 @@ public class RockTurretPrefabInitializer extends PrefabInitializer {
                 rockTurretParameters.floatValue(ParameterKey.ATTACK_INTERVAL),
                 rockTurretParameters.floatValue(ParameterKey.ATTACK_RANGE)
         ));
-        gameObject.addComponent(new TimedSelfDestroyer(gameObject, hp));
+        gameObject.addComponent(new TimedSelfDestroyer(
+                gameObject,
+                rockTurretParameters.floatValue(ParameterKey.DURATION)
+        ));
         gameObject.addComponent(new RockDeathRemnant(gameObject));
         gameObject.setElement(ElementType.ROCK);
         gameObject.getComponents().add(new CommonEffectReceiver(gameObject));

@@ -68,7 +68,7 @@ public class Turret extends TimedBehaviorMob {
     @Override
     public void start() {
         this.detector = new ClosestEnemyDetector(getGameContext(), targetMask);
-        gameObject.drawCircle(Vector3.ZERO, attackRange, GizmoCategory.AttackRange);
+        gameObject.drawCircle(Vector3.ZERO, CombatRange.reachFrom(gameObject, attackRange), GizmoCategory.AttackRange);
     }
 
     @Override

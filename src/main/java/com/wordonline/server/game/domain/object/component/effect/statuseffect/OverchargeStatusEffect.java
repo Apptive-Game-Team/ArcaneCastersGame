@@ -10,11 +10,13 @@ import com.wordonline.server.game.domain.object.component.mob.Mob;
 import com.wordonline.server.game.domain.parameter.GameObjectKey;
 import com.wordonline.server.game.domain.parameter.ParameterKey;
 import com.wordonline.server.game.dto.Effect;
+import com.wordonline.server.game.util.CombatRange;
 
 import java.util.Comparator;
 
 public class OverchargeStatusEffect extends BaseStatusEffect {
     private static final float SPEED_MULTIPLIER = 1.5f;
+    private static final float PROJECTILE_RANGE = 2f;
     private static final float PROJECTILE_INTERVAL = 1f;
     private static final float PROJECTILE_DURATION = 0.2f;
     private static final String PROJECTILE_TYPE = "ElectricShot";
@@ -92,6 +94,7 @@ public class OverchargeStatusEffect extends BaseStatusEffect {
         return getGameContext().getActiveGameObjects().stream()
                 .filter(target -> target.getMaster() != gameObject.getMaster())
                 .filter(target -> !target.getComponents(Damageable.class).isEmpty())
+                .filter(target -> CombatRange.contains(gameObject, target, PROJECTILE_RANGE))
                 .min(Comparator.comparingDouble(
                         target -> target.getPosition().distance(gameObject.getPosition())));
     }

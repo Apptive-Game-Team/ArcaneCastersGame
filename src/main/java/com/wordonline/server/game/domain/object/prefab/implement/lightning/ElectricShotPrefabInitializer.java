@@ -5,6 +5,7 @@ import com.wordonline.server.game.domain.parameter.GameObjectKey;
 import com.wordonline.server.game.domain.parameter.ParameterKey;
 import com.wordonline.server.game.domain.magic.ElementType;
 import com.wordonline.server.game.domain.object.GameObject;
+import com.wordonline.server.game.domain.object.component.effect.AllyOverchargeProvider;
 import com.wordonline.server.game.domain.object.component.effect.EffectProvider;
 import com.wordonline.server.game.domain.object.component.magic.Shot;
 import com.wordonline.server.game.domain.object.component.physic.CircleCollider;
@@ -29,6 +30,7 @@ public class ElectricShotPrefabInitializer extends PrefabInitializer {
         gameObject.addCollider(new CircleCollider(gameObject, shootParameters.floatValue(ParameterKey.RADIUS), true));
         gameObject.setElement(ElementType.LIGHTNING);
         gameObject.getComponents().add(new EffectProvider(gameObject, Effect.Shock));
+        gameObject.getComponents().add(new AllyOverchargeProvider(gameObject));
         gameObject.getComponents().add(new Shot(gameObject,
                 shootParameters.intValue(ParameterKey.DAMAGE),
                 shootParameters.floatValue(ParameterKey.SPEED)

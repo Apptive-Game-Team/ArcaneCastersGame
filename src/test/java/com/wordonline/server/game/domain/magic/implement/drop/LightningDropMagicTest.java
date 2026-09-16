@@ -1,6 +1,5 @@
 package com.wordonline.server.game.domain.magic.implement.drop;
 
-import com.wordonline.server.game.config.GameConfig;
 import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.Vector3;
 import com.wordonline.server.game.domain.object.prefab.PrefabType;
@@ -16,13 +15,13 @@ import static org.mockito.Mockito.verify;
 class LightningDropMagicTest {
 
     @Test
-    void spawnsStormCloudAtAerialBoundaryHeight() {
+    void spawnsStormCloudAtGroundHeight() {
         GameContext gameContext = mock(GameContext.class);
 
         new LightningDropMagic().run(
                 gameContext,
                 Master.LeftPlayer,
-                new Vector3(4f, 0f, 6f)
+                new Vector3(4f, 7f, 6f)
         );
 
         ArgumentCaptor<GameObject> gameObjectCaptor = ArgumentCaptor.forClass(GameObject.class);
@@ -32,6 +31,6 @@ class LightningDropMagicTest {
         assertThat(stormCloud.getType()).isEqualTo(PrefabType.LightningCloud);
         assertThat(stormCloud.getPosition())
                 .usingRecursiveComparison()
-                .isEqualTo(new Vector3(4f, GameConfig.AERIAL_STANDARD_HEIGHT, 6f));
+                .isEqualTo(new Vector3(4f, 0f, 6f));
     }
 }

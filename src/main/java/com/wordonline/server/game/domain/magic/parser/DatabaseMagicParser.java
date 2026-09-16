@@ -10,7 +10,6 @@ import jakarta.annotation.PostConstruct;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
 
-import com.wordonline.server.game.domain.magic.CardType;
 import com.wordonline.server.game.domain.magic.Magic;
 import com.wordonline.server.game.repository.MagicRepository;
 
@@ -24,7 +23,7 @@ public class DatabaseMagicParser implements MagicParser {
 
     public static final long INVALID_MAGIC_ID = 0;
 
-    private final Map<List<CardType>, Magic> magicHashMap = new ConcurrentHashMap<>();
+    // A card is a magic, so there is no combination to key on: the id on the card is the lookup.
     private final Map<Long, Magic> magicIdMap = new ConcurrentHashMap<>();
 
     private final MagicRepository magicRepository;
@@ -41,24 +40,20 @@ public class DatabaseMagicParser implements MagicParser {
 
                     Magic magic = applicationContext.getBean(magicInfoDto.name(), Magic.class);
                     magic.id = magicInfoDto.id();
-                    magicHashMap.put(convertToKey(magicInfoDto.cards()), magic);
+                    magic.name = magicInfoDto.name();
+                    magic.element = magicInfoDto.element();
                     magicIdMap.put(magic.id, magic);
                 });
-        log.info("[Magic:Loaded]: {}", magicHashMap.values().stream().map(Magic::getClass).map(Class::getSimpleName).toList());
+        log.info("[Magic:Loaded]: {}", magicIdMap.values().stream().map(Magic::getClass).map(Class::getSimpleName).toList());
     }
 
     public void invalidateCache() {
-        magicHashMap.clear();
         magicIdMap.clear();
     }
 
-    private List<CardType> convertToKey(List<CardType> cards) {
-        return List.copyOf(cards.stream().sorted().toList());
-    }
-
     @Override
-    public Magic parseMagic(long userId, List<CardType> cards) {
-        Magic magic = getMagicByCards(cards);
+    public Magic parseMagic(long userId, long magicId) {
+        Magic magic = getMagic(magicId);
         if (magic == null) {
             return null;
         }
@@ -71,12 +66,8 @@ public class DatabaseMagicParser implements MagicParser {
         return magic;
     }
 
-    public Magic parseMagicForBot(List<CardType> cards) {
-        return getMagicByCards(cards);
-    }
-
     public Magic parseMagicForBot(String magicName) {
-        if (magicHashMap.isEmpty()) {
+        if (magicIdMap.isEmpty()) {
             init();
         }
 
@@ -90,6 +81,11 @@ public class DatabaseMagicParser implements MagicParser {
         }
 
         Magic magic = applicationContext.getBean(magicName, Magic.class);
+        // A bean with no magics row never went through init, so it carries no name to read
+        // parameters under. The bean name is that name.
+        if (magic.name == null) {
+            magic.name = magicName;
+        }
         if (magic.id <= 0) {
             log.warn("[MagicIdMissing] Magic '{}' has non-positive id ({}).", magicName, magic.id);
         }
@@ -97,6 +93,18 @@ public class DatabaseMagicParser implements MagicParser {
     }
 
     public Magic parseMagicForBot(long magicId) {
+        return getMagic(magicId);
+    }
+
+    /** Every magic that has both a magics row and a bean. The bot prices the summon catalogue from it. */
+    public Collection<Magic> getAllMagics() {
+        if (magicIdMap.isEmpty()) {
+            init();
+        }
+        return List.copyOf(magicIdMap.values());
+    }
+
+    public Magic getMagic(long magicId) {
         if (magicIdMap.isEmpty()) {
             init();
         }
@@ -109,35 +117,6 @@ public class DatabaseMagicParser implements MagicParser {
         if (magic == null) {
             log.warn("[MagicNotFound] No magic mapped for id: {}", magicId);
         }
-        return magic;
-    }
-
-    public Collection<List<CardType>> getAllMagicRecipes() {
-        if (magicHashMap.isEmpty()) {
-            init();
-        }
-        return magicHashMap.keySet();
-    }
-
-    public Map<List<CardType>, Magic> getAllMagicRecipeMap() {
-        if (magicHashMap.isEmpty()) {
-            init();
-        }
-        return Map.copyOf(magicHashMap);
-    }
-
-    private Magic getMagicByCards(List<CardType> cards) {
-        if (magicHashMap.isEmpty()) {
-            init();
-        }
-
-        List<CardType> key = cards.stream().sorted().toList();
-        Magic magic = magicHashMap.get(key);
-
-        if (magic == null) {
-            log.warn("[MagicNotFound] No magic mapped for cards: {} (sorted keys: {})", cards, key);
-        }
-
         return magic;
     }
 }

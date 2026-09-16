@@ -51,8 +51,8 @@ public class StatisticService {
     }
 
     private void saveDeck(long userId, GameResultBuilder builder) {
-        List<CardDto> cardDtos = deckService.getParticipantDeckCards(userId);
-        builder.recordCards(userId, cardDtos);
+        List<CardDto> deckCards = deckService.getParticipantDeckCards(userId);
+        builder.recordDeck(userId, deckCards);
     }
 
     // Returns the statistic_games id so the caller can link the session lifecycle row,

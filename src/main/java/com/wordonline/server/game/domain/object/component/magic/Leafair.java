@@ -54,7 +54,7 @@ public class Leafair extends Drop {
     }
 
     @Override
-    public void onCollision(GameObject otherObject) {
+    public void onCollisionWithEnemy(GameObject otherObject) {
         // Leafair uses overlapSphereAll in update because same-owner collisions are filtered out.
     }
 

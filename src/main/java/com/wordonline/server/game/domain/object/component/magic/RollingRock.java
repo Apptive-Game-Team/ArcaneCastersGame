@@ -66,7 +66,7 @@ public class RollingRock extends Shot {
     }
 
     @Override
-    public void onCollision(GameObject otherObject) {
+    public void onCollisionWithEnemy(GameObject otherObject) {
         if (otherObject == gameObject || otherObject.getMaster() == gameObject.getMaster()) {
             return;
         }

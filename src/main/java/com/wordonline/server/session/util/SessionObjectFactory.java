@@ -3,7 +3,6 @@ package com.wordonline.server.session.util;
 import com.wordonline.server.deck.service.DeckService;
 import com.wordonline.server.game.domain.SessionObject;
 import com.wordonline.server.game.domain.SessionType;
-import com.wordonline.server.game.domain.magic.CardType;
 import com.wordonline.server.session.dto.SessionDto;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
@@ -54,19 +53,19 @@ public class SessionObjectFactory {
     }
 
     private SessionObject createPvpSessionObject(String sessionId, long uid1, long uid2) {
-        List<CardType> leftCards = deckService.getParticipantCards(uid1);
-        List<CardType> rightCards = deckService.getParticipantCards(uid2);
+        List<Long> leftCards = deckService.getParticipantCards(uid1);
+        List<Long> rightCards = deckService.getParticipantCards(uid2);
         return new SessionObject(sessionId, uid1, uid2, simpMessagingTemplate, leftCards, rightCards, SessionType.PVP);
     }
 
     private SessionObject createPracticeSessionObject(String sessionId, long uid1, long uid2) {
-        List<CardType> leftCards = deckService.getParticipantCards(uid1);
-        List<CardType> rightCards = deckService.getParticipantCards(uid2);
+        List<Long> leftCards = deckService.getParticipantCards(uid1);
+        List<Long> rightCards = deckService.getParticipantCards(uid2);
         return new SessionObject(sessionId, uid1, uid2, simpMessagingTemplate, leftCards, rightCards, SessionType.Practice);
     }
 
     private SessionObject createPveSessionObject(String sessionId, long uid1, Long scenarioId) {
-        List<CardType> leftCards = uid1 >= 0 ? deckService.getSelectedCards(uid1) : List.of();
+        List<Long> leftCards = uid1 >= 0 ? deckService.getSelectedCards(uid1) : List.of();
         return new SessionObject(sessionId, uid1, -1, simpMessagingTemplate, leftCards, List.of(), SessionType.PVE, scenarioId);
     }
 }

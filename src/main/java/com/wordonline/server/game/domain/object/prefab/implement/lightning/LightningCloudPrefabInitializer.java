@@ -23,10 +23,15 @@ public class LightningCloudPrefabInitializer extends PrefabInitializer {
     @Override
     public void initialize(GameObject gameObject) {
         var cloudParameters = parameters.object(GameObjectKey.LIGHTNING_CLOUD);
+        // the strike itself is still tuned under the lightning_drop object, from when each
+        // strike was a spawned drop
+        var strikeParameters = parameters.object(GameObjectKey.LIGHTNING_DROP);
         gameObject.setElement(ElementType.LIGHTNING);
         gameObject.addComponent(new LightningCloud(
                 gameObject,
                 cloudParameters.floatValue(ParameterKey.ATTACK_INTERVAL),
-                cloudParameters.intValue(ParameterKey.QUANTITY)));
+                cloudParameters.intValue(ParameterKey.QUANTITY),
+                strikeParameters.intValue(ParameterKey.DAMAGE),
+                strikeParameters.floatValue(ParameterKey.RADIUS)));
     }
 }

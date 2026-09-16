@@ -13,7 +13,7 @@ import org.springframework.stereotype.Repository;
 import com.wordonline.server.game.domain.SessionType;
 import com.wordonline.server.statistic.domain.UpdateTimeStatistic;
 import com.wordonline.server.statistic.dto.GameResultDto;
-import com.wordonline.server.statistic.dto.GameResultDto.StatisticCardDto;
+import com.wordonline.server.statistic.dto.GameResultDto.StatisticDeckDto;
 import com.wordonline.server.statistic.dto.GameResultDto.StatisticMagicDto;
 
 import lombok.RequiredArgsConstructor;
@@ -47,9 +47,9 @@ public class StatisticRepository {
                 :eventSchemaVersion
             ) RETURNING id;
             """;
-    private final static String SAVE_CARD = """
-            INSERT INTO statistic_game_cards(user_id, statistic_game_id, card_id, count)
-            VALUES(:userId, :gameId, :cardId, :count);
+    private final static String SAVE_DECK = """
+            INSERT INTO statistic_game_decks(user_id, statistic_game_id, magic_id, count)
+            VALUES(:userId, :gameId, :magicId, :count);
             """;
     private final static String SAVE_MAGIC = """
             INSERT INTO statistic_game_magics(user_id, statistic_game_id, magic_id, count)
@@ -63,7 +63,7 @@ public class StatisticRepository {
 
     public long saveGameResultDto(GameResultDto gameResultDto) {
         long gameId = saveGame(gameResultDto);
-        saveCard(gameId, gameResultDto.cards());
+        saveDeck(gameId, gameResultDto.decks());
         saveMagic(gameId, gameResultDto.magics());
         saveUpdateTime(gameId, gameResultDto.updateTimeStatisticMap());
         return gameId;
@@ -94,13 +94,13 @@ public class StatisticRepository {
         return keyHolder.getKey().longValue();
     }
 
-    private void saveCard(long gameId, List<StatisticCardDto> cardDtos) {
-        cardDtos.forEach(cardDto -> {
-            jdbcClient.sql(SAVE_CARD)
-                    .param("userId", cardDto.userId())
+    private void saveDeck(long gameId, List<StatisticDeckDto> deckDtos) {
+        deckDtos.forEach(deckDto -> {
+            jdbcClient.sql(SAVE_DECK)
+                    .param("userId", deckDto.userId())
                     .param("gameId", gameId)
-                    .param("cardId", cardDto.cardId())
-                    .param("count", cardDto.count())
+                    .param("magicId", deckDto.magicId())
+                    .param("count", deckDto.count())
                     .update();
         });
     }

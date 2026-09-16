@@ -38,7 +38,7 @@ public class KnockbackEffectProvider extends EffectProvider {
     }
 
     @Override
-    public void onCollision(GameObject otherObject) {
+    public void onCollisionWithEnemy(GameObject otherObject) {
         EffectReceiver effectReceiver = (EffectReceiver) otherObject.getComponent(EffectReceiver.class);
         if (effectReceiver != null) {
             effectReceiver.onReceive(effect, GetDirection(otherObject),GetProximity(otherObject));

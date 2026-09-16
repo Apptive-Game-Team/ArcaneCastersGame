@@ -1,13 +1,12 @@
 package com.wordonline.server.game.dto;
 
-import java.util.List;
+import com.wordonline.server.game.domain.magic.ElementType;
 
-import com.wordonline.server.game.domain.magic.CardType;
-
+// One row of the magics table. A card is a magic now, so there is no card list to carry.
 public record MagicInfoDto(
         Long id,
         String name,
-        List<CardType> cards
+        ElementType element
 ) {
 
 }

@@ -1,6 +1,5 @@
 package com.wordonline.server.game.domain.magic.implement.explode;
 
-import com.wordonline.server.game.domain.magic.CardType;
 import com.wordonline.server.game.domain.magic.Magic;
 import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.prefab.PrefabType;
@@ -14,7 +13,6 @@ public abstract class AbstractExplosionMagic extends Magic {
     private final PrefabType prefabType;
 
     public AbstractExplosionMagic(PrefabType prefabType) {
-        super(CardType.Explode);
         this.prefabType = prefabType;
     }
 

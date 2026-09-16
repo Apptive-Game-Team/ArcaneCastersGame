@@ -24,12 +24,17 @@ import static org.mockito.Mockito.when;
 class WindSpiritPrefabInitializerTest {
 
     @Test
-    void targetsBothAirAndGroundUnits() throws Exception {
+    void targetsOnlyAerialUnits() throws Exception {
         Parameters parameters = mock(Parameters.class);
         GameObjectParameters windSpiritParameters = mock(GameObjectParameters.class);
         when(parameters.object(GameObjectKey.WIND_SPIRIT)).thenReturn(windSpiritParameters);
         when(windSpiritParameters.intValue(ParameterKey.HP)).thenReturn(12);
+        when(windSpiritParameters.intValue(ParameterKey.MASS)).thenReturn(1);
+        when(windSpiritParameters.intValue(ParameterKey.DAMAGE)).thenReturn(3);
         when(windSpiritParameters.floatValue(ParameterKey.RADIUS)).thenReturn(0.5f);
+        when(windSpiritParameters.floatValue(ParameterKey.SPEED)).thenReturn(2f);
+        when(windSpiritParameters.floatValue(ParameterKey.ATTACK_INTERVAL)).thenReturn(1f);
+        when(windSpiritParameters.floatValue(ParameterKey.ATTACK_RANGE)).thenReturn(1.5f);
         GameObject windSpirit = new GameObject(
                 Master.LeftPlayer,
                 PrefabType.WindSpirit,
@@ -44,9 +49,9 @@ class WindSpiritPrefabInitializerTest {
                 .map(SelfDestructMob.class::cast)
                 .findFirst()
                 .orElseThrow();
-        assertThat(targetMaskOf(mob)).isEqualTo(TargetMask.ANY.bit);
+        assertThat(targetMaskOf(mob)).isEqualTo(TargetMask.AIR.bit);
         assertThat(targetMaskOf(mob) & TargetMask.AIR.bit).isNotZero();
-        assertThat(targetMaskOf(mob) & TargetMask.GROUND.bit).isNotZero();
+        assertThat(targetMaskOf(mob) & TargetMask.GROUND.bit).isZero();
     }
 
     // The detector and its mask are internal to the mob state machine, so the wiring is read back

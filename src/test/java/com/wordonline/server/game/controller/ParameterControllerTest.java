@@ -33,7 +33,7 @@ class ParameterControllerTest {
             2.5
     );
     private final MagicMetadataService magicMetadataService =
-            new MagicMetadataService(databaseMagicParser, tagRepository);
+            new MagicMetadataService(tagRepository);
     private final ParameterController controller =
             new ParameterController(parameterService, databaseMagicParser, magicMetadataService);
 

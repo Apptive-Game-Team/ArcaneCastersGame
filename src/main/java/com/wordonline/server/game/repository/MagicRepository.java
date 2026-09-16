@@ -1,16 +1,18 @@
 package com.wordonline.server.game.repository;
 
-import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
-import com.wordonline.server.game.domain.magic.CardType;
+import com.wordonline.server.game.domain.magic.ElementType;
 import com.wordonline.server.game.dto.MagicInfoDto;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Repository
 @RequiredArgsConstructor
 public class MagicRepository {
@@ -26,12 +28,11 @@ public class MagicRepository {
              );
             """;
 
+    // magic_cards and cards are gone: a magic is looked up by its own id, and the element it
+    // carries is a column on the row rather than the most common card in a combination.
     private final static String FIND_ALL = """
-            SELECT mmc.magic_id AS id, mmc.name AS name, STRING_AGG(c.name, ',') AS cards
-            FROM (magics m
-            JOIN magic_cards mc ON m.id = mc.magic_id) AS mmc
-            JOIN cards c ON mmc.card_id = c.id
-            GROUP BY mmc.magic_id, mmc.name;
+            SELECT id, name, element
+            FROM magics;
             """;
 
     public boolean existUserMagic(long userId, long magicId) {
@@ -48,9 +49,21 @@ public class MagicRepository {
                 .query((rs, num) -> new MagicInfoDto(
                             rs.getLong("id"),
                             rs.getString("name"),
-                            Arrays.stream(rs.getString("cards").split(","))
-                                    .map(CardType::valueOf)
-                                    .toList()
+                            toElement(rs.getString("name"), rs.getString("element"))
                 )).list();
+    }
+
+    // magics.element is a varchar with a check constraint, not an enum, so a value the server does
+    // not know is a data problem rather than a reason to refuse to load the whole catalogue.
+    private static ElementType toElement(String magicName, String element) {
+        if (element == null || element.isBlank()) {
+            return ElementType.NONE;
+        }
+        try {
+            return ElementType.valueOf(element.toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            log.warn("[Magic:UnknownElement] magic ({}) has element '{}'; treating it as NONE", magicName, element);
+            return ElementType.NONE;
+        }
     }
 }

@@ -1,6 +1,5 @@
 package com.wordonline.server.game.domain.magic.implement.explode;
 
-import com.wordonline.server.game.domain.magic.CardType;
 import com.wordonline.server.game.domain.magic.Magic;
 import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.Vector3;
@@ -14,10 +13,6 @@ import org.springframework.stereotype.Component;
 
 @Component("vine_world")
 public class VineWorldMagic extends Magic {
-
-    public VineWorldMagic() {
-        super(CardType.Explode);
-    }
 
     @Override
     public void run(GameContext gameContext, Master master, Vector3 position) {

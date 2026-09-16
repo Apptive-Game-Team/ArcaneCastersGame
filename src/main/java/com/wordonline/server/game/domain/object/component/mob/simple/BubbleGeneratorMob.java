@@ -63,7 +63,7 @@ public class BubbleGeneratorMob extends TimedBehaviorMob {
 
     @Override
     public void start() {
-        gameObject.drawCircle(Vector3.ZERO, attackRange, GizmoCategory.AttackRange);
+        gameObject.drawCircle(Vector3.ZERO, CombatRange.reachFrom(gameObject, attackRange), GizmoCategory.AttackRange);
     }
 
     @Override

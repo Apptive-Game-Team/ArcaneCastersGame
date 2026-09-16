@@ -13,8 +13,8 @@ public class BotAction {
     // thread executes it at the top of the next frame.
     public void useCard(SessionObject sessionObject, InputRequestDto inputRequestDto, Master botSide)
     {
-        log.debug("[Bot {}] Executing action: {} cards={} target={}",
-                botSide, inputRequestDto.getType(), inputRequestDto.getCards(), inputRequestDto.getPosition());
+        log.debug("[Bot {}] Executing action: {} magicId={} target={}",
+                botSide, inputRequestDto.getType(), inputRequestDto.getMagicId(), inputRequestDto.getPosition());
 
         GameContext gameContext = sessionObject.getGameContext();
         gameContext.submitAction("botUseMagic", () ->

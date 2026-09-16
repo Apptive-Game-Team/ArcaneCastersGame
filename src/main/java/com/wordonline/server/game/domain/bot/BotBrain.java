@@ -2,8 +2,8 @@ package com.wordonline.server.game.domain.bot;
 
 import com.wordonline.server.bot.domain.BotPersona;
 import com.wordonline.server.bot.domain.BotTier;
-import com.wordonline.server.game.domain.magic.CardType;
 import com.wordonline.server.game.domain.magic.Magic;
+import com.wordonline.server.game.domain.magic.ObjectSummoningMagic;
 import com.wordonline.server.game.domain.magic.implement.explode.AbstractExplosionMagic;
 import com.wordonline.server.game.domain.magic.implement.explode.OvergrowthMagic;
 import com.wordonline.server.game.domain.magic.implement.shoot.VineTossMagic;
@@ -17,28 +17,25 @@ import com.wordonline.server.game.service.bot.BotCounterEvaluator;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Comparator;
-import java.util.EnumSet;
+import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
-import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Decides what the bot casts and where.
  *
- * <p>Every affordable recipe becomes a candidate. Offensive recipes are scored by the damage the
- * blast would actually convert at its best landing spot; placement recipes are scored by how much
- * the bot needs a body on the field right now. Both are divided by the recipe's real mana cost, so
- * the choice is value per mana rather than "the biggest combo in hand".
+ * <p>Every affordable card in hand becomes a candidate. Offensive cards are scored by the damage
+ * the blast would actually convert at its best landing spot; placement cards are scored by how much
+ * the bot needs a body on the field right now. Both are divided by the card's real mana cost, so
+ * the choice is value per mana rather than "the biggest thing in hand".
  */
 @Slf4j
 public class BotBrain {
 
-    public record InputDecision(List<CardType> playCards, Vector3 target, String ruleId, String reason) {}
+    public record InputDecision(long magicId, Vector3 target, String ruleId, String reason) {}
 
     static final String SEED_SPIRIT_RULE = "combo.seed-spirit";
     static final String MOB_CLUSTER_RULE = "combo.mob-cluster";
@@ -47,31 +44,17 @@ public class BotBrain {
     static final double COMBO_CLUSTER_RADIUS = 2.5;
     static final int COMBO_CLUSTER_MIN_MOBS = 3;
 
-    /** Main cards whose spell lands on a target rather than building the bot's own board. */
-    private static final Set<CardType> OFFENSIVE_MAIN_CARDS =
-            EnumSet.of(CardType.Shoot, CardType.Explode, CardType.Drop);
-
     /** Tempo value of removing one enemy from the field, on top of the damage itself. */
     static final double KILL_TEMPO_BONUS = 8.0;
 
-    /** Board value a placement recipe is worth per card spent on it. */
-    static final double PLACEMENT_VALUE_PER_CARD = 6.0;
+    /** Board value a placement card is worth. One card is one cast now, so it is a flat term. */
+    static final double PLACEMENT_VALUE_PER_CAST = 6.0;
 
     /** How much full defensive pressure inflates the value of putting a body down. */
     static final double DEFENSE_URGENCY_WEIGHT = 1.5;
 
     /** Scales the tag-based counter score into the same range as the damage-based scores. */
     static final double COUNTER_WEIGHT = 3.0;
-
-    /** Smallest recipe the hospitality bot may cast. */
-    static final int HOSPITALITY_MIN_CARDS = 2;
-
-    /**
-     * Largest recipe the hospitality bot may cast. "Low-grade summon" is a card count: the bot's
-     * deck can only assemble summons, but a deck constrains which cards are drawn, not how many of
-     * them end up in one recipe, so the ceiling has to live here.
-     */
-    static final int HOSPITALITY_MAX_CARDS = 3;
 
     private final MagicParser magicParser;
     private final BotCounterEvaluator counterEvaluator;
@@ -124,7 +107,7 @@ public class BotBrain {
                                 Master botSide,
                                 boolean overdue,
                                 Random random) {
-        List<CardType> cardList = botEye.cardList();
+        List<Long> cardList = botEye.cardList();
         int mana = botEye.mana();
         try {
             log.trace("[Bot {}] Start thinking with cards={}, mana={}", botSide, cardList, mana);
@@ -160,20 +143,20 @@ public class BotBrain {
                         botSide, enemyBoardMana, ownBoardMana, manaBudget);
             }
 
-            Map<List<CardType>, Magic> recipeMap = dbParser.getAllMagicRecipeMap();
-            Collection<List<CardType>> allRecipes = dbParser.getAllMagicRecipes();
-            if ((allRecipes == null || allRecipes.isEmpty()) && recipeMap != null) {
-                allRecipes = recipeMap.keySet();
+            List<Magic> hand = resolveHand(dbParser, cardList);
+            if (hand.isEmpty()) {
+                log.trace("[Bot {}] No card in hand resolves to a known magic", botSide);
+                return null;
             }
 
-            // Tutorial hospitality rules only permit low-grade summons. Priority combos are combat
-            // tactics, so they run for ordinary tiers and still precede the legacy value scorer.
-            if (hospitalityDirector == null && recipeMap != null) {
+            // Tutorial hospitality rules only permit summons. Priority combos are combat tactics,
+            // so they run for ordinary tiers and still precede the legacy value scorer.
+            if (hospitalityDirector == null) {
                 Optional<ScoredPlay> combo = findSeedSpiritCombo(
-                        recipeMap, cardList, mana, spellStats, botEye.gameObjectList(), playerPos, botSide, random);
+                        hand, mana, spellStats, botEye.gameObjectList(), playerPos, botSide, random);
                 if (combo.isEmpty()) {
                     combo = findMobClusterCombo(
-                            recipeMap, cardList, mana, spellStats, botEye.gameObjectList(), playerPos, enemySide, random);
+                            hand, mana, spellStats, botEye.gameObjectList(), playerPos, enemySide, random);
                 }
                 if (combo.isPresent()) {
                     ScoredPlay chosen = combo.get();
@@ -183,27 +166,20 @@ public class BotBrain {
             }
 
             List<ScoredPlay> plays = new ArrayList<>();
-            boolean hasMakeableRecipe = false;
-            boolean hasAffordableRecipe = false;
+            boolean hasAffordableCard = false;
+            Magic cheapestAffordable = null;
+            int cheapestCost = Integer.MAX_VALUE;
 
-            for (List<CardType> recipe : allRecipes) {
-                if (!canMakeRecipe(cardList, recipe)) {
-                    continue;
-                }
-                CardType mainCard = findMainCard(recipe);
-                if (mainCard == null) {
-                    continue;
-                }
-                if (hospitalityDirector != null && !isLowGradeSummon(recipe, mainCard)) {
+            for (Magic magic : hand) {
+                if (hospitalityDirector != null && !isSummon(magic)) {
                     continue;
                 }
 
-                hasMakeableRecipe = true;
-                int cost = spellStats.totalManaCost(recipe);
-                if (cost > mana) {
+                int cost = spellStats.manaCost(magic);
+                if (cost > mana || cost >= BotSpellStats.UNKNOWN_MANA_COST) {
                     continue;
                 }
-                hasAffordableRecipe = true;
+                hasAffordableCard = true;
 
                 // 이번 소환이 놓인 뒤에도 봇 보드가 플레이어 보드보다 약해야 한다. 지킬 수 없으면
                 // 소환하지 않는다 - 데드라인이 있어도 이 규칙은 깨지 않는다. 플레이어보다 센 것을
@@ -212,33 +188,41 @@ public class BotBrain {
                     continue;
                 }
 
-                buildPlay(recipe, mainCard, cost, aggression, spellStats, threats, enemies, playerPos, botSide, random)
+                if (cost < cheapestCost) {
+                    cheapestCost = cost;
+                    cheapestAffordable = magic;
+                }
+
+                buildPlay(magic, cost, aggression, spellStats, threats, enemies, playerPos, botSide, random)
                         .ifPresent(plays::add);
             }
 
             if (!plays.isEmpty()) {
                 ScoredPlay chosen = choosePlay(plays);
                 log.debug("[Bot {}] Chose {} at {} (score={}, cost={}, pressure={})",
-                        botSide, chosen.recipe(), chosen.target(), chosen.score(), chosen.cost(), threats.pressure());
+                        botSide, chosen.magicId(), chosen.target(), chosen.score(), chosen.cost(), threats.pressure());
                 return chosen.toDecision();
             }
 
             // Holding for mana is the right play for a bot that is trying to win. For one that has
             // been quiet too long it is the wrong one: the player reads the pause, not the reason
-            // for it. Overdue, the bot spends a card to cycle toward something it can afford.
-            if (hasMakeableRecipe && !hasAffordableRecipe && !overdue) {
-                log.debug("[Bot {}] Waiting for mana; makeable recipes exist but none are affordable. mana={}", botSide, mana);
+            // for it. A card is one magic now, so there is nothing cheaper to cycle into when
+            // nothing in hand is affordable - the only thing left is to wait.
+            if (!hasAffordableCard) {
+                log.debug("[Bot {}] Waiting for mana; nothing in hand is affordable. mana={}", botSide, mana);
                 return null;
             }
 
-            CardType cycleCard = pickCycleCard(cardList, allRecipes, spellStats, mana, random);
-            if (cycleCard != null) {
+            // Something is affordable but nothing scored a target, which is what happens to an
+            // offensive card with an empty field. Overdue, the bot spends the cheapest one anyway.
+            if (overdue && cheapestAffordable != null) {
                 Vector3 target = PlacementPlanner.plan(
-                        playerPos, spellStats.castRange(cycleCard), botSide, threats, random);
-                log.debug("[Bot {}] Chose to cycle card: {} at {}", botSide, cycleCard, target);
+                        playerPos, spellStats.castRange(cheapestAffordable), botSide, threats, random);
+                log.debug("[Bot {}] Chose to cycle card: {} at {}", botSide, cheapestAffordable.name, target);
                 return new InputDecision(
-                        List.of(cycleCard), target, CYCLE_RULE,
-                        "No complete affordable recipe; cycling the least-used card " + cycleCard + ".");
+                        cheapestAffordable.id, target, CYCLE_RULE,
+                        "No card scored a target; cycling the cheapest affordable card "
+                                + cheapestAffordable.name + ".");
             }
 
             log.trace("[Bot {}] No valid actions found this tick", botSide);
@@ -248,8 +232,19 @@ public class BotBrain {
         return null;
     }
 
-    private Optional<ScoredPlay> buildPlay(List<CardType> recipe,
-                                           CardType mainCard,
+    /** The hand, as the magics it names. A card whose magic is unknown is simply not playable. */
+    private static List<Magic> resolveHand(DatabaseMagicParser dbParser, List<Long> cardList) {
+        List<Magic> hand = new ArrayList<>();
+        for (Long magicId : new LinkedHashSet<>(cardList)) {
+            Magic magic = dbParser.getMagic(magicId);
+            if (magic != null) {
+                hand.add(magic);
+            }
+        }
+        return hand;
+    }
+
+    private Optional<ScoredPlay> buildPlay(Magic magic,
                                            int cost,
                                            double aggression,
                                            BotSpellStats spellStats,
@@ -258,52 +253,61 @@ public class BotBrain {
                                            Vector3 playerPos,
                                            Master botSide,
                                            Random random) {
-        double counterValue = counterValue(recipe, enemies, aggression);
-        double castRange = spellStats.castRange(mainCard);
+        double counterValue = counterValue(magic, enemies, aggression);
+        double castRange = spellStats.castRange(magic);
 
-        if (OFFENSIVE_MAIN_CARDS.contains(mainCard)) {
+        if (!isSummon(magic)) {
             return BlastTargetSelector.bestImpact(
                             threats.threats(),
                             playerPos,
                             castRange,
-                            spellStats.blastRadius(mainCard),
-                            spellStats.damagePerTarget(mainCard))
+                            spellStats.blastRadius(magic),
+                            spellStats.damagePerTarget(magic))
                     .map(impact -> {
                         double value = impact.expectedDamage()
                                 + KILL_TEMPO_BONUS * impact.lethalCount()
                                 + counterValue;
-                        return scored(recipe, impact.center(), cost, value / cost, VALUE_RULE,
+                        return scored(magic, impact.center(), cost, value / cost, VALUE_RULE,
                                 "Best offensive value covers " + impact.coveredCount()
                                         + " target(s) with expected damage " + impact.expectedDamage() + ".",
                                 random);
                     });
         }
 
-        double value = PLACEMENT_VALUE_PER_CARD * recipe.size()
+        double value = PLACEMENT_VALUE_PER_CAST
                 * (1 + DEFENSE_URGENCY_WEIGHT * threats.pressure())
                 + counterValue;
         Vector3 target = PlacementPlanner.plan(playerPos, castRange, botSide, threats, random);
-        return Optional.of(scored(recipe, target, cost, value / cost, VALUE_RULE,
+        return Optional.of(scored(magic, target, cost, value / cost, VALUE_RULE,
                 "Best placement value for current defensive pressure " + threats.pressure() + ".", random));
+    }
+
+    /**
+     * A magic that leaves a body on the field builds the bot's own board; everything else lands on
+     * a target. {@code ObjectSummoningMagic} is the same declaration the board pricing reads, so
+     * the two never disagree about what a summon is.
+     */
+    private static boolean isSummon(Magic magic) {
+        return magic instanceof ObjectSummoningMagic;
     }
 
     /**
      * The counter term, in whichever direction this persona's aggression asks for.
      *
-     * <p>A positive aggression scores how much the recipe beats the enemy board, which is what
-     * every ordinary bot wants. A negative one scores how much the enemy board beats the recipe
+     * <p>A positive aggression scores how much the magic beats the enemy board, which is what
+     * every ordinary bot wants. A negative one scores how much the enemy board beats the magic
      * and adds it with the same sign, so the play the enemy answers best ranks highest. That is
      * the hospitality bot: it keeps committing real units, and the units it commits lose to what
      * is already on the field. Simply ranking low on the attacking direction would not do it -
      * "does not beat them" is satisfied by any irrelevant play, including standing still.
      */
-    private double counterValue(List<CardType> recipe, List<BotVisibleObject> enemies, double aggression) {
+    private double counterValue(Magic magic, List<BotVisibleObject> enemies, double aggression) {
         if (aggression == 0.0) {
             return 0.0;
         }
         double matchup = aggression > 0.0
-                ? counterEvaluator.evaluate(recipe, enemies)
-                : counterEvaluator.evaluateVulnerability(recipe, enemies);
+                ? counterEvaluator.evaluate(magic, enemies)
+                : counterEvaluator.evaluateVulnerability(magic, enemies);
         return matchup * Math.abs(aggression) * COUNTER_WEIGHT;
     }
 
@@ -324,7 +328,7 @@ public class BotBrain {
         };
     }
 
-    private ScoredPlay scored(List<CardType> recipe,
+    private ScoredPlay scored(Magic magic,
                               Vector3 target,
                               int cost,
                               double score,
@@ -333,7 +337,7 @@ public class BotBrain {
                               Random random) {
         double amplitude = noiseAmplitude(persona.tier());
         double noisyScore = score * (1.0 + (random.nextDouble() * 2.0 - 1.0) * amplitude);
-        return new ScoredPlay(recipe, target, cost, score, noisyScore, ruleId, reason);
+        return new ScoredPlay(magic.id, target, cost, score, noisyScore, ruleId, reason);
     }
 
     /**
@@ -365,19 +369,7 @@ public class BotBrain {
         return count;
     }
 
-    /**
-     * Whether the hospitality bot is allowed to cast this recipe: a summon, of the size a new player
-     * can be expected to handle. Anything else is filtered out before scoring, so no amount of
-     * counter weighting can talk the bot into it.
-     */
-    private static boolean isLowGradeSummon(List<CardType> recipe, CardType mainCard) {
-        return mainCard == CardType.Spawn
-                && recipe.size() >= HOSPITALITY_MIN_CARDS
-                && recipe.size() <= HOSPITALITY_MAX_CARDS;
-    }
-
-    private Optional<ScoredPlay> findSeedSpiritCombo(Map<List<CardType>, Magic> recipeMap,
-                                                      List<CardType> hand,
+    private Optional<ScoredPlay> findSeedSpiritCombo(List<Magic> hand,
                                                       int mana,
                                                       BotSpellStats spellStats,
                                                       List<BotVisibleObject> objects,
@@ -394,32 +386,28 @@ public class BotBrain {
         }
 
         List<ScoredPlay> candidates = new ArrayList<>();
-        for (Map.Entry<List<CardType>, Magic> entry : recipeMap.entrySet()) {
-            Magic magic = entry.getValue();
+        for (Magic magic : hand) {
             if (!(magic instanceof VineTossMagic) && !(magic instanceof OvergrowthMagic)) {
                 continue;
             }
-            List<CardType> recipe = entry.getKey();
-            int cost = spellStats.totalManaCost(recipe);
-            CardType mainCard = findMainCard(recipe);
-            if (!canMakeRecipe(hand, recipe) || cost > mana || mainCard == null) {
+            int cost = spellStats.manaCost(magic);
+            if (cost > mana) {
                 continue;
             }
-            double castRange = spellStats.castRange(mainCard);
+            double castRange = spellStats.castRange(magic);
             for (BotVisibleObject seedSpirit : seedSpirits) {
                 if (seedSpirit.position().distance(playerPos) > castRange) {
                     continue;
                 }
                 String magicName = magic.getClass().getSimpleName();
-                candidates.add(scored(recipe, seedSpirit.position(), cost, 1.0 / cost, SEED_SPIRIT_RULE,
+                candidates.add(scored(magic, seedSpirit.position(), cost, 1.0 / cost, SEED_SPIRIT_RULE,
                         magicName + " targets allied SeedSpirit " + seedSpirit.id() + ".", random));
             }
         }
         return candidates.stream().max(Comparator.comparingDouble(ScoredPlay::noisyScore));
     }
 
-    private Optional<ScoredPlay> findMobClusterCombo(Map<List<CardType>, Magic> recipeMap,
-                                                      List<CardType> hand,
+    private Optional<ScoredPlay> findMobClusterCombo(List<Magic> hand,
                                                       int mana,
                                                       BotSpellStats spellStats,
                                                       List<BotVisibleObject> objects,
@@ -434,20 +422,18 @@ public class BotBrain {
         }
 
         List<ScoredPlay> candidates = new ArrayList<>();
-        for (Map.Entry<List<CardType>, Magic> entry : recipeMap.entrySet()) {
-            if (!(entry.getValue() instanceof AbstractExplosionMagic)) {
+        for (Magic magic : hand) {
+            if (!(magic instanceof AbstractExplosionMagic)) {
                 continue;
             }
-            List<CardType> recipe = entry.getKey();
-            int cost = spellStats.totalManaCost(recipe);
-            CardType mainCard = findMainCard(recipe);
-            if (!canMakeRecipe(hand, recipe) || cost > mana || mainCard == null) {
+            int cost = spellStats.manaCost(magic);
+            if (cost > mana) {
                 continue;
             }
-            findBestMobCluster(enemyMobs, playerPos, spellStats.castRange(mainCard)).ifPresent(cluster ->
-                    candidates.add(scored(recipe, cluster.center(), cost, (double) cluster.count() / cost,
+            findBestMobCluster(enemyMobs, playerPos, spellStats.castRange(magic)).ifPresent(cluster ->
+                    candidates.add(scored(magic, cluster.center(), cost, (double) cluster.count() / cost,
                             MOB_CLUSTER_RULE,
-                            entry.getValue().getClass().getSimpleName() + " targets a cluster of "
+                            magic.getClass().getSimpleName() + " targets a cluster of "
                                     + cluster.count() + " enemy mobs.", random)));
         }
         return candidates.stream().max(Comparator.comparingDouble(ScoredPlay::noisyScore));
@@ -498,54 +484,9 @@ public class BotBrain {
         return new Vector3(x / count, y / count, z / count);
     }
 
-    private static boolean canMakeRecipe(List<CardType> hand, List<CardType> recipe) {
-        List<CardType> temp = new ArrayList<>(hand);
-        for (CardType c : recipe) {
-            int idx = temp.indexOf(c);
-            if (idx == -1) {
-                return false;
-            }
-            temp.remove(idx);
-        }
-        return true;
-    }
-
-    private static CardType findMainCard(List<CardType> combo) {
-        for (CardType c : combo) {
-            if (c.getType() == CardType.Type.Magic) {
-                return c;
-            }
-        }
-        return combo.isEmpty() ? null : combo.getFirst();
-    }
-
-    /**
-     * Nothing in hand combines, so one card is spent to draw a replacement. The card that appears in
-     * the fewest recipes is the one least likely to be missed.
-     */
-    private static CardType pickCycleCard(List<CardType> cardList,
-                                          Collection<List<CardType>> allRecipes,
-                                          BotSpellStats spellStats,
-                                          int mana,
-                                          Random random) {
-        CardType leastUseful = null;
-        int fewestRecipes = Integer.MAX_VALUE;
-        for (CardType card : cardList) {
-            if (spellStats.totalManaCost(List.of(card)) > mana) {
-                continue;
-            }
-            int usage = (int) allRecipes.stream().filter(recipe -> recipe.contains(card)).count();
-            if (usage < fewestRecipes || (usage == fewestRecipes && random.nextBoolean())) {
-                fewestRecipes = usage;
-                leastUseful = card;
-            }
-        }
-        return leastUseful;
-    }
-
     private record MobCluster(Vector3 center, int count) {}
 
-    private record ScoredPlay(List<CardType> recipe,
+    private record ScoredPlay(long magicId,
                               Vector3 target,
                               int cost,
                               double score,
@@ -553,7 +494,7 @@ public class BotBrain {
                               String ruleId,
                               String reason) {
         private InputDecision toDecision() {
-            return new InputDecision(recipe, target, ruleId, reason);
+            return new InputDecision(magicId, target, ruleId, reason);
         }
     }
 }

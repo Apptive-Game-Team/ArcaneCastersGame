@@ -11,7 +11,6 @@ import com.wordonline.server.game.domain.GameSessionData;
 import com.wordonline.server.game.domain.Parameters;
 import com.wordonline.server.game.domain.PlayerData;
 import com.wordonline.server.game.domain.SessionObject;
-import com.wordonline.server.game.domain.magic.CardType;
 import com.wordonline.server.game.dto.frame.ObjectsInfoDto;
 import com.wordonline.server.game.dto.frame.SnapshotResponseDto;
 import com.wordonline.server.game.dto.sync.SyncInfoDto;
@@ -42,8 +41,8 @@ class SyncFrameDataSystemBroadcastTest {
     private static final String BROADCAST_DESTINATION = "/game/session-1/frameInfos/0";
     private static final long LEFT_USER_ID = 11L;
     private static final long RIGHT_USER_ID = 22L;
-    private static final List<CardType> LEFT_HAND = List.of(CardType.Water, CardType.Fire);
-    private static final List<CardType> RIGHT_HAND = List.of(CardType.Rock);
+    private static final List<Long> LEFT_HAND = List.of(2L, 1L);
+    private static final List<Long> RIGHT_HAND = List.of(4L);
 
     private final SimpMessagingTemplate template = mock(SimpMessagingTemplate.class);
     private final SpectatorSubscriptionRegistry registry = mock(SpectatorSubscriptionRegistry.class);
@@ -116,6 +115,6 @@ class SyncFrameDataSystemBroadcastTest {
     }
 
     private PlayerData playerData() {
-        return new PlayerData(mock(ManaCharger.class), mock(Parameters.class));
+        return new PlayerData(mock(ManaCharger.class));
     }
 }

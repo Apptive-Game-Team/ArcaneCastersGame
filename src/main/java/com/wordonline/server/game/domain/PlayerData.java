@@ -1,6 +1,5 @@
 package com.wordonline.server.game.domain;
 
-import com.wordonline.server.game.domain.magic.CardType;
 import com.wordonline.server.game.service.ManaCharger;
 
 import java.util.ArrayList;
@@ -22,13 +21,12 @@ public class PlayerData {
 
     public final ManaCharger manaCharger;
 
-    private final Parameters parameters;
-
     // Mutated only by the loop thread, so the check-then-act methods below need no locking, and
     // the bot reads a copy taken by BotEye.observe rather than these fields.
     public int mana = 0;
     public int hp;
-    public List<CardType> cards = new ArrayList<>();
+    // A card in hand is one magic, held as its magics.id.
+    public List<Long> cards = new ArrayList<>();
 
     // charge mana up to max
     public void addMana(int delta, int max) {
@@ -44,38 +42,32 @@ public class PlayerData {
     }
 
     // validate and add card
-    public boolean addCard(CardType card) {
+    public boolean addCard(long magicId) {
         if (MAX_CARD_NUM >= cards.size() + 1) {
-            cards.add(card);
+            cards.add(magicId);
             return true;
         }
         return false;
     }
 
-    public boolean validCardsUse(List<CardType> cards) {
-        int totalManaCost = 0;
-        List<CardType> tempCards = new ArrayList<>(this.cards);
-        for (CardType card : cards) {
-            totalManaCost += (int) parameters.getValue(card.name().toLowerCase(), "mana_cost");
-            if (!tempCards.remove(card)) {
-                log.trace("temp cards: {}, trying card {}", tempCards, card);
-                return false;
-            }
+    // The mana cost belongs to the magic, so the caller reads it and passes it in; PlayerData only
+    // decides whether the hand holds the card and whether the pool covers the cost.
+    public boolean validCardUse(long magicId, int manaCost) {
+        if (!cards.contains(magicId)) {
+            log.trace("hand: {}, trying magic {}", cards, magicId);
+            return false;
         }
-        return totalManaCost <= mana;
+        return manaCost <= mana;
     }
 
-    // validate and use cards
-    public boolean useCards(List<CardType> cards) {
-        if (!validCardsUse(cards)) {
+    // validate and use one card
+    public boolean useCard(long magicId, int manaCost) {
+        if (!validCardUse(magicId, manaCost)) {
             return false;
         }
 
-        for (CardType card : cards) {
-            this.cards.remove(card);
-            mana -= (int) parameters.getValue(card.name().toLowerCase(), "mana_cost");
-        }
-
+        cards.remove(Long.valueOf(magicId));
+        mana -= manaCost;
         return true;
     }
 }
