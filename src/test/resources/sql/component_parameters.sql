@@ -31,6 +31,14 @@ WHERE NOT EXISTS (
 );
 
 INSERT INTO parameters(name)
+SELECT 'push_range_z'
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM parameters
+    WHERE name = 'push_range_z'
+);
+
+INSERT INTO parameters(name)
 SELECT 'spawn_height'
 WHERE NOT EXISTS (
     SELECT 1
@@ -167,9 +175,21 @@ WHERE go.name = 'wind_totem'
   );
 
 INSERT INTO parameter_values(game_object_id, parameter_id, value)
-SELECT go.id, p.id, 3
+SELECT go.id, p.id, 1
 FROM game_objects go
 JOIN parameters p ON p.name = 'push_range_y'
+WHERE go.name = 'wind_totem'
+  AND NOT EXISTS (
+      SELECT 1
+      FROM parameter_values pv
+      WHERE pv.game_object_id = go.id
+        AND pv.parameter_id = p.id
+  );
+
+INSERT INTO parameter_values(game_object_id, parameter_id, value)
+SELECT go.id, p.id, 3
+FROM game_objects go
+JOIN parameters p ON p.name = 'push_range_z'
 WHERE go.name = 'wind_totem'
   AND NOT EXISTS (
       SELECT 1
