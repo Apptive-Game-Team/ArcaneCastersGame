@@ -2,20 +2,14 @@ package com.wordonline.server.game.domain.object.prefab.implement.water;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.wordonline.server.game.domain.Parameters;
 import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.Vector3;
-import com.wordonline.server.game.domain.object.component.Component;
 import com.wordonline.server.game.domain.object.component.PathSpawner;
 import com.wordonline.server.game.domain.object.component.mob.detector.TargetMask;
 import com.wordonline.server.game.domain.object.component.mob.statemachine.attacker.SeaSerpentMob;
@@ -24,6 +18,7 @@ import com.wordonline.server.game.domain.object.prefab.PrefabType;
 import com.wordonline.server.game.domain.parameter.GameObjectKey;
 import com.wordonline.server.game.domain.parameter.GameObjectParameters;
 import com.wordonline.server.game.domain.parameter.ParameterKey;
+import com.wordonline.server.game.dto.Master;
 import com.wordonline.server.game.service.GameContext;
 
 class SeaSerpentPrefabInitializerTest {
@@ -32,8 +27,6 @@ class SeaSerpentPrefabInitializerTest {
     void initializesAnyTargetBeamAttackerAndWaterFieldTrail() {
         Parameters parameters = mock(Parameters.class);
         GameObjectParameters values = mock(GameObjectParameters.class);
-        GameObject seaSerpent = mock(GameObject.class);
-        List<Component> components = new ArrayList<>();
 
         when(parameters.object(GameObjectKey.SEA_SERPENT)).thenReturn(values);
         when(values.intValue(ParameterKey.MASS)).thenReturn(10);
@@ -44,13 +37,17 @@ class SeaSerpentPrefabInitializerTest {
         when(values.floatValue(ParameterKey.ATTACK_INTERVAL)).thenReturn(3.5f);
         when(values.floatValue(ParameterKey.ATTACK_RANGE)).thenReturn(7f);
         when(values.floatValue(ParameterKey.BEAM_WIDTH)).thenReturn(1f);
-        when(seaSerpent.getPosition()).thenReturn(Vector3.ZERO);
-        when(seaSerpent.getGameContext()).thenReturn(mock(GameContext.class));
-        when(seaSerpent.getComponents()).thenReturn(components);
+
+        GameObject seaSerpent = new GameObject(
+                Master.LeftPlayer,
+                PrefabType.SeaSerpent,
+                Vector3.ZERO,
+                mock(GameContext.class)
+        );
 
         new SeaSerpentPrefabInitializer(parameters).initialize(seaSerpent);
 
-        SeaSerpentMob mob = components.stream()
+        SeaSerpentMob mob = seaSerpent.getComponentsToAdd().stream()
                 .filter(SeaSerpentMob.class::isInstance)
                 .map(SeaSerpentMob.class::cast)
                 .findFirst()
@@ -60,7 +57,7 @@ class SeaSerpentPrefabInitializerTest {
                 .isEqualTo(TargetMask.ANY.bit);
         assertThat(ReflectionTestUtils.getField(mob, "attackRange")).isEqualTo(7f);
 
-        PathSpawner pathSpawner = components.stream()
+        PathSpawner pathSpawner = seaSerpent.getComponentsToAdd().stream()
                 .filter(PathSpawner.class::isInstance)
                 .map(PathSpawner.class::cast)
                 .findFirst()
@@ -69,8 +66,7 @@ class SeaSerpentPrefabInitializerTest {
                 .isEqualTo(PrefabType.WaterField);
         assertThat(ReflectionTestUtils.getField(pathSpawner, "interval")).isEqualTo(1f);
 
-        ArgumentCaptor<CircleCollider> collider = ArgumentCaptor.forClass(CircleCollider.class);
-        verify(seaSerpent).addCollider(collider.capture());
-        assertThat(collider.getValue().getRadius()).isEqualTo(1.2f);
+        CircleCollider collider = seaSerpent.getFirstCircleCollider().orElseThrow();
+        assertThat(collider.getRadius()).isEqualTo(1.2f);
     }
 }

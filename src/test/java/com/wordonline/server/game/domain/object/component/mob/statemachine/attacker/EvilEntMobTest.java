@@ -263,7 +263,9 @@ class EvilEntMobTest {
                 entObject,
                 180,
                 0.45f,
-                TargetMask.GROUND.bit,
+                // EvilEntPrefabInitializer builds the real ent with ANY, and BehaviorMob rejects a
+                // target whose mask is not in this one, so GROUND here would drop every aerial victim.
+                TargetMask.ANY.bit,
                 9,
                 1.8f,
                 5f,
