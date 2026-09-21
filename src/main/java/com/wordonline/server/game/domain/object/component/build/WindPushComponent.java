@@ -1,6 +1,5 @@
 package com.wordonline.server.game.domain.object.component.build;
 
-import com.wordonline.server.game.config.GameConfig;
 import com.wordonline.server.game.domain.debug.GizmoCategory;
 import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.Vector3;
@@ -18,15 +17,14 @@ public class WindPushComponent extends Component {
     private final Vector3 boxSize;
     private float pushTimer;
 
-    // pushRangeX/pushRangeZ are ground-plane extents (X-Z); the box is built here so a caller
-    // can no longer hand the ground depth to the wrong axis of a raw Vector3.
-    public WindPushComponent(GameObject gameObject, float pushForce, float pushRangeX, float pushRangeZ) {
+    // boxSize.y (push_range_y) stays at 1, well under AERIAL_STANDARD_HEIGHT (2): the box's y
+    // range is [0, boxSize.y], so it only ever reaches ground mobs (y=0). Aerial mobs hover at
+    // AERIAL_MOB_INIT_HEIGHT (3) via ZPhysics and are never inside that range. Raising
+    // push_range_y towards or past AERIAL_STANDARD_HEIGHT would start pulling aerial mobs in.
+    public WindPushComponent(GameObject gameObject, float pushForce, Vector3 boxSize) {
         super(gameObject);
         this.pushForce = pushForce;
-        // AERIAL_STANDARD_HEIGHT keeps the box under TargetMask's ground/air split so aerial
-        // mobs stay unaffected; no mob ever hovers at exactly that height (aerial mobs hover at
-        // AERIAL_MOB_INIT_HEIGHT instead), so the box's inclusive upper bound is not a boundary risk.
-        this.boxSize = new Vector3(pushRangeX, GameConfig.AERIAL_STANDARD_HEIGHT, pushRangeZ);
+        this.boxSize = boxSize;
     }
 
     @Override

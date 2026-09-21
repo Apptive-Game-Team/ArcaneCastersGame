@@ -1,6 +1,5 @@
 package com.wordonline.server.game.domain.object.component.build;
 
-import com.wordonline.server.game.config.GameConfig;
 import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.Vector3;
 import com.wordonline.server.game.domain.object.component.Component;
@@ -40,7 +39,7 @@ class WindPushComponentTest {
         when(gameContext.getDeltaTime()).thenReturn(0.25f);
         when(physics.overlapBoxAll(any(), any())).thenReturn(List.of(enemy, ally));
 
-        WindPushComponent windPush = new WindPushComponent(totem, 10f, 6f, 3f);
+        WindPushComponent windPush = new WindPushComponent(totem, 10f, new Vector3(6f, 1f, 3f));
         windPush.update();
         windPush.update();
         windPush.update();
@@ -64,9 +63,9 @@ class WindPushComponentTest {
         when(gameContext.getDeltaTime()).thenReturn(0.25f);
         when(physics.overlapBoxAll(any(), any())).thenReturn(List.of());
 
-        // push_range_x=6 (X), push_range_y=3 (fed as the ground-plane Z depth, per the totem's
-        // database parameter naming) -> a 6-wide, 3-deep ground box, not 6 x 1.
-        WindPushComponent windPush = new WindPushComponent(totem, 10f, 6f, 3f);
+        // push_range_x=6 (X), push_range_y=1 (Y, height), push_range_z=3 (Z, ground depth) ->
+        // a 6-wide, 3-deep ground box, not 6 x 1.
+        WindPushComponent windPush = new WindPushComponent(totem, 10f, new Vector3(6f, 1f, 3f));
         windPush.update();
 
         ArgumentCaptor<Vector3> centerCaptor = ArgumentCaptor.forClass(Vector3.class);
@@ -75,14 +74,14 @@ class WindPushComponentTest {
 
         Vector3 size = sizeCaptor.getValue();
         assertThat(size.getX()).isEqualTo(6f);
+        assertThat(size.getY()).isEqualTo(1f);
         assertThat(size.getZ()).isEqualTo(3f);
-        assertThat(size.getY()).isEqualTo(GameConfig.AERIAL_STANDARD_HEIGHT);
 
         // LeftPlayer's totem pushes towards +X (RIGHT); the box sits ground-up, so its center
         // y is half the box height rather than the totem's own y.
         Vector3 center = centerCaptor.getValue();
         assertThat(center.getX()).isEqualTo(4f + 6f / 2);
-        assertThat(center.getY()).isEqualTo(GameConfig.AERIAL_STANDARD_HEIGHT / 2);
+        assertThat(center.getY()).isEqualTo(1f / 2);
         assertThat(center.getZ()).isEqualTo(5f);
     }
 
