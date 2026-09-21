@@ -7,7 +7,6 @@ import com.wordonline.server.game.domain.parameter.GameObjectKey;
 import com.wordonline.server.game.domain.parameter.ParameterKey;
 import com.wordonline.server.game.domain.magic.ElementType;
 import com.wordonline.server.game.domain.object.GameObject;
-import com.wordonline.server.game.domain.object.Vector3;
 import com.wordonline.server.game.domain.object.component.TimedSelfDestroyer;
 import com.wordonline.server.game.domain.object.component.build.WindPushComponent;
 import com.wordonline.server.game.domain.object.component.effect.receiver.CommonEffectReceiver;
@@ -34,14 +33,13 @@ public class WindTotemPrefabInitializer extends PrefabInitializer {
         gameObject.addCollider(new CircleCollider(gameObject, windTotemParameters.floatValue(ParameterKey.RADIUS), false));
 
         gameObject.addComponent(new DummyMob(gameObject, windTotemParameters.intValue(ParameterKey.HP)));
+        // PUSH_RANGE_Y is the parameter's database name; it feeds the ground-plane Z depth here,
+        // not the height axis, so the pushed area sits flat on the ground like everything else.
         gameObject.addComponent(new WindPushComponent(
                 gameObject,
                 windTotemParameters.floatValue(ParameterKey.PUSH_FORCE),
-                new Vector3(
-                        windTotemParameters.floatValue(ParameterKey.PUSH_RANGE_X),
-                        windTotemParameters.floatValue(ParameterKey.PUSH_RANGE_Y),
-                        1.0f
-                )));
+                windTotemParameters.floatValue(ParameterKey.PUSH_RANGE_X),
+                windTotemParameters.floatValue(ParameterKey.PUSH_RANGE_Y)));
 
         gameObject.addComponent(new TimedSelfDestroyer(
                 gameObject,
