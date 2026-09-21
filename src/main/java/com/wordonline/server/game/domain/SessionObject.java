@@ -53,6 +53,21 @@ public class SessionObject {
         }
     }
 
+    /**
+     * The user id playing that side, or {@code null} when the side is unknown. The reverse of
+     * {@link #getUserSide(long)}: the bot input path carries only the side, so anything that has
+     * to name the caster - match statistics, for one - resolves the id back through here.
+     */
+    public Long getUserId(Master master) {
+        if (master == Master.LeftPlayer) {
+            return leftUserId;
+        } else if (master == Master.RightPlayer) {
+            return rightUserId;
+        } else {
+            return null;
+        }
+    }
+
     public boolean isLeftBot() {
         return leftUserId < 0;
     }
