@@ -28,6 +28,7 @@ public enum ParameterKey {
     PUSH_FORCE("push_force"),
     PUSH_RANGE_X("push_range_x"),
     PUSH_RANGE_Y("push_range_y"),
+    PUSH_RANGE_Z("push_range_z"),
     PANIC_DURATION("panic_duration"),
     QUANTITY("quantity"),
     RADIUS("radius"),
