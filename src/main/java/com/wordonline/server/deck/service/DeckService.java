@@ -18,6 +18,10 @@ import java.util.stream.Stream;
 @RequiredArgsConstructor
 public class DeckService {
 
+    // Same contract as the lobby's DeckValidator.DECK_CARD_COUNT: both servers must agree on
+    // how many cards one deck holds, so change them together.
+    private static final int DECK_CARD_COUNT = 15;
+
     private final DeckRepository deckRepository;
 
     /** The deck as it is dealt: one entry per physical card, each entry a magics.id. */
@@ -67,16 +71,12 @@ public class DeckService {
         return magicIds.stream().map(cards::get).toList();
     }
 
+    // Card count and magic existence are all this server can check. There is no copy limit any
+    // more - fifteen copies of one magic is a legal deck - and ownership is the lobby's check.
     private void validateDeckSnapshot(List<Long> magicIds) {
-        if (magicIds.size() != 15) {
-            throw new IllegalArgumentException("Deck must contain exactly 15 cards");
-        }
-        boolean exceedsCopyLimit = magicIds.stream()
-                .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()))
-                .values().stream()
-                .anyMatch(count -> count > 3);
-        if (exceedsCopyLimit) {
-            throw new IllegalArgumentException("Deck contains more than three copies of a magic");
+        if (magicIds.size() != DECK_CARD_COUNT) {
+            throw new IllegalArgumentException(
+                    "Deck must contain exactly " + DECK_CARD_COUNT + " cards");
         }
         getCardsByMagicIds(magicIds);
     }
