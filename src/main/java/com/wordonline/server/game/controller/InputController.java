@@ -3,6 +3,10 @@ package com.wordonline.server.game.controller;
 import com.wordonline.server.auth.domain.PrincipalDetails;
 import com.wordonline.server.session.service.SessionService;
 import com.wordonline.server.game.domain.SessionObject;
+import com.wordonline.server.game.dto.Emote;
+import com.wordonline.server.game.dto.Master;
+import com.wordonline.server.game.dto.frame.EmoteFrameDto;
+import com.wordonline.server.game.dto.input.EmoteRequestDto;
 import com.wordonline.server.game.dto.input.InputRequestDto;
 import com.wordonline.server.game.dto.input.InputResponseDto;
 import com.wordonline.server.game.dto.input.MagicUseRequestDto;
@@ -67,6 +71,21 @@ public class InputController {
             case "ping" -> {
                 log.trace("ping arrived {}", userId);
                 sessionObject.getPingChecker().ping(userId);
+            }
+            case "emote" -> {
+                log.trace("emote arrived {}", userId);
+                EmoteRequestDto emoteRequest = inputRequestDto.toEmote();
+                Emote emote;
+                try {
+                    emote = Emote.valueOf(emoteRequest.emote());
+                } catch (IllegalArgumentException | NullPointerException e) {
+                    log.warn("Unknown emote from user {}: {}", userId, emoteRequest.emote());
+                    return;
+                }
+                Master side = sessionObject.getUserSide(userId);
+                if (sessionObject.tryConsumeEmoteCooldown(side)) {
+                    sessionObject.sendEmote(new EmoteFrameDto(side, emote));
+                }
             }
             case "selectCard" -> {
                 log.trace("selectCard arrived {}", userId);

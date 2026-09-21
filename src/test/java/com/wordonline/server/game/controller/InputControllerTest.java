@@ -19,8 +19,10 @@ import org.springframework.test.util.ReflectionTestUtils;
 import com.wordonline.server.auth.domain.PrincipalDetails;
 import com.wordonline.server.game.domain.SessionObject;
 import com.wordonline.server.game.domain.object.Vector3;
+import com.wordonline.server.game.dto.Emote;
 import com.wordonline.server.game.dto.Master;
 import com.wordonline.server.game.dto.PingChecker;
+import com.wordonline.server.game.dto.frame.EmoteFrameDto;
 import com.wordonline.server.game.dto.input.InputRequestDto;
 import com.wordonline.server.game.dto.input.InputResponseDto;
 import com.wordonline.server.game.dto.input.InputResultCode;
@@ -118,6 +120,47 @@ class InputControllerTest {
         drainQueuedAction("selectCard");
 
         verify(gameContext).selectCard(7L, 34L);
+    }
+
+    // Emotes touch no game state, so the send happens on this thread directly instead of through
+    // the queue the other cases use.
+    @Test
+    void sendsEmoteOnTheInboundThreadInsteadOfQueuingIt() {
+        when(sessionObject.getUserSide(7L)).thenReturn(Master.LeftPlayer);
+        when(sessionObject.tryConsumeEmoteCooldown(Master.LeftPlayer)).thenReturn(true);
+
+        controller.handleInput("room-5", 7L, emoteRequest("Laugh"), principal(7L));
+
+        verify(sessionObject).sendEmote(new EmoteFrameDto(Master.LeftPlayer, Emote.Laugh));
+        verify(gameContext, never()).submitAction(any(), any());
+    }
+
+    @Test
+    void dropsEmoteWhenTheCooldownIsStillActive() {
+        when(sessionObject.getUserSide(7L)).thenReturn(Master.LeftPlayer);
+        when(sessionObject.tryConsumeEmoteCooldown(Master.LeftPlayer)).thenReturn(false);
+
+        controller.handleInput("room-5", 7L, emoteRequest("Laugh"), principal(7L));
+
+        verify(sessionObject, never()).sendEmote(any());
+    }
+
+    @Test
+    void dropsAnUnknownEmoteNameWithoutThrowing() {
+        when(sessionObject.getUserSide(7L)).thenReturn(Master.LeftPlayer);
+
+        assertThatCode(() -> controller.handleInput("room-5", 7L, emoteRequest("NotAnEmote"), principal(7L)))
+                .doesNotThrowAnyException();
+
+        verify(sessionObject, never()).tryConsumeEmoteCooldown(any());
+        verify(sessionObject, never()).sendEmote(any());
+    }
+
+    private static InputRequestDto emoteRequest(String emote) {
+        InputRequestDto dto = new InputRequestDto();
+        dto.setType("emote");
+        dto.setEmote(emote);
+        return dto;
     }
 
     private static InputRequestDto magicRequest() {
