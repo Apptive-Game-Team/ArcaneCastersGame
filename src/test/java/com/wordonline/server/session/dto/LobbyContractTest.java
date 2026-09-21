@@ -107,6 +107,33 @@ class LobbyContractTest {
         assertThat(json.properties())
                 .extracting(java.util.Map.Entry::getKey)
                 .containsExactlyInAnyOrder(
-                        "attemptId", "sessionId", "uid1", "uid2", "sessionType", "scenarioId");
+                        "attemptId", "sessionId", "uid1", "uid2", "sessionType", "scenarioId",
+                        "leftDeckCardIds", "rightDeckCardIds");
+    }
+
+    @Test
+    void 매칭_덱_스냅샷은_마법_아이디_배열로_온다() throws IOException {
+        // The fixture carries the two deck fields as null because a selected-deck match sends
+        // no snapshot. A random-deck match fills them, so pin the element type here: a string
+        // array on the lobby side would bind to null and silently fall back to the selected deck.
+        ObjectNode withDecks = (ObjectNode) objectMapper.readTree(fixture("create-session-request.json"));
+        withDecks.set("leftDeckCardIds", objectMapper.valueToTree(java.util.List.of(1L, 1L, 7L)));
+        withDecks.set("rightDeckCardIds", objectMapper.valueToTree(java.util.List.of(9L, 12L)));
+
+        CreateSessionRequest request =
+                objectMapper.readValue(withDecks.toString(), CreateSessionRequest.class);
+
+        assertThat(request.leftDeckCardIds()).containsExactly(1L, 1L, 7L);
+        assertThat(request.rightDeckCardIds()).containsExactly(9L, 12L);
+        assertThat(request.toSessionDto().leftDeckCardIds()).containsExactly(1L, 1L, 7L);
+    }
+
+    @Test
+    void 스냅샷_없는_요청은_덱_필드가_비어서_온다() throws IOException {
+        CreateSessionRequest request =
+                objectMapper.readValue(fixture("create-session-request.json"), CreateSessionRequest.class);
+
+        assertThat(request.leftDeckCardIds()).isNull();
+        assertThat(request.rightDeckCardIds()).isNull();
     }
 }
