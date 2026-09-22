@@ -1,6 +1,7 @@
 package com.wordonline.server.game.domain.bot;
 
 import com.wordonline.server.bot.domain.BotPersona;
+import com.wordonline.server.bot.domain.BotTemperament;
 import com.wordonline.server.bot.domain.BotTier;
 import com.wordonline.server.game.domain.Parameters;
 import com.wordonline.server.game.domain.magic.Magic;
@@ -95,7 +96,7 @@ class BotBrainComboTest {
         when(parser.getAllMagics()).thenReturn(List.of(hand));
         BotCounterEvaluator counterEvaluator = mock(BotCounterEvaluator.class);
         when(counterEvaluator.evaluate(any(), any())).thenReturn(0.0);
-        BotPersona persona = new BotPersona(1, "test", tier, 0, 1, 0, true, false);
+        BotPersona persona = new BotPersona(1, "test", tier, 0, 1, 0, true, false, BotTemperament.WARM);
         return new BotBrain(parser, counterEvaluator, persona);
     }
 

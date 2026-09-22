@@ -2,6 +2,7 @@ package com.wordonline.server.bot.service;
 
 import com.wordonline.server.bot.domain.BotParticipant;
 import com.wordonline.server.bot.domain.BotPersona;
+import com.wordonline.server.bot.domain.BotTemperament;
 import com.wordonline.server.bot.dto.BotPersonaRequestDto;
 import com.wordonline.server.bot.repository.BotPersonaRepository;
 import lombok.RequiredArgsConstructor;
@@ -90,7 +91,8 @@ public class BotPersonaService {
                 Math.max(1, requestDto.reactionIntervalFrames()),
                 Math.max(-1.0, Math.min(1.0, requestDto.counterAggression())),
                 requestDto.enabled(),
-                requestDto.hospitality()
+                requestDto.hospitality(),
+                requestDto.temperament() == null ? BotTemperament.WARM : requestDto.temperament()
         );
     }
 }

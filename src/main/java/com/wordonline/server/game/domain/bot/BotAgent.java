@@ -1,11 +1,14 @@
 package com.wordonline.server.game.domain.bot;
 
 import com.wordonline.server.bot.domain.BotPersona;
+import com.wordonline.server.game.domain.GameSessionData;
 import com.wordonline.server.game.domain.SessionObject;
 import com.wordonline.server.game.domain.magic.parser.DatabaseMagicParser;
 import com.wordonline.server.game.domain.object.Vector3;
 import com.wordonline.server.game.domain.magic.parser.MagicParser;
+import com.wordonline.server.game.dto.Emote;
 import com.wordonline.server.game.dto.bot.BotThoughtInfoDto;
+import com.wordonline.server.game.dto.frame.EmoteFrameDto;
 import com.wordonline.server.game.dto.input.InputRequestDto;
 import com.wordonline.server.game.dto.Master;
 import com.wordonline.server.game.service.GameLoop;
@@ -29,6 +32,7 @@ public final class BotAgent {
     private final Master botSide;
     private final BotPersona persona;
     private final CastDeadline castDeadline;
+    private final BotEmoteDirector emoteDirector;
 
     // Written by the bot executor thread in onTick and read by the loop thread in shouldProcess.
     // Only one onTick runs at a time (BotAgentSystem gates it with a CAS), so the two threads never
@@ -54,7 +58,31 @@ public final class BotAgent {
         this.botSide = botSide;
         this.persona = persona;
         this.castDeadline = CastDeadline.forTier(persona.tier(), System.currentTimeMillis());
+        this.emoteDirector = new BotEmoteDirector(persona.normalizedTemperament());
         log.debug("BotAgent initialized for side: {}, persona: {}", botSide, persona.name());
+    }
+
+    /**
+     * Sends the emote the bot's temperament asks for on this frame, if any.
+     *
+     * <p>Runs on the loop thread, not on the bot executor, so it reads the live health of both
+     * sides rather than a {@link BotEye} snapshot. The bot goes through the same cooldown a player
+     * does; an emote the cooldown refuses is dropped, which is that cooldown's own contract.
+     */
+    public void updateEmote(GameSessionData gameSessionData, long nowMillis) {
+        int ownHp = BotSideUtil.getPlayerData(gameSessionData, botSide).hp;
+        int enemyHp = BotSideUtil.getPlayerData(gameSessionData, BotSideUtil.getEnemySide(botSide)).hp;
+
+        Emote emote = emoteDirector.nextEmote(nowMillis, ownHp, enemyHp);
+        if (emote == null) {
+            return;
+        }
+        if (!sessionObject.tryConsumeEmoteCooldown(botSide)) {
+            log.debug("[BotAgent {}] Emote {} dropped by the cooldown", botSide, emote);
+            return;
+        }
+        log.debug("[BotAgent {}] Emote {}", botSide, emote);
+        sessionObject.sendEmote(new EmoteFrameDto(botSide, emote));
     }
 
     public boolean shouldProcess(int currentFrame) {

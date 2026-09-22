@@ -38,6 +38,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import com.wordonline.server.bot.domain.BotPersona;
+import com.wordonline.server.bot.domain.BotTemperament;
 import com.wordonline.server.bot.domain.BotTier;
 import com.wordonline.server.bot.service.BotPersonaService;
 
@@ -105,7 +106,8 @@ class SessionServiceTest {
 
     private SessionDto hospitalityPracticeDto(String sessionId, long leftUserId, long rightUserId) {
         when(botPersonaService.findByParticipantIdOrDefault(rightUserId))
-                .thenReturn(new BotPersona(rightUserId, "Host", BotTier.HOSPITALITY, 1200, 30, -1.0, true, true));
+                .thenReturn(new BotPersona(rightUserId, "Host", BotTier.HOSPITALITY, 1200, 30, -1.0, true, true,
+                        BotTemperament.WARM));
         return practiceDto(sessionId, leftUserId, rightUserId);
     }
 
@@ -115,7 +117,8 @@ class SessionServiceTest {
 
     private SessionObject hospitalityPracticeSession(String sessionId, long leftUserId, long rightUserId) {
         when(botPersonaService.findByParticipantIdOrDefault(rightUserId))
-                .thenReturn(new BotPersona(rightUserId, "Host", BotTier.HOSPITALITY, 1200, 30, -1.0, true, true));
+                .thenReturn(new BotPersona(rightUserId, "Host", BotTier.HOSPITALITY, 1200, 30, -1.0, true, true,
+                        BotTemperament.WARM));
         return practiceSession(sessionId, leftUserId, rightUserId);
     }
 
