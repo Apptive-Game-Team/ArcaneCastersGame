@@ -1,6 +1,7 @@
 package com.wordonline.server.game.domain.bot;
 
 import com.wordonline.server.bot.domain.BotPersona;
+import com.wordonline.server.bot.domain.BotTemperament;
 import com.wordonline.server.bot.domain.BotTier;
 import com.wordonline.server.game.domain.Parameters;
 import com.wordonline.server.game.domain.magic.Magic;
@@ -109,7 +110,7 @@ class BotBrainTest {
     @Test
     void hospitalityPrefersThePlayTheFieldAnswersEvenWithAPositivePersonaValue() {
         BotBrain.InputDecision decision = think(
-                new BotPersona(-1, "Host", BotTier.HOSPITALITY, 0, 1, 1.0, true, true),
+                new BotPersona(-1, "Host", BotTier.HOSPITALITY, 0, 1, 1.0, true, true, BotTemperament.WARM),
                 hand(FAVOURABLE, LOSING));
 
         assertThat(decision).isNotNull();
@@ -194,7 +195,7 @@ class BotBrainTest {
     }
 
     private BotPersona hospitalityPersona() {
-        return new BotPersona(-1, "Host", BotTier.HOSPITALITY, 0, 1, -1.0, true, true);
+        return new BotPersona(-1, "Host", BotTier.HOSPITALITY, 0, 1, -1.0, true, true, BotTemperament.WARM);
     }
 
     private void manaCost(Magic magic, double cost) {
@@ -229,6 +230,7 @@ class BotBrainTest {
     // ELITE keeps the noise amplitude at 0, so the ranking is never thrown away and the assertion is
     // about the score rather than about a coin flip.
     private static BotPersona persona(double counterAggression) {
-        return new BotPersona(-1, "Test", BotTier.ELITE, 0, 1, counterAggression, true, false);
+        return new BotPersona(-1, "Test", BotTier.ELITE, 0, 1, counterAggression, true, false,
+                BotTemperament.WARM);
     }
 }

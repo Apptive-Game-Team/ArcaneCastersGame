@@ -43,6 +43,20 @@ public class BotAgentSystem implements GameSystem {
 
         submitBotIfNeeded(wordOnlineLoop.getRightBotAgent(), currentFrame, rightBotProcessing,
                 gameContext, Master.RightPlayer, "Right");
+
+        // Emotes are decided here, on the loop thread, rather than inside the executor tick: the
+        // director reads the health of both sides live and sends through the session directly, and
+        // it is cheap enough to ask every frame.
+        long nowMillis = System.currentTimeMillis();
+        updateEmote(wordOnlineLoop.getLeftBotAgent(), gameContext, nowMillis);
+        updateEmote(wordOnlineLoop.getRightBotAgent(), gameContext, nowMillis);
+    }
+
+    private void updateEmote(BotAgent botAgent, GameContext gameContext, long nowMillis) {
+        if (botAgent == null) {
+            return;
+        }
+        botAgent.updateEmote(gameContext.getGameSessionData(), nowMillis);
     }
 
     private void submitBotIfNeeded(BotAgent botAgent,

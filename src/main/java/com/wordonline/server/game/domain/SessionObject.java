@@ -16,6 +16,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 
 @Getter
@@ -42,6 +43,13 @@ public class SessionObject {
     // Session ids are random UUIDs, so a room list ordered by id says nothing about age. The admin
     // page needs this to tell a session created seconds ago from one that has been running for a while.
     private final Instant createdAt = Instant.now();
+
+    // Emote input runs on a STOMP inbound thread, not on the loop thread, so several requests for
+    // the same side can race here. The deadline is read and swapped with compareAndSet instead of a
+    // lock; a losing thread's emote is simply dropped, which is the cooldown's own contract.
+    private static final long EMOTE_COOLDOWN_MILLIS = 3_000;
+    private final AtomicLong leftEmoteCooldownUntilMillis = new AtomicLong(0);
+    private final AtomicLong rightEmoteCooldownUntilMillis = new AtomicLong(0);
 
     public Master getUserSide(long userId) {
         if (userId == leftUserId) {
@@ -177,11 +185,51 @@ public class SessionObject {
 
     /** Sends bot telemetry through the same destinations used for frame information. */
     public void sendBotThought(Object data) {
+        sendToBothPlayersAndSpectators(data);
+    }
+
+    /** Sends an emote through the same destinations used for frame information. */
+    public void sendEmote(Object data) {
+        sendToBothPlayersAndSpectators(data);
+    }
+
+    private void sendToBothPlayersAndSpectators(Object data) {
         sendFrameInfo(leftUserId, data);
         if (rightUserId != leftUserId) {
             sendFrameInfo(rightUserId, data);
         }
         broadcastFrameInfo(data);
+    }
+
+    /**
+     * Consumes the emote cooldown for {@code side} if it is currently free.
+     *
+     * @return {@code true} when the caller may send the emote, {@code false} when it lands inside
+     *         the previous emote's cooldown window and must be dropped silently.
+     */
+    public boolean tryConsumeEmoteCooldown(Master side) {
+        AtomicLong cooldownUntilMillis = emoteCooldownFor(side);
+        if (cooldownUntilMillis == null) {
+            return false;
+        }
+
+        long now = System.currentTimeMillis();
+        long previousDeadline = cooldownUntilMillis.get();
+        if (now < previousDeadline) {
+            return false;
+        }
+
+        return cooldownUntilMillis.compareAndSet(previousDeadline, now + EMOTE_COOLDOWN_MILLIS);
+    }
+
+    private AtomicLong emoteCooldownFor(Master side) {
+        if (side == Master.LeftPlayer) {
+            return leftEmoteCooldownUntilMillis;
+        } else if (side == Master.RightPlayer) {
+            return rightEmoteCooldownUntilMillis;
+        } else {
+            return null;
+        }
     }
 
     private String destinationFor(long userId) {

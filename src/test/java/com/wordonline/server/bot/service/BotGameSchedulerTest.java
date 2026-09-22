@@ -2,6 +2,7 @@ package com.wordonline.server.bot.service;
 
 import com.wordonline.server.bot.config.BotAutoMatchProperties;
 import com.wordonline.server.bot.domain.BotPersona;
+import com.wordonline.server.bot.domain.BotTemperament;
 import com.wordonline.server.bot.domain.BotTier;
 import com.wordonline.server.game.domain.SessionType;
 import com.wordonline.server.server.config.ServerIdentityProperties;
@@ -284,7 +285,8 @@ class BotGameSchedulerTest {
                 8,
                 0.25,
                 true,
-                false
+                false,
+                BotTemperament.WARM
         );
     }
 }

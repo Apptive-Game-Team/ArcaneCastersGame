@@ -1,6 +1,7 @@
 package com.wordonline.server.bot.service;
 
 import com.wordonline.server.bot.domain.BotPersona;
+import com.wordonline.server.bot.domain.BotTemperament;
 import com.wordonline.server.bot.domain.BotTier;
 import com.wordonline.server.bot.dto.BotPersonaRequestDto;
 import com.wordonline.server.bot.repository.BotPersonaRepository;
@@ -68,17 +69,20 @@ class BotPersonaServiceTest {
     @Test
     void returnsEmptyWhenNoPersonaIsEnabled() {
         when(repository.findAll()).thenReturn(List.of(
-                new BotPersona(-7, "Disabled", BotTier.BEGINNER, 250, 8, 0.25, false, false)
+                new BotPersona(-7, "Disabled", BotTier.BEGINNER, 250, 8, 0.25, false, false,
+                        BotTemperament.WARM)
         ));
 
         assertThat(service.findRandomEnabled()).isEmpty();
     }
 
     private BotPersonaRequestDto request(long userId) {
-        return new BotPersonaRequestDto(userId, "Bot", BotTier.BEGINNER, 250, 8, 0.25, true, false);
+        return new BotPersonaRequestDto(userId, "Bot", BotTier.BEGINNER, 250, 8, 0.25, true, false,
+                BotTemperament.WARM);
     }
 
     private BotPersona persona(long userId) {
-        return new BotPersona(userId, "Bot", BotTier.BEGINNER, 250, 8, 0.25, true, false);
+        return new BotPersona(userId, "Bot", BotTier.BEGINNER, 250, 8, 0.25, true, false,
+                BotTemperament.WARM);
     }
 }
