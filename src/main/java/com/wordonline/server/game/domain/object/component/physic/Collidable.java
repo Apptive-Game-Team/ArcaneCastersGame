@@ -5,8 +5,8 @@ import com.wordonline.server.game.domain.object.GameObject;
 public interface Collidable {
 
     /**
-     * Called only when the two objects belong to different masters, so an object
-     * never damages or debuffs its own side.
+     * Called when the two objects belong to different masters, excluding map walls,
+     * so an object never damages or debuffs its own side or attacks a boundary.
      */
     void onCollisionWithEnemy(GameObject otherObject);
 
