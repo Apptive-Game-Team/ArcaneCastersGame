@@ -10,20 +10,21 @@ import com.wordonline.server.game.domain.object.component.physic.ZPhysics;
 import com.wordonline.server.game.dto.Effect;
 
 public class SnaredStatusEffect extends BaseStatusEffect {
-    private static final float SLOW_PERCENT = 0.5f;
     private final int removalDamage;
+    private final float slowPercent;
     private float originalSpeed;
 
-    public SnaredStatusEffect(GameObject owner, float duration, int removalDamage, StatusEffectKey key) {
+    public SnaredStatusEffect(GameObject owner, float duration, int removalDamage, float slowPercent, StatusEffectKey key) {
         super(owner, duration, key, Effect.Snared);
         this.removalDamage = removalDamage;
+        this.slowPercent = slowPercent;
     }
 
     @Override
     public void start() {
         Mob mob = gameObject.getComponent(Mob.class);
         if (mob != null) {
-            mob.getSpeed().setModifierPercent(-SLOW_PERCENT);
+            mob.getSpeed().setModifierPercent(-slowPercent);
         }
 
         ZPhysics zp = gameObject.getComponent(ZPhysics.class);
@@ -33,7 +34,7 @@ public class SnaredStatusEffect extends BaseStatusEffect {
 
         BehaviorMob behavior = gameObject.getComponent(BehaviorMob.class);
         if(behavior != null) {
-            behavior.getAttackInterval().setModifierPercent(SLOW_PERCENT);
+            behavior.getAttackInterval().setModifierPercent(slowPercent);
         }
     }
 

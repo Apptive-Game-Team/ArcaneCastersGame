@@ -8,7 +8,8 @@ VALUES
     (8, 'water_shot'),
     (9, 'fire_explosion'),
     (10, 'fire_slime_swarm'),
-    (11, 'cannon');
+    (11, 'cannon'),
+    (12, 'game');
 
 INSERT INTO parameters
 VALUES
@@ -20,7 +21,21 @@ VALUES
     (6, 'duration'),
     (7, 'mana_cost'),
     (8, 'range'),
-    (9, 'aim_shape');
+    (9, 'aim_shape'),
+    (10, 'building_snare_heal'),
+    (11, 'burn_duration'),
+    (12, 'burn_total_damage'),
+    (13, 'wet_duration'),
+    (14, 'wet_nature_heal'),
+    (15, 'shock_stun_duration'),
+    (16, 'shock_refresh_duration'),
+    (17, 'snare_duration'),
+    (18, 'snare_fire_damage'),
+    (19, 'snare_slow_percent'),
+    (20, 'leaf_field_heal_amount'),
+    (21, 'leaf_field_heal_duration'),
+    (22, 'sandstorm_effect_damage'),
+    (23, 'sandstorm_effect_duration');
 
 INSERT INTO parameter_values(game_object_id, parameter_id, value)
 VALUES
@@ -48,7 +63,14 @@ VALUES
     (8, 7, 25), (8, 8, 18), (8, 9, 1),
     (9, 7, 20), (9, 8, 9), (9, 9, 0),
     (10, 7, 25), (10, 8, 6), (10, 9, 0),
-    (11, 7, 30), (11, 8, 6), (11, 9, 0);
+    (11, 7, 30), (11, 8, 6), (11, 9, 0),
+
+    -- Shared status effect tuning mirrors the production migration.
+    (12, 10, 1), (12, 11, 3), (12, 12, 3),
+    (12, 13, 3), (12, 14, 3), (12, 15, 0.5),
+    (12, 16, 3), (12, 17, 3), (12, 18, 5),
+    (12, 19, 0.5), (12, 20, 1), (12, 21, 3),
+    (12, 22, 1), (12, 23, 0.5);
 
 INSERT INTO magics(id, name, element)
 VALUES
