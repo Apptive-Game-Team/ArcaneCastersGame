@@ -22,6 +22,10 @@ class BotEmoteDirectorTest {
     private static final int LOW_HP = 400;
     private static final int MATCH_COUNT = 200;
 
+    // 사람이 이 시각에 emote 를 보냈다는 뜻. 시각은 tick 간격의 배수여야 한다.
+    private record Incoming(long atMillis, Emote emote) {
+    }
+
     private record Sent(long atMillis, Emote emote) {
     }
 
@@ -53,20 +57,37 @@ class BotEmoteDirectorTest {
         assertThat(warmCount).isGreaterThan(MATCH_COUNT);
     }
 
-    // 상황이 계속 바뀌어도 한 판에 4회를 넘지 않는다. 제한이 실제로 걸리는지 보려고
-    // 4회를 채운 판이 있었다는 것도 같이 확인한다.
+    // 상황이 계속 바뀌어도 스스로 보내는 것은 한 판에 4회를 넘지 않는다. 제한이 실제로
+    // 걸리는지 보려고 4회를 채운 판이 있었다는 것도 같이 확인한다.
     @Test
-    void sendsAtMostFourEmotesInOneMatch() {
+    void sendsAtMostFourSituationalEmotesInOneMatch() {
         Random random = new Random(4242);
         int busiest = 0;
 
         for (int match = 0; match < MATCH_COUNT; match++) {
             List<Sent> sent = runMatch(BotTemperament.SMUG, random, SWINGING);
-            assertThat(sent).hasSizeLessThanOrEqualTo(BotEmoteDirector.MATCH_BUDGET);
+            assertThat(sent).hasSizeLessThanOrEqualTo(BotEmoteDirector.SITUATIONAL_MATCH_BUDGET);
             busiest = Math.max(busiest, sent.size());
         }
 
-        assertThat(busiest).isEqualTo(BotEmoteDirector.MATCH_BUDGET);
+        assertThat(busiest).isEqualTo(BotEmoteDirector.SITUATIONAL_MATCH_BUDGET);
+    }
+
+    // 답장까지 더해도 한 판 총합은 6회다.
+    @Test
+    void sendsAtMostSixEmotesInOneMatchWithRepliesIncluded() {
+        Random random = new Random(606);
+        List<Incoming> chatty = List.of(
+                new Incoming(10_000, Emote.Greet),
+                new Incoming(30_000, Emote.Laugh),
+                new Incoming(60_000, Emote.Taunt),
+                new Incoming(120_000, Emote.Cry),
+                new Incoming(200_000, Emote.Surprised));
+
+        for (int match = 0; match < MATCH_COUNT; match++) {
+            assertThat(runMatch(BotTemperament.SMUG, random, SWINGING, chatty))
+                    .hasSizeLessThanOrEqualTo(BotEmoteDirector.MATCH_BUDGET);
+        }
     }
 
     // 사람이 겪는 3초 cooldown 과 별개로, 봇의 두 emote 사이는 최소 20초다.
@@ -158,6 +179,127 @@ class BotEmoteDirectorTest {
                                 + TICK_MILLIS));
     }
 
+    // 인사를 건네면 WARM 은 거의 늘 인사로 받고, STOIC 은 가끔만 받는다.
+    @Test
+    void warmGreetsBackFarMoreOftenThanStoic() {
+        int warmGreetBacks = greetBacks(BotTemperament.WARM);
+        int stoicGreetBacks = greetBacks(BotTemperament.STOIC);
+
+        assertThat(stoicGreetBacks).isLessThan(warmGreetBacks / 3);
+        assertThat(warmGreetBacks).isGreaterThan(MATCH_COUNT / 2);
+    }
+
+    // 답장에서도 WARM 은 약 올리지 않는다. 약 올림을 받아도 웃어넘긴다.
+    @Test
+    void warmNeverTauntsInReply() {
+        Random random = new Random(808);
+
+        for (Emote incoming : Emote.values()) {
+            for (int match = 0; match < MATCH_COUNT; match++) {
+                List<Sent> sent = runMatch(BotTemperament.WARM, random, EVEN,
+                        List.of(new Incoming(12_000, incoming)));
+                assertThat(sent).extracting(Sent::emote).doesNotContain(Emote.Taunt);
+            }
+        }
+    }
+
+    // 답장은 한 판에 두 번까지다. 사람이 다섯 번 걸어와도 두 번만 받는다.
+    @Test
+    void sendsAtMostTwoRepliesInOneMatch() {
+        Random random = new Random(212);
+        List<Incoming> spacedOut = List.of(
+                new Incoming(10_000, Emote.Greet),
+                new Incoming(30_000, Emote.Laugh),
+                new Incoming(50_000, Emote.Taunt),
+                new Incoming(70_000, Emote.Cry),
+                new Incoming(90_000, Emote.Surprised));
+        int busiest = 0;
+
+        for (int match = 0; match < MATCH_COUNT; match++) {
+            List<Sent> replies = replies(runMatch(BotTemperament.WARM, random, EVEN, spacedOut));
+            assertThat(replies).hasSizeLessThanOrEqualTo(BotEmoteDirector.REPLY_BUDGET);
+            busiest = Math.max(busiest, replies.size());
+        }
+
+        assertThat(busiest).isEqualTo(BotEmoteDirector.REPLY_BUDGET);
+    }
+
+    // 사람이 연달아 다섯 번 보내도 8초 안에 오는 답장은 하나뿐이다.
+    @Test
+    void answersABurstOnlyOnce() {
+        Random random = new Random(313);
+        List<Incoming> burst = List.of(
+                new Incoming(10_000, Emote.Greet),
+                new Incoming(10_300, Emote.Laugh),
+                new Incoming(10_600, Emote.Taunt),
+                new Incoming(10_900, Emote.Cry),
+                new Incoming(11_200, Emote.Surprised));
+
+        for (int match = 0; match < MATCH_COUNT; match++) {
+            List<Sent> withinTheGap = replies(runMatch(BotTemperament.WARM, random, EVEN, burst)).stream()
+                    .filter(one -> one.atMillis() < 10_000 + BotEmoteDirector.REPLY_GAP_MILLIS)
+                    .toList();
+            assertThat(withinTheGap).hasSizeLessThanOrEqualTo(1);
+        }
+    }
+
+    // 답장은 상황별 20초 간격 밖에 있다. 인사를 보낸 직후라 그 간격이 닫혀 있어도 답한다.
+    @Test
+    void answersWhileTheSituationalGapIsClosed() {
+        Random random = new Random(414);
+        int answered = 0;
+
+        for (int match = 0; match < MATCH_COUNT; match++) {
+            List<Sent> sent = runMatch(BotTemperament.WARM, random, EVEN,
+                    List.of(new Incoming(12_000, Emote.Greet)));
+            // 인사는 8.1초 안에 끝나므로, 20초 간격이 아직 열리지 않은 이 시각의 emote 는 답장뿐이다.
+            if (!replies(sent).isEmpty()) {
+                answered++;
+                assertThat(replies(sent).getFirst().atMillis())
+                        .isLessThan(BotEmoteDirector.MIN_GAP_MILLIS);
+            }
+        }
+
+        assertThat(answered).isGreaterThan(MATCH_COUNT * 3 / 4);
+    }
+
+    // 답장 시각도 흔들린다. 늘 같은 간격으로 오면 기계로 보인다.
+    @Test
+    void variesTheReplyDelay() {
+        Random random = new Random(515);
+        List<Long> delays = new ArrayList<>();
+
+        for (int match = 0; match < MATCH_COUNT; match++) {
+            List<Sent> replies = replies(runMatch(BotTemperament.WARM, random, EVEN,
+                    List.of(new Incoming(12_000, Emote.Greet))));
+            if (!replies.isEmpty()) {
+                delays.add(replies.getFirst().atMillis() - 12_000);
+            }
+        }
+
+        assertThat(delays).isNotEmpty();
+        assertThat(delays.stream().distinct().count()).isGreaterThan(10);
+        assertThat(delays).allSatisfy(delay -> assertThat(delay)
+                .isBetween(BotEmoteDirector.REPLY_MIN_DELAY_MILLIS,
+                        BotEmoteDirector.REPLY_MIN_DELAY_MILLIS
+                                + BotEmoteDirector.REPLY_DELAY_SPREAD_MILLIS
+                                + TICK_MILLIS));
+    }
+
+    private int greetBacks(BotTemperament temperament) {
+        Random random = new Random(20260923);
+        int greetBacks = 0;
+
+        for (int match = 0; match < MATCH_COUNT; match++) {
+            List<Sent> replies = replies(runMatch(temperament, random, EVEN,
+                    List.of(new Incoming(12_000, Emote.Greet))));
+            if (!replies.isEmpty() && replies.getFirst().emote() == Emote.Greet) {
+                greetBacks++;
+            }
+        }
+        return greetBacks;
+    }
+
     private int totalEmotes(BotTemperament temperament, Health health) {
         Random random = new Random(20260922);
         int total = 0;
@@ -168,10 +310,22 @@ class BotEmoteDirectorTest {
     }
 
     private List<Sent> runMatch(BotTemperament temperament, Random random, Health health) {
+        return runMatch(temperament, random, health, List.of());
+    }
+
+    private List<Sent> runMatch(BotTemperament temperament,
+                                Random random,
+                                Health health,
+                                List<Incoming> incoming) {
         BotEmoteDirector director = new BotEmoteDirector(temperament);
         List<Sent> sent = new ArrayList<>();
 
         for (long nowMillis = 0; nowMillis <= MATCH_MILLIS; nowMillis += TICK_MILLIS) {
+            for (Incoming one : incoming) {
+                if (one.atMillis() == nowMillis) {
+                    director.onOpponentEmote(one.emote(), nowMillis, random);
+                }
+            }
             int[] hp = health.at(nowMillis);
             Emote emote = director.nextEmote(nowMillis, hp[0], hp[1], random);
             if (emote != null) {
@@ -179,6 +333,14 @@ class BotEmoteDirectorTest {
             }
         }
         return sent;
+    }
+
+    // 체력이 팽팽한 판에서 인사 창(최대 8.1초)이 지난 뒤에 나온 것은 답장뿐이다.
+    private List<Sent> replies(List<Sent> sent) {
+        return sent.stream()
+                .filter(one -> one.atMillis() > BotEmoteDirector.GREETING_MIN_DELAY_MILLIS
+                        + BotEmoteDirector.GREETING_DELAY_SPREAD_MILLIS + TICK_MILLIS)
+                .toList();
     }
 
     private List<Sent> situational(List<Sent> sent) {

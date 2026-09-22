@@ -9,26 +9,33 @@ import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * Decides when a bot sends an emote and which one, from its temperament and the health on both
- * sides.
+ * Decides when a bot sends an emote and which one, from its temperament, the health on both sides,
+ * and what the opponent just sent it.
  *
- * <p>Three situations produce an emote: the greeting a few seconds into the match, being clearly
- * ahead, and being clearly behind. The temperament picks the emote within a situation and how often
- * the bot speaks at all - that is the whole {@link #PROFILES} table below, which is why the database
- * stores only the name.
+ * <p>Four things produce an emote: the greeting a few seconds into the match, being clearly ahead,
+ * being clearly behind, and answering an emote from the other side. The temperament picks the emote
+ * within each of them and how often the bot speaks at all - that is the whole {@link #PROFILES}
+ * table below, which is why the database stores only the name.
  *
  * <p>What keeps this from reading as a machine is the limits rather than the wording. A bot sends at
- * most {@link #MATCH_BUDGET} emotes in a match, waits at least {@link #MIN_GAP_MILLIS} between two
- * of them on top of the 3 second cooldown every side already has, and spends a separate budget per
- * situation so a long lead produces two taunts rather than a stream of them. Every delay carries
- * jitter, so the greeting does not land on the same second of every match.
+ * most {@link #MATCH_BUDGET} emotes in a match, of which at most {@link #REPLY_BUDGET} are replies
+ * and at most {@link #SITUATIONAL_MATCH_BUDGET} are its own, waits at least {@link #MIN_GAP_MILLIS}
+ * between two situational ones, and spends a separate budget per situation so a long lead produces
+ * two taunts rather than a stream of them. Every delay carries jitter, so neither the greeting nor
+ * an answer lands on the same second of every match.
  *
- * <p>Called from the loop thread only, by {@link BotAgent#updateEmote}, and holds its per-match
+ * <p>A reply is deliberately outside the situational gap. The greeting goes out three to eight
+ * seconds in, and a human greeting back at ten seconds would fall inside a twenty second gap - the
+ * bot would stare past an outstretched hand, which reads worse than never greeting at all. Replies
+ * carry their own budget and their own shorter gap instead, and win whenever both come due.
+ *
+ * <p>Called from the loop thread only - by {@link BotAgent#updateEmote} every frame and by
+ * {@link BotAgent#onOpponentEmote} from an action the input thread queued - and holds its per-match
  * state in plain fields for that reason.
  */
 public final class BotEmoteDirector {
 
-    /** What the bot is reacting to. Each one spends its own per-match budget. */
+    /** What the bot is reacting to on its own. Each one spends its own per-match budget. */
     public enum Situation {
         GREETING, AHEAD, BEHIND
     }
@@ -37,12 +44,25 @@ public final class BotEmoteDirector {
     static final long GREETING_MIN_DELAY_MILLIS = 3_000;
     static final long GREETING_DELAY_SPREAD_MILLIS = 5_000;
 
-    /** Gap between two emotes from one bot, on top of the cooldown every side has. */
+    /** Gap between two situational emotes, on top of the cooldown every side has. */
     static final long MIN_GAP_MILLIS = 20_000;
     static final long GAP_SPREAD_MILLIS = 10_000;
 
-    /** Emotes one bot may send in one match, the greeting included. */
-    static final int MATCH_BUDGET = 4;
+    /** How long the bot waits before answering, so the answer reads as a pause and not a reflex. */
+    static final long REPLY_MIN_DELAY_MILLIS = 800;
+    static final long REPLY_DELAY_SPREAD_MILLIS = 1_700;
+
+    /** Gap between two replies. A human working through the emote wheel gets one answer, not five. */
+    static final long REPLY_GAP_MILLIS = 8_000;
+
+    /** Emotes one bot may send in one match, replies and the greeting included. */
+    static final int MATCH_BUDGET = 6;
+
+    /** Of those, how many the bot may send on its own account. */
+    static final int SITUATIONAL_MATCH_BUDGET = 4;
+
+    /** Of those, how many may be answers to the other side. */
+    static final int REPLY_BUDGET = 2;
 
     /** Emotes one situation may produce in one match. */
     static final int SITUATION_BUDGET = 2;
@@ -54,11 +74,25 @@ public final class BotEmoteDirector {
     static final double CLEAR_LEAD_RATIO = 0.7;
 
     /**
-     * Weight per emote in {@link Emote} declaration order - Laugh, Greet, Taunt, Cry, Surprised -
-     * for each of the three situations, plus the chance the bot speaks at all when a situation is
-     * open to it. A row of zeros means it says nothing in that situation.
+     * The cooldown {@link com.wordonline.server.game.domain.SessionObject} enforces on every side.
+     * The director spaces its own sends by the same amount, so an answer that comes due right
+     * behind a greeting waits a moment instead of being dropped on arrival.
      */
-    private record Profile(double rate, double[] greeting, double[] ahead, double[] behind) {
+    static final long SERVER_COOLDOWN_MILLIS = 3_000;
+
+    /**
+     * Weight per emote in {@link Emote} declaration order - Laugh, Greet, Taunt, Cry, Surprised -
+     * for each of the three situations and for each emote the opponent may send, plus the chance
+     * the bot speaks at all. A row of zeros means it says nothing to that.
+     *
+     * @param reply one row per incoming emote, also in {@link Emote} declaration order
+     */
+    private record Profile(double rate,
+                           double replyRate,
+                           double[] greeting,
+                           double[] ahead,
+                           double[] behind,
+                           double[][] reply) {
 
         double[] weights(Situation situation) {
             return switch (situation) {
@@ -67,40 +101,80 @@ public final class BotEmoteDirector {
                 case BEHIND -> behind;
             };
         }
+
+        double[] replyTo(Emote incoming) {
+            return reply[incoming.ordinal()];
+        }
     }
 
-    //                                                     Laugh  Greet  Taunt  Cry  Surprised
+    //                                                          Laugh  Greet  Taunt  Cry  Surprised
     private static final Map<BotTemperament, Profile> PROFILES = new EnumMap<>(Map.of(
-            BotTemperament.WARM, new Profile(0.8,
-                    /* greeting */ new double[] {0, 1, 0, 0, 0},
-                    /* ahead    */ new double[] {3, 0, 0, 0, 1},
-                    /* behind   */ new double[] {0, 0, 0, 1, 2}),
-            BotTemperament.SMUG, new Profile(0.9,
-                    /* greeting */ new double[] {1, 2, 0, 0, 0},
-                    /* ahead    */ new double[] {1, 0, 4, 0, 0},
-                    /* behind   */ new double[] {0, 0, 0, 1, 2}),
-            BotTemperament.TIMID, new Profile(0.7,
-                    /* greeting */ new double[] {0, 1, 0, 0, 0},
-                    /* ahead    */ new double[] {1, 0, 0, 0, 2},
-                    /* behind   */ new double[] {0, 0, 0, 3, 2}),
-            BotTemperament.STOIC, new Profile(0.15,
-                    /* greeting */ new double[] {0, 1, 0, 0, 0},
-                    /* ahead    */ new double[] {0, 0, 0, 0, 0},
-                    /* behind   */ new double[] {0, 0, 0, 0, 0})));
+            BotTemperament.WARM, new Profile(0.8, 0.95,
+                    /* greeting        */ new double[] {0, 1, 0, 0, 0},
+                    /* ahead           */ new double[] {3, 0, 0, 0, 1},
+                    /* behind          */ new double[] {0, 0, 0, 1, 2},
+                    new double[][] {
+                            /* to Laugh     */ {4, 0, 0, 0, 1},
+                            /* to Greet     */ {0, 5, 0, 0, 0},
+                            /* to Taunt     */ {3, 0, 0, 0, 1},
+                            /* to Cry       */ {0, 1, 0, 0, 2},
+                            /* to Surprised */ {1, 0, 0, 0, 3}}),
+            BotTemperament.SMUG, new Profile(0.9, 0.85,
+                    /* greeting        */ new double[] {1, 2, 0, 0, 0},
+                    /* ahead           */ new double[] {1, 0, 4, 0, 0},
+                    /* behind          */ new double[] {0, 0, 0, 1, 2},
+                    new double[][] {
+                            /* to Laugh     */ {4, 0, 0, 0, 0},
+                            /* to Greet     */ {2, 3, 0, 0, 0},
+                            /* to Taunt     */ {1, 0, 4, 0, 0},
+                            /* to Cry       */ {1, 0, 3, 0, 0},
+                            /* to Surprised */ {3, 0, 1, 0, 0}}),
+            BotTemperament.TIMID, new Profile(0.7, 0.8,
+                    /* greeting        */ new double[] {0, 1, 0, 0, 0},
+                    /* ahead           */ new double[] {1, 0, 0, 0, 2},
+                    /* behind          */ new double[] {0, 0, 0, 3, 2},
+                    new double[][] {
+                            /* to Laugh     */ {3, 0, 0, 0, 1},
+                            /* to Greet     */ {0, 4, 0, 0, 1},
+                            /* to Taunt     */ {0, 0, 0, 3, 1},
+                            /* to Cry       */ {0, 0, 0, 4, 0},
+                            /* to Surprised */ {0, 0, 0, 1, 4}}),
+            BotTemperament.STOIC, new Profile(0.15, 0.2,
+                    /* greeting        */ new double[] {0, 1, 0, 0, 0},
+                    /* ahead           */ new double[] {0, 0, 0, 0, 0},
+                    /* behind          */ new double[] {0, 0, 0, 0, 0},
+                    new double[][] {
+                            /* to Laugh     */ {1, 0, 0, 0, 0},
+                            /* to Greet     */ {0, 1, 0, 0, 0},
+                            /* to Taunt     */ {0, 0, 0, 0, 0},
+                            /* to Cry       */ {0, 0, 0, 0, 0},
+                            /* to Surprised */ {0, 0, 0, 0, 0}})));
 
-    // A row is read by Emote ordinal, so a sixth emote added to the enum has to be given a weight
-    // in every row here. Failing at class load says so; a short row would otherwise just never be
-    // chosen, which is the same silence a deliberate zero produces and reads as intended.
+    // A row is read by Emote ordinal, so a sixth emote added to the enum has to be given a weight in
+    // every row here, and a row of its own to be answered with. Failing at class load says so; a
+    // short row would otherwise just never be chosen, which is the same silence a deliberate zero
+    // produces and reads as intended.
     static {
         for (Map.Entry<BotTemperament, Profile> entry : PROFILES.entrySet()) {
             for (Situation situation : Situation.values()) {
-                int length = entry.getValue().weights(situation).length;
-                if (length != Emote.values().length) {
-                    throw new IllegalStateException("Emote weights for " + entry.getKey() + " " + situation
-                            + " cover " + length + " of " + Emote.values().length + " emotes.");
-                }
+                requireFullRow(entry.getKey(), situation.name(), entry.getValue().weights(situation).length);
+            }
+            requireFullRow(entry.getKey(), "reply", entry.getValue().reply().length);
+            for (Emote incoming : Emote.values()) {
+                requireFullRow(entry.getKey(), "reply to " + incoming, entry.getValue().replyTo(incoming).length);
             }
         }
+    }
+
+    private static void requireFullRow(BotTemperament temperament, String row, int length) {
+        if (length != Emote.values().length) {
+            throw new IllegalStateException("Emote weights for " + temperament + " " + row
+                    + " cover " + length + " of " + Emote.values().length + " emotes.");
+        }
+    }
+
+    /** An emote the opponent sent, waiting out the pause before the bot answers it. */
+    private record PendingReply(Emote incoming, long dueAtMillis) {
     }
 
     private final Profile profile;
@@ -110,7 +184,12 @@ public final class BotEmoteDirector {
     private boolean greetingSettled;
     private long nextAllowedAtMillis;
     private long nextConsiderAtMillis;
+    private long nextReplyAllowedAtMillis;
+    private long lastSentAtMillis = Long.MIN_VALUE / 2;
+    private PendingReply pendingReply;
     private int sentCount;
+    private int situationalSentCount;
+    private int replySentCount;
     private final EnumMap<Situation, Integer> sentPerSituation = new EnumMap<>(Situation.class);
 
     public BotEmoteDirector(BotTemperament temperament) {
@@ -130,8 +209,15 @@ public final class BotEmoteDirector {
         if (!clockStarted) {
             startClock(nowMillis, random);
         }
-        if (sentCount >= MATCH_BUDGET) {
+        if (sentCount >= MATCH_BUDGET || nowMillis < lastSentAtMillis + SERVER_COOLDOWN_MILLIS) {
             return null;
+        }
+
+        // An answer outranks anything the bot wanted to say on its own. A bot that ignores the hand
+        // held out to it so it can announce that it is winning is the wrong bot.
+        Emote reply = replyIfDue(nowMillis, random);
+        if (reply != null) {
+            return reply;
         }
 
         Emote greeting = greetingIfDue(nowMillis, random);
@@ -139,7 +225,9 @@ public final class BotEmoteDirector {
             return greeting;
         }
 
-        if (nowMillis < nextAllowedAtMillis || nowMillis < nextConsiderAtMillis) {
+        if (situationalSentCount >= SITUATIONAL_MATCH_BUDGET
+                || nowMillis < nextAllowedAtMillis
+                || nowMillis < nextConsiderAtMillis) {
             return null;
         }
         nextConsiderAtMillis = nowMillis + CONSIDER_INTERVAL_MILLIS;
@@ -149,6 +237,30 @@ public final class BotEmoteDirector {
             return null;
         }
         return take(situation, nowMillis, random);
+    }
+
+    /**
+     * Tells the director that the other side just emoted at this bot. The answer itself goes out
+     * through {@link #nextEmote} a beat later, so the bot answers after a pause rather than in the
+     * same instant.
+     */
+    public void onOpponentEmote(Emote emote, long nowMillis) {
+        onOpponentEmote(emote, nowMillis, ThreadLocalRandom.current());
+    }
+
+    void onOpponentEmote(Emote emote, long nowMillis, Random random) {
+        if (!clockStarted) {
+            startClock(nowMillis, random);
+        }
+        if (emote == null
+                || pendingReply != null
+                || replySentCount >= REPLY_BUDGET
+                || sentCount >= MATCH_BUDGET
+                || nowMillis < nextReplyAllowedAtMillis) {
+            return;
+        }
+        pendingReply = new PendingReply(emote,
+                nowMillis + REPLY_MIN_DELAY_MILLIS + jitter(random, REPLY_DELAY_SPREAD_MILLIS));
     }
 
     // The clock starts on the first frame the director sees rather than at construction. For a
@@ -161,10 +273,35 @@ public final class BotEmoteDirector {
         nextAllowedAtMillis = nowMillis + MIN_GAP_MILLIS;
     }
 
+    private Emote replyIfDue(long nowMillis, Random random) {
+        PendingReply pending = pendingReply;
+        if (pending == null || nowMillis < pending.dueAtMillis()) {
+            return null;
+        }
+        pendingReply = null;
+
+        // Whether the bot answers or lets it pass, the next answer waits out the gap. Otherwise a
+        // temperament that declines one emote would simply answer the next one of the burst.
+        nextReplyAllowedAtMillis = nowMillis + REPLY_GAP_MILLIS;
+        if (replySentCount >= REPLY_BUDGET || random.nextDouble() >= profile.replyRate()) {
+            return null;
+        }
+
+        Emote emote = pick(profile.replyTo(pending.incoming()), random);
+        if (emote == null) {
+            return null;
+        }
+        replySentCount++;
+        recordSent(nowMillis);
+        return emote;
+    }
+
     // The greeting gets one chance. A temperament that does not take it stays quiet for the rest of
     // the match rather than greeting late, which is what makes a STOIC greeting occasional.
     private Emote greetingIfDue(long nowMillis, Random random) {
-        if (greetingSettled || nowMillis < greetingAtMillis) {
+        if (greetingSettled
+                || nowMillis < greetingAtMillis
+                || situationalSentCount >= SITUATIONAL_MATCH_BUDGET) {
             return null;
         }
         greetingSettled = true;
@@ -179,10 +316,16 @@ public final class BotEmoteDirector {
         if (emote == null) {
             return null;
         }
-        sentCount++;
+        situationalSentCount++;
         sentPerSituation.merge(situation, 1, Integer::sum);
         nextAllowedAtMillis = nowMillis + MIN_GAP_MILLIS + jitter(random, GAP_SPREAD_MILLIS);
+        recordSent(nowMillis);
         return emote;
+    }
+
+    private void recordSent(long nowMillis) {
+        sentCount++;
+        lastSentAtMillis = nowMillis;
     }
 
     private boolean hasBudget(Situation situation) {

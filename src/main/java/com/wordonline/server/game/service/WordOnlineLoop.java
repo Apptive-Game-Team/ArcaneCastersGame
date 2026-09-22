@@ -108,6 +108,17 @@ public class WordOnlineLoop extends GameLoop {
         return getUserService().noviceProgress(opponentId);
     }
 
+    /** The bot playing that side, or {@code null} when a human has it. */
+    public BotAgent getBotAgent(Master side) {
+        if (side == Master.LeftPlayer) {
+            return leftBotAgent;
+        } else if (side == Master.RightPlayer) {
+            return rightBotAgent;
+        } else {
+            return null;
+        }
+    }
+
     // Both bot toggles run on the loop thread: the ping timeout scheduler queues them on the game
     // action queue rather than swapping the agent out from under a frame.
     public void activateBotForUser(long userId) {

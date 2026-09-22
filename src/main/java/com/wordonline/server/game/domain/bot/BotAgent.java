@@ -85,6 +85,17 @@ public final class BotAgent {
         sessionObject.sendEmote(new EmoteFrameDto(botSide, emote));
     }
 
+    /**
+     * Hands the director an emote the other side just sent this bot, so it can answer.
+     *
+     * <p>Runs on the loop thread: {@link com.wordonline.server.game.controller.InputController}
+     * queues the notification rather than deciding on the inbound thread. The answer itself goes
+     * out of {@link #updateEmote} a second or two later.
+     */
+    public void onOpponentEmote(Emote emote) {
+        emoteDirector.onOpponentEmote(emote, System.currentTimeMillis());
+    }
+
     public boolean shouldProcess(int currentFrame) {
         return shouldPublishPeriodicThought()
                 || hasReadyPendingDecision()

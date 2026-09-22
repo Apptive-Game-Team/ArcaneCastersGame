@@ -27,7 +27,9 @@ import com.wordonline.server.game.dto.input.InputRequestDto;
 import com.wordonline.server.game.dto.input.InputResponseDto;
 import com.wordonline.server.game.dto.input.InputResultCode;
 import com.wordonline.server.game.dto.input.MagicUseRequestDto;
+import com.wordonline.server.game.domain.bot.BotAgent;
 import com.wordonline.server.game.service.GameContext;
+import com.wordonline.server.game.service.WordOnlineLoop;
 import com.wordonline.server.game.service.MagicInputHandler;
 import com.wordonline.server.service.LocalizationService;
 import com.wordonline.server.session.service.SessionService;
@@ -40,6 +42,8 @@ class InputControllerTest {
     private final PingChecker pingChecker = mock(PingChecker.class);
     private final GameContext gameContext = mock(GameContext.class);
     private final MagicInputHandler magicInputHandler = mock(MagicInputHandler.class);
+    private final WordOnlineLoop gameLoop = mock(WordOnlineLoop.class);
+    private final BotAgent botAgent = mock(BotAgent.class);
     private final InputController controller = new InputController();
 
     InputControllerTest() {
@@ -123,16 +127,55 @@ class InputControllerTest {
     }
 
     // Emotes touch no game state, so the send happens on this thread directly instead of through
-    // the queue the other cases use.
+    // the queue the other cases use. With a human on the other side there is nothing to queue at all.
     @Test
     void sendsEmoteOnTheInboundThreadInsteadOfQueuingIt() {
         when(sessionObject.getUserSide(7L)).thenReturn(Master.LeftPlayer);
         when(sessionObject.tryConsumeEmoteCooldown(Master.LeftPlayer)).thenReturn(true);
+        when(sessionObject.getGameContext()).thenReturn(gameContext);
+        when(gameContext.getGameLoop()).thenReturn(gameLoop);
 
         controller.handleInput("room-5", 7L, emoteRequest("Laugh"), principal(7L));
 
         verify(sessionObject).sendEmote(new EmoteFrameDto(Master.LeftPlayer, Emote.Laugh));
         verify(gameContext, never()).submitAction(any(), any());
+    }
+
+    // A bot on the other side has to learn about the emote so it can answer, and the director that
+    // decides the answer runs on the loop thread. The send stays inline; only the notification is
+    // queued, and it reads the agent again when the loop drains it.
+    @Test
+    void queuesTheNotificationForABotOnTheOtherSide() {
+        when(sessionObject.getUserSide(7L)).thenReturn(Master.LeftPlayer);
+        when(sessionObject.tryConsumeEmoteCooldown(Master.LeftPlayer)).thenReturn(true);
+        when(sessionObject.getGameContext()).thenReturn(gameContext);
+        when(gameContext.getGameLoop()).thenReturn(gameLoop);
+        when(gameLoop.getBotAgent(Master.RightPlayer)).thenReturn(botAgent);
+
+        controller.handleInput("room-5", 7L, emoteRequest("Greet"), principal(7L));
+
+        verify(sessionObject).sendEmote(new EmoteFrameDto(Master.LeftPlayer, Emote.Greet));
+        verifyNoInteractions(botAgent);
+
+        drainQueuedAction("botEmoteReply");
+
+        verify(botAgent).onOpponentEmote(Emote.Greet);
+    }
+
+    // The bot may have been swapped out for a reconnecting player between the queue and the frame
+    // that drains it, so the action reads the agent again instead of holding the one it saw.
+    @Test
+    void dropsTheNotificationWhenTheBotIsGoneByTheTimeTheLoopDrainsIt() {
+        when(sessionObject.getUserSide(7L)).thenReturn(Master.LeftPlayer);
+        when(sessionObject.tryConsumeEmoteCooldown(Master.LeftPlayer)).thenReturn(true);
+        when(sessionObject.getGameContext()).thenReturn(gameContext);
+        when(gameContext.getGameLoop()).thenReturn(gameLoop);
+        when(gameLoop.getBotAgent(Master.RightPlayer)).thenReturn(botAgent, (BotAgent) null);
+
+        controller.handleInput("room-5", 7L, emoteRequest("Greet"), principal(7L));
+        drainQueuedAction("botEmoteReply");
+
+        verifyNoInteractions(botAgent);
     }
 
     @Test
