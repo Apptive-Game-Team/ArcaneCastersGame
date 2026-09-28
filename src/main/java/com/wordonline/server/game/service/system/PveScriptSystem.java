@@ -72,7 +72,7 @@ public class PveScriptSystem implements GameSystem {
         if (target == null) {
             return false;
         }
-        Mob mob = target.getComponent(Mob.class);
+        Mob mob = PveScenarioInstaller.findHealthMob(target);
         if (mob == null || mob.getMaxHp() <= 0 || mob.getHp() <= 0) {
             return false;
         }

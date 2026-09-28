@@ -2,6 +2,8 @@ package com.wordonline.server.game.service.pve;
 
 import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.component.mob.Mob;
+import com.wordonline.server.game.domain.pve.PveObjectiveTarget;
+import com.wordonline.server.game.domain.object.component.magic.Spawner;
 import com.wordonline.server.game.domain.pve.PveInstallObject;
 import com.wordonline.server.game.service.GameContext;
 import lombok.Getter;
@@ -79,9 +81,27 @@ public class PveScenarioInstaller {
         if (maxHp == null) {
             return;
         }
-        Mob mob = gameObject.getComponent(Mob.class);
+        Mob mob = findHealthMob(gameObject);
         if (mob != null) {
             mob.overrideMaxHp(maxHp);
         }
+    }
+
+    // The mob whose hp is the structure's hp. A PVE boss carries a Spawner, which is also a Mob
+    // (hp 0) and is added before the boss mob, so the first Mob component is the wrong one.
+    public static Mob findHealthMob(GameObject gameObject) {
+        if (gameObject == null) {
+            return null;
+        }
+        Mob fallback = null;
+        for (Mob mob : gameObject.getComponents(Mob.class)) {
+            if (mob instanceof PveObjectiveTarget) {
+                return mob;
+            }
+            if (fallback == null && !(mob instanceof Spawner)) {
+                fallback = mob;
+            }
+        }
+        return fallback;
     }
 }

@@ -365,4 +365,51 @@ class PveScriptSystemTest {
 
         assertThat(boss.getComponent(Spawner.class)).isNull();
     }
+
+    private static class TestBossMob extends TestMob implements com.wordonline.server.game.domain.pve.PveObjectiveTarget {
+        private TestBossMob(GameObject gameObject, int maxHp) {
+            super(gameObject, maxHp);
+        }
+
+        @Override
+        public boolean isTerminal() {
+            return getHp() <= 0;
+        }
+    }
+
+    // A real PVE boss gets its Spawner (a Mob with hp 0) before its boss mob, so the hp trigger
+    // and the max_hp override must look past the first Mob component.
+    @Test
+    void hpOverrideAndHpTriggerUseTheBossMobNotTheSpawnerAddedBeforeIt() {
+        GameContext context = newGameContext();
+        PveScenarioInstaller installer = new PveScenarioInstaller();
+        installer.install(List.of(), context);
+        doAnswer(invocation -> {
+            GameObject gameObject = invocation.getArgument(0);
+            gameObject.addComponent(new Spawner(gameObject, 0, PrefabType.LeafSlime, 10f, false, 1));
+            gameObject.addComponent(new TestBossMob(gameObject, 1000));
+            gameObject.flushComponents();
+            world.add(gameObject);
+            return null;
+        }).when(context).createGameObject(any());
+        GameObject boss = installer.installOne(
+                new PveInstallObject("boss", PrefabType.PveNatureSlimeNest, Master.RightPlayer, Vector3.ZERO, 200),
+                context);
+
+        TestBossMob bossMob = boss.getComponent(TestBossMob.class);
+        assertThat(bossMob.getMaxHp()).isEqualTo(200);
+        assertThat(boss.getComponent(Spawner.class).getMaxHp()).isZero();
+
+        var scenario = new PveScenario(List.of(), List.of(), List.of(
+                event("e1", PveTriggerType.InstallerHpPercentLte, 50, "boss", List.of("half"), List.of())
+        ), PveScenarioRules.defaultRules());
+        PveScriptSystem system = newSystem(scenario, installer);
+
+        system.update(context);
+        verify(sessionObject, never()).sendFrameInfo(anyLong(), any());
+
+        bossMob.applyDamage(new AttackInfo(100, ElementType.NONE));
+        system.update(context);
+        verify(sessionObject, times(2)).sendFrameInfo(anyLong(), any(PveScriptEventDto.class));
+    }
 }
