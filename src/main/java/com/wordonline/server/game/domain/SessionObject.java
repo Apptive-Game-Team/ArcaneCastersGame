@@ -36,6 +36,8 @@ public class SessionObject {
     private String rightUserDestination;
     private final CardDeck leftUserCardDeck;
     private final CardDeck rightUserCardDeck;
+    private List<Long> leftDeckCardIds;
+    private List<Long> rightDeckCardIds;
     private final PingChecker pingChecker;
     private final SessionType sessionType;
     private final Long scenarioId;
@@ -112,6 +114,8 @@ public class SessionObject {
         this.broadcastDestination = url + "/0";
         this.leftUserDestination = userDestination(leftUserId);
         this.rightUserDestination = userDestination(rightUserId);
+        this.leftDeckCardIds = List.copyOf(leftUserCards);
+        this.rightDeckCardIds = List.copyOf(rightUserCards);
         this.randomSeed = ThreadLocalRandom.current().nextLong();
         long leftDeckSeed = DeckSeedDeriver.forLeftDeck(randomSeed);
         long rightDeckSeed = DeckSeedDeriver.forRightDeck(randomSeed);
@@ -251,6 +255,7 @@ public class SessionObject {
     // assignment stays inline because callers read it back straight after the call.
     public void setLeftUser(long userId, List<Long> cards) {
         leftUserId = userId;
+        leftDeckCardIds = List.copyOf(cards);
         leftUserDestination = userDestination(userId);
         GameContext gameContext = getGameContext();
         gameContext.submitAction("setLeftUserDeck", () -> {
@@ -261,6 +266,7 @@ public class SessionObject {
 
     public void setRightUser(long userId, List<Long> cards) {
         rightUserId = userId;
+        rightDeckCardIds = List.copyOf(cards);
         rightUserDestination = userDestination(userId);
         GameContext gameContext = getGameContext();
         gameContext.submitAction("setRightUserDeck", () -> {
