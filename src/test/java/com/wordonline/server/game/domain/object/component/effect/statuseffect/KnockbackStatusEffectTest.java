@@ -65,7 +65,7 @@ class KnockbackStatusEffectTest {
         when(mob.getSpeed()).thenReturn(speed);
         when(gameContext.getDeltaTime()).thenReturn(1f);
 
-        SnaredStatusEffect snare = new SnaredStatusEffect(owner, 3f, 0, StatusEffectKey.Snared_Receive);
+        SnaredStatusEffect snare = new SnaredStatusEffect(owner, 3f, 0, 0.5f, StatusEffectKey.Snared_Receive);
         snare.start();
         assertThat(speed.total()).isEqualTo(5f);
 

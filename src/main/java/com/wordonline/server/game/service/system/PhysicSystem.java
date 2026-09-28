@@ -2,6 +2,7 @@ package com.wordonline.server.game.service.system;
 
 import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.Vector3;
+import com.wordonline.server.game.domain.object.prefab.PrefabType;
 import com.wordonline.server.game.domain.object.component.physic.Collider;
 import com.wordonline.server.game.domain.object.component.physic.EdgeCollider;
 import com.wordonline.server.game.domain.object.component.physic.ZPhysics;
@@ -178,7 +179,11 @@ public class PhysicSystem implements CollisionSystem, GameSystem {
                     a.getComponents(Collidable.class).forEach(collidable -> collidable.onCollision(b));
                     b.getComponents(Collidable.class).forEach(collidable -> collidable.onCollision(a));
 
-                    if (isSameSide(a, b)) {
+                    // Map walls still receive the general collision above, but they are
+                    // boundaries rather than enemies that can be attacked.
+                    if (isSameSide(a, b)
+                            || a.getType() == PrefabType.Wall
+                            || b.getType() == PrefabType.Wall) {
                         return;
                     }
 

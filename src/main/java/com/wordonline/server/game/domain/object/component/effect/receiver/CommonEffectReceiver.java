@@ -8,6 +8,9 @@ import com.wordonline.server.game.domain.object.component.effect.EffectApplyPoli
 import com.wordonline.server.game.domain.object.component.effect.EffectImmuneChart;
 import com.wordonline.server.game.domain.object.component.effect.StatusEffectKey;
 import com.wordonline.server.game.domain.object.component.effect.statuseffect.*;
+import com.wordonline.server.game.domain.parameter.GameObjectKey;
+import com.wordonline.server.game.domain.parameter.GameObjectParameters;
+import com.wordonline.server.game.domain.parameter.ParameterKey;
 import com.wordonline.server.game.dto.Effect;
 import java.util.function.Supplier;
 
@@ -46,52 +49,79 @@ public class CommonEffectReceiver extends Component implements EffectReceiver {
 
         switch (effect) {
             case Wet -> {
+                var values = statusParameters();
+                float duration = values.floatValue(ParameterKey.WET_DURATION);
                 applyEffect(
                     StatusEffectKey.Wet_Receive,
-                    () -> new WetStatusEffect(gameObject, 3f, StatusEffectKey.Wet_Receive),
+                    () -> new WetStatusEffect(gameObject, duration, StatusEffectKey.Wet_Receive),
                     EffectApplyPolicy.REFRESH_DURATION,
-                    3f);
+                    duration);
                 if(gameObject.getElement().has(ElementType.NATURE)){
+                    int heal = values.intValue(ParameterKey.WET_NATURE_HEAL);
                     applyEffect(
                             StatusEffectKey.DOTHeal_NatureWithWaterField,
-                            () -> new DOTStatusEffect(gameObject, 3f, -3, ElementType.NONE, StatusEffectKey.DOTHeal_NatureWithWaterField),
+                            () -> new DOTStatusEffect(gameObject, duration, -heal, ElementType.NONE, StatusEffectKey.DOTHeal_NatureWithWaterField),
                             EffectApplyPolicy.REFRESH_DURATION,
-                            3f);
+                            duration);
                 }
             }
             case Burn -> {
+                var values = statusParameters();
+                float duration = values.floatValue(ParameterKey.BURN_DURATION);
+                int damage = values.intValue(ParameterKey.BURN_TOTAL_DAMAGE);
                 applyEffect(
                     StatusEffectKey.Burn_Receive,
-                    () -> new BurnStatusEffect(gameObject, 3f, StatusEffectKey.Burn_Receive),
+                    () -> new BurnStatusEffect(gameObject, duration, StatusEffectKey.Burn_Receive),
                     EffectApplyPolicy.REFRESH_DURATION,
-                    3f);
+                    duration);
                 applyEffect(
                     StatusEffectKey.DOTDeal_Burn,
-                    () -> new DOTStatusEffect(gameObject, 3f, 3, ElementType.FIRE, StatusEffectKey.DOTDeal_Burn),
+                    () -> new DOTStatusEffect(gameObject, duration, damage, ElementType.FIRE, StatusEffectKey.DOTDeal_Burn),
                     EffectApplyPolicy.REFRESH_DURATION,
-                    3f);
+                    duration);
             }
-            case Shock -> applyEffect(
+            case Shock -> {
+                var values = statusParameters();
+                float duration = values.floatValue(ParameterKey.SHOCK_STUN_DURATION);
+                applyEffect(
                     StatusEffectKey.Shock_Receive,
-                    () -> new ShockStatusEffect(gameObject, 0.5f, StatusEffectKey.Shock_Receive),
+                    () -> new ShockStatusEffect(gameObject, duration, StatusEffectKey.Shock_Receive),
                     EffectApplyPolicy.REFRESH_DURATION,
-                    3f);
-            case Snared -> applyEffect(
+                    values.floatValue(ParameterKey.SHOCK_REFRESH_DURATION));
+            }
+            case Snared -> {
+                var values = statusParameters();
+                float duration = values.floatValue(ParameterKey.SNARE_DURATION);
+                applyEffect(
                         StatusEffectKey.Snared_Receive,
-                        () -> new SnaredStatusEffect(gameObject, 3f, 5, StatusEffectKey.Snared_Receive),
+                        () -> new SnaredStatusEffect(gameObject, duration,
+                                values.intValue(ParameterKey.SNARE_FIRE_DAMAGE),
+                                values.floatValue(ParameterKey.SNARE_SLOW_PERCENT),
+                                StatusEffectKey.Snared_Receive),
                         EffectApplyPolicy.REFRESH_DURATION,
-                        3f);
+                        duration);
+            }
 
-            case LeafFieldHeal -> applyEffect(
+            case LeafFieldHeal -> {
+                var values = statusParameters();
+                float duration = values.floatValue(ParameterKey.LEAF_FIELD_HEAL_DURATION);
+                int heal = values.intValue(ParameterKey.LEAF_FIELD_HEAL_AMOUNT);
+                applyEffect(
                         StatusEffectKey.DOTHeal_NatureField,
-                        () -> new DOTStatusEffect(gameObject, 3f, -1, ElementType.NONE, StatusEffectKey.DOTHeal_NatureField),
+                        () -> new DOTStatusEffect(gameObject, duration, -heal, ElementType.NONE, StatusEffectKey.DOTHeal_NatureField),
                         EffectApplyPolicy.REFRESH_DURATION,
-                        3f);
-            case Sandstorm -> applyEffect(
+                        duration);
+            }
+            case Sandstorm -> {
+                var values = statusParameters();
+                float duration = values.floatValue(ParameterKey.SANDSTORM_EFFECT_DURATION);
+                int damage = values.intValue(ParameterKey.SANDSTORM_EFFECT_DAMAGE);
+                applyEffect(
                         StatusEffectKey.DOT_SandStorm,
-                        () -> new DOTStatusEffect(gameObject, 0.5f, 1, ElementType.NONE, StatusEffectKey.DOT_SandStorm),
+                        () -> new DOTStatusEffect(gameObject, duration, damage, ElementType.NONE, StatusEffectKey.DOT_SandStorm),
                         EffectApplyPolicy.REFRESH_DURATION,
-                        0.5f);
+                        duration);
+            }
             case Frenzy -> applyEffect(
                         StatusEffectKey.Frenzy_Receive,
                         () -> new FrenzyStatusEffect(gameObject, 10f, StatusEffectKey.Frenzy_Receive),
@@ -154,5 +184,9 @@ public class CommonEffectReceiver extends Component implements EffectReceiver {
 
     public CommonEffectReceiver(GameObject gameObject) {
         super(gameObject);
+    }
+
+    protected GameObjectParameters statusParameters() {
+        return getGameContext().getParameters().object(GameObjectKey.GAME);
     }
 }

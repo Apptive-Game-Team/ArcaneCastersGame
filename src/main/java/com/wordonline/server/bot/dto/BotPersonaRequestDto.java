@@ -1,5 +1,6 @@
 package com.wordonline.server.bot.dto;
 
+import com.wordonline.server.bot.domain.BotTemperament;
 import com.wordonline.server.bot.domain.BotTier;
 
 public record BotPersonaRequestDto(
@@ -10,6 +11,7 @@ public record BotPersonaRequestDto(
         int reactionIntervalFrames,
         double counterAggression,
         Boolean enabled,
-        Boolean hospitality
+        Boolean hospitality,
+        BotTemperament temperament
 ) {
 }

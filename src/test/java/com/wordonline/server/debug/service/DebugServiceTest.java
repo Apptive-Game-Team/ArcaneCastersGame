@@ -1,6 +1,7 @@
 package com.wordonline.server.debug.service;
 
 import com.wordonline.server.bot.domain.BotPersona;
+import com.wordonline.server.bot.domain.BotTemperament;
 import com.wordonline.server.bot.domain.BotTier;
 import com.wordonline.server.bot.service.BotPersonaService;
 import com.wordonline.server.debug.dto.DebugGameRequestDto;
@@ -82,6 +83,7 @@ class DebugServiceTest {
     }
 
     private BotPersona persona(long userId) {
-        return new BotPersona(userId, "Random Bot", BotTier.BEGINNER, 250, 8, 0.25, true, false);
+        return new BotPersona(userId, "Random Bot", BotTier.BEGINNER, 250, 8, 0.25, true, false,
+                BotTemperament.WARM);
     }
 }

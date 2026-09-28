@@ -40,7 +40,7 @@ public class WindTotemPrefabInitializer extends PrefabInitializer {
                 new Vector3(
                         windTotemParameters.floatValue(ParameterKey.PUSH_RANGE_X),
                         windTotemParameters.floatValue(ParameterKey.PUSH_RANGE_Y),
-                        1.0f
+                        windTotemParameters.floatValue(ParameterKey.PUSH_RANGE_Z)
                 )));
 
         gameObject.addComponent(new TimedSelfDestroyer(

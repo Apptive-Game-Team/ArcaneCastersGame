@@ -8,7 +8,8 @@ public record BotPersona(
         int reactionIntervalFrames,
         double counterAggression,
         boolean enabled,
-        boolean hospitality
+        boolean hospitality,
+        BotTemperament temperament
 ) {
     public static final BotPersona DEFAULT = new BotPersona(
             0,
@@ -18,8 +19,18 @@ public record BotPersona(
             8,
             0.25,
             true,
-            false
+            false,
+            BotTemperament.WARM
     );
+
+    /**
+     * The temperament the emote director reads. A bot with no row of its own still plays, so the
+     * default is spelled out here rather than left null for every caller to guess at; it matches
+     * the database column's own default.
+     */
+    public BotTemperament normalizedTemperament() {
+        return temperament == null ? BotTemperament.WARM : temperament;
+    }
 
     public int normalizedReactionIntervalFrames() {
         return Math.max(1, reactionIntervalFrames);
