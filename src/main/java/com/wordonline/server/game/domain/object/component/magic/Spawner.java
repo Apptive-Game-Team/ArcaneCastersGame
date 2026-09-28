@@ -9,7 +9,8 @@ import com.wordonline.server.game.domain.object.component.mob.Mob;
 
 public class Spawner extends Mob {
     public static final float DEFAULT_SPAWN_INTERVAL_SEC = 2f;
-    private static final float DEFAULT_BURST_SPACING = 0.5f;
+    // Shared with PveScriptSystem's SpawnWave action, which spreads its wave the same way.
+    public static final float DEFAULT_BURST_SPACING = 0.5f;
 
     private float counter = 0;
     private boolean isRunning = false;

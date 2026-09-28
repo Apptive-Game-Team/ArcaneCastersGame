@@ -1,6 +1,7 @@
 package com.wordonline.server.game.service.pve;
 
 import com.wordonline.server.game.domain.object.GameObject;
+import com.wordonline.server.game.domain.object.component.mob.Mob;
 import com.wordonline.server.game.domain.pve.PveInstallObject;
 import com.wordonline.server.game.service.GameContext;
 import lombok.Getter;
@@ -32,15 +33,28 @@ public class PveScenarioInstaller {
         this.runtime = new RuntimeState();
 
         for (PveInstallObject installObject : installers) {
-            GameObject gameObject = new GameObject(
-                    installObject.master(),
-                    installObject.prefabType(),
-                    installObject.position(),
-                    gameContext
-            );
-
-            runtime.getInstalledObjectIds().put(installObject.installerId(), gameObject.getId());
+            installOne(installObject, gameContext);
         }
+    }
+
+    // Installs one object outside the initial batch, for the InstallObject action: registers it
+    // under installerId so later events, speakers and objectives can reference it, same as the
+    // scenario's own installer rows.
+    public GameObject installOne(PveInstallObject installObject, GameContext gameContext) {
+        if (runtime == null) {
+            runtime = new RuntimeState();
+        }
+
+        GameObject gameObject = new GameObject(
+                installObject.master(),
+                installObject.prefabType(),
+                installObject.position(),
+                gameContext
+        );
+
+        applyMaxHpOverride(gameObject, installObject.maxHp());
+        runtime.getInstalledObjectIds().put(installObject.installerId(), gameObject.getId());
+        return gameObject;
     }
 
     public GameObject getInstalledObject(GameContext gameContext, String installerId) {
@@ -59,5 +73,15 @@ public class PveScenarioInstaller {
             }
         }
         return null;
+    }
+
+    private void applyMaxHpOverride(GameObject gameObject, Integer maxHp) {
+        if (maxHp == null) {
+            return;
+        }
+        Mob mob = gameObject.getComponent(Mob.class);
+        if (mob != null) {
+            mob.overrideMaxHp(maxHp);
+        }
     }
 }

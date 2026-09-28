@@ -74,6 +74,18 @@ public abstract class Mob extends Component implements Damageable, GaugeComponen
         }
     }
 
+    // Overrides both max hp and current hp after the mob is already constructed, and tells the
+    // client the new gauge right away. A PVE scenario installer uses this to give the same boss
+    // prefab a different hp per stage without touching the prefab's own parameter hp.
+    public void overrideMaxHp(int newMaxHp) {
+        if (newMaxHp <= 0) {
+            return;
+        }
+        this.maxHp = newMaxHp;
+        this.hp = newMaxHp;
+        gameObject.applyUpdate();
+    }
+
     public int drainHpAboveFraction(float floorFraction) {
         int floorHp = (int) Math.ceil(maxHp * Math.clamp(floorFraction, 0f, 1f));
         int drainedHp = Math.max(0, hp - floorHp);

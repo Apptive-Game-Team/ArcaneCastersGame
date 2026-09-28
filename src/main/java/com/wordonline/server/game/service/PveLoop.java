@@ -11,7 +11,6 @@ import com.wordonline.server.game.service.system.PveScriptSystem;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
 
 @Service
 @Scope("prototype")
@@ -77,13 +76,13 @@ public class PveLoop extends WordOnlineLoop {
         pveScenarioInstaller.install(scenario.installers(), gameContext);
         pveScriptSystem.setScenario(scenario);
         pveScriptSystem.setRuntime(pveScenarioInstaller.getRuntime());
+        pveScriptSystem.setInstaller(pveScenarioInstaller);
 
-        List<Integer> objectiveIds = scenario.objectiveInstallerIds().stream()
-                .map(installerId -> pveScenarioInstaller.getRuntime() == null
-                        ? -1
-                        : pveScenarioInstaller.getRuntime().getInstalledObjectId(installerId))
-                .toList();
-        resultChecker.setObjectiveIds(objectiveIds);
+        // Objectives are resolved by installer id on every check (see PveResultChecker), so an
+        // objective installed later by an InstallObject action is picked up once it exists.
+        resultChecker.setObjectiveInstallerIds(scenario.objectiveInstallerIds());
+        resultChecker.setRuntime(pveScenarioInstaller.getRuntime());
+        resultChecker.configureRules(scenario.rules());
     }
 
     private Long resolveScenarioId(Long scenarioId) {

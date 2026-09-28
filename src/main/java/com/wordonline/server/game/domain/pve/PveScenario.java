@@ -5,6 +5,7 @@ import java.util.List;
 public record PveScenario(
         List<String> objectiveInstallerIds,
         List<PveInstallObject> installers,
-        List<PveScenarioEvent> events
+        List<PveScenarioEvent> events,
+        PveScenarioRules rules
 ) {
 }
