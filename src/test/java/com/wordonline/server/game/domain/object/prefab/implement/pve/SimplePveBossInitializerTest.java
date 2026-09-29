@@ -39,5 +39,13 @@ class SimplePveBossInitializerTest {
 
         target.applyDamage(new AttackInfo(100, ElementType.NONE));
         assertThat(nest.getComponent(PVEBossMob.class).getHp()).isEqualTo(900);
+
+        // The client's hp bar is the HP gauge; the Spawner's 0/0 must not replace the boss's.
+        var hpGauges = com.wordonline.server.game.util.GaugeExtractor.extractGaugeDto(nest).stream()
+                .filter(g -> g.category() == com.wordonline.server.game.dto.frame.GaugeCategory.HP)
+                .toList();
+        assertThat(hpGauges).hasSize(1);
+        assertThat(hpGauges.get(0).value()).isEqualTo(900f);
+        assertThat(hpGauges.get(0).maxValue()).isEqualTo(1000f);
     }
 }
