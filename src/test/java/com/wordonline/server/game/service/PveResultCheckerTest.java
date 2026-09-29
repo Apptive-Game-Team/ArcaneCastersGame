@@ -92,9 +92,67 @@ class PveResultCheckerTest {
     }
 
     @Test
-    void surviveClearsOnceTheFrameThresholdIsReachedAndIgnoresObjectives() {
+    void surviveClearsOnceTheFrameThresholdIsReachedWhileAnObjectiveIsNeverInstalled() {
         PveResultChecker checker = newChecker();
         checker.setObjectiveInstallerIds(List.of("never-installed"));
+        checker.setRuntime(new PveScenarioInstaller.RuntimeState());
+        checker.configureRules(new PveScenarioRules(PveWinCondition.Survive, 10));
+
+        when(gameContext.getFrameNum()).thenReturn(10 * 20 - 1);
+        assertThat(checker.checkResult()).isFalse();
+
+        when(gameContext.getFrameNum()).thenReturn(10 * 20);
+        assertThat(checker.checkResult()).isTrue();
+        assertThat(checker.getLoser()).isEqualTo(Master.RightPlayer);
+    }
+
+    @Test
+    void surviveClearsBeforeTheTimerOnceEveryObjectiveIsTerminal() {
+        PveResultChecker checker = newChecker();
+        PveScenarioInstaller.RuntimeState runtime = new PveScenarioInstaller.RuntimeState();
+        GameObject boss = boss();
+        runtime.register("boss", boss);
+
+        checker.setObjectiveInstallerIds(List.of("boss"));
+        checker.setRuntime(runtime);
+        checker.configureRules(new PveScenarioRules(PveWinCondition.Survive, 90));
+        when(gameContext.getFrameNum()).thenReturn(5 * 20);
+
+        assertThat(checker.checkResult()).isFalse();
+
+        boss.destroy();
+        world.remove(boss);
+
+        assertThat(checker.checkResult()).isTrue();
+        assertThat(checker.getLoser()).isEqualTo(Master.RightPlayer);
+    }
+
+    @Test
+    void surviveDoesNotClearBeforeTheTimerWhileAnObjectiveIsAlive() {
+        PveResultChecker checker = newChecker();
+        PveScenarioInstaller.RuntimeState runtime = new PveScenarioInstaller.RuntimeState();
+        GameObject boss = boss();
+        GameObject structure = boss();
+        runtime.register("boss", boss);
+        runtime.register("structure", structure);
+        boss.destroy();
+        world.remove(boss);
+
+        checker.setObjectiveInstallerIds(List.of("boss", "structure"));
+        checker.setRuntime(runtime);
+        checker.configureRules(new PveScenarioRules(PveWinCondition.Survive, 90));
+
+        when(gameContext.getFrameNum()).thenReturn(90 * 20 - 1);
+        assertThat(checker.checkResult()).isFalse();
+
+        when(gameContext.getFrameNum()).thenReturn(90 * 20);
+        assertThat(checker.checkResult()).isTrue();
+    }
+
+    @Test
+    void surviveWithoutObjectivesClearsOnlyOnTheTimer() {
+        PveResultChecker checker = newChecker();
+        checker.setObjectiveInstallerIds(List.of());
         checker.setRuntime(new PveScenarioInstaller.RuntimeState());
         checker.configureRules(new PveScenarioRules(PveWinCondition.Survive, 10));
 
