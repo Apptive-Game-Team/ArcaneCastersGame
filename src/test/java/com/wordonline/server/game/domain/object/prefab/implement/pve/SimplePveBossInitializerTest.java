@@ -34,6 +34,8 @@ class SimplePveBossInitializerTest {
         nest.flushComponents();
 
         assertThat(nest.getComponent(Spawner.class)).isNotNull();
+        // PhysicSystem only pairs objects that carry a Collidable; projectiles miss a boss without one.
+        assertThat(nest.getComponents(com.wordonline.server.game.domain.object.component.physic.Collidable.class)).isNotEmpty();
         Mob target = nest.getComponent(Mob.class);
         assertThat(target).isInstanceOf(PVEBossMob.class);
 

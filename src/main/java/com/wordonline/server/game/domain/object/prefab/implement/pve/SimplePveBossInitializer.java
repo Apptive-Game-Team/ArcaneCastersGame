@@ -7,6 +7,7 @@ import com.wordonline.server.game.domain.magic.ElementType;
 import com.wordonline.server.game.domain.magic.Magic;
 import com.wordonline.server.game.domain.magic.parser.DatabaseMagicParser;
 import com.wordonline.server.game.domain.object.GameObject;
+import com.wordonline.server.game.domain.object.component.effect.receiver.CommonEffectReceiver;
 import com.wordonline.server.game.domain.object.component.magic.Spawner;
 import com.wordonline.server.game.domain.object.component.mob.detector.TargetMask;
 import com.wordonline.server.game.domain.object.component.mob.statemachine.attacker.PVEBossMob;
@@ -91,6 +92,11 @@ public abstract class SimplePveBossInitializer extends PrefabInitializer {
         gameObject.addComponent(new ZPhysics(gameObject));
         gameObject.addCollider(new CircleCollider(gameObject, (float) parameters.getValue(parameterKey, "radius"), true));
         gameObject.setElement(elementType);
+        // Only objects with a Collidable component take part in collisions. Units and
+        // buildings get one through their effect receiver; without it a boss was skipped by
+        // PhysicSystem, so projectiles such as the dragon tower's flame flew straight through
+        // it and burn, slow and other effects never landed.
+        gameObject.addComponent(new CommonEffectReceiver(gameObject));
 
         // The boss mob goes on before the Spawner: a Spawner is also a Mob, and damage, slows and
         // every other effect find their target with getComponent(Mob.class), which returns the
