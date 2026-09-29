@@ -1,5 +1,6 @@
 package com.wordonline.server.game.domain.object.component.mob.statemachine.attacker;
 
+import com.wordonline.server.game.domain.AttackInfo;
 import com.wordonline.server.game.domain.magic.ElementType;
 import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.Vector3;
@@ -19,27 +20,40 @@ import static org.mockito.Mockito.verify;
 class SlimeDeathFieldTest {
 
     @Test
-    void lightningDeathDoesNotCreateLegacyDuplicateField() {
+    void lightningDeathCreatesOneElectricField() {
         GameContext gameContext = mock(GameContext.class);
         GameObject slimeObject = slimeObject(gameContext, ElementType.LIGHTNING);
 
-        new Slime(slimeObject, 1, 1f, 0, 0, 1f).onDeath();
+        new Slime(slimeObject, 1, 1f, 0, 0, 1f).applyDamage(new AttackInfo(1, ElementType.NONE));
 
-        verify(gameContext, never()).createGameObject(any(GameObject.class));
+        ArgumentCaptor<GameObject> created = ArgumentCaptor.forClass(GameObject.class);
+        verify(gameContext).createGameObject(created.capture());
+        assertThat(created.getValue().getType()).isEqualTo(PrefabType.ElectricField);
         assertThat(slimeObject.isDestroyed()).isTrue();
     }
 
     @Test
-    void nonLightningElementalDeathFieldsRemainUnchanged() {
+    void elementalDeathFieldBelongsToTheSlimeOwner() {
+        GameContext gameContext = mock(GameContext.class);
+        GameObject slimeObject = slimeObject(gameContext, ElementType.FIRE);
+
+        new Slime(slimeObject, 1, 1f, 0, 0, 1f).applyDamage(new AttackInfo(1, ElementType.NONE));
+
+        ArgumentCaptor<GameObject> created = ArgumentCaptor.forClass(GameObject.class);
+        verify(gameContext).createGameObject(created.capture());
+        assertThat(created.getValue().getType()).isEqualTo(PrefabType.FireField);
+        assertThat(created.getValue().getMaster()).isEqualTo(Master.LeftPlayer);
+        assertThat(slimeObject.isDestroyed()).isTrue();
+    }
+
+    @Test
+    void directOnDeathLeavesNoField() {
         GameContext gameContext = mock(GameContext.class);
         GameObject slimeObject = slimeObject(gameContext, ElementType.FIRE);
 
         new Slime(slimeObject, 1, 1f, 0, 0, 1f).onDeath();
 
-        ArgumentCaptor<GameObject> created = ArgumentCaptor.forClass(GameObject.class);
-        verify(gameContext).createGameObject(created.capture());
-        assertThat(created.getValue().getType().name()).isEqualTo("FireField");
-        assertThat(slimeObject.isDestroyed()).isTrue();
+        verify(gameContext, never()).createGameObject(any(GameObject.class));
     }
 
     private GameObject slimeObject(GameContext gameContext, ElementType elementType) {
