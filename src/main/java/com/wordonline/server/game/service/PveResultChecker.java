@@ -73,8 +73,8 @@ public class PveResultChecker extends ResultChecker {
         if (!cleared && !failed) {
             if (winCondition == PveWinCondition.Survive) {
                 checkSurvive();
-            } else {
-                checkWinObjectives();
+            } else if (areAllObjectivesTerminal()) {
+                setCleared();
             }
         }
 
@@ -82,16 +82,18 @@ public class PveResultChecker extends ResultChecker {
     }
 
     private void checkSurvive() {
-        // Objectives are ignored under Survive; the player only has to still be alive here,
-        // which the lose check above already guarantees for this branch to be reached.
-        if (getSessionObject().getGameContext().getFrameNum() >= surviveFrameThreshold) {
+        // The player only has to still be alive here, which the lose check above already
+        // guarantees for this branch to be reached. Destroying every objective ends the match
+        // early; a scenario with no objectives is cleared by the timer alone.
+        if (getSessionObject().getGameContext().getFrameNum() >= surviveFrameThreshold
+                || areAllObjectivesTerminal()) {
             setCleared();
         }
     }
 
-    private void checkWinObjectives() {
+    private boolean areAllObjectivesTerminal() {
         if (objectiveInstallerIds.isEmpty() || runtime == null) {
-            return;
+            return false;
         }
 
         boolean allTerminal = true;
@@ -114,8 +116,6 @@ public class PveResultChecker extends ResultChecker {
             allTerminal = false;
         }
 
-        if (allTerminal) {
-            setCleared();
-        }
+        return allTerminal;
     }
 }
