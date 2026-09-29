@@ -21,10 +21,22 @@ public class PveScenarioInstaller {
     @Getter
     public static class RuntimeState {
         private final Map<String, Integer> installedObjectIds = new HashMap<>();
-
+        // The installed objects themselves. A new GameObject joins gameContext.getGameObjects()
+        // only on the next frame, so looking it up there by id finds nothing right after install;
+        // holding the reference keeps "not in the world yet" apart from "destroyed".
+        private final Map<String, GameObject> installedObjects = new HashMap<>();
 
         public int getInstalledObjectId(String installerId) {
             return installedObjectIds.getOrDefault(installerId, -1);
+        }
+
+        public GameObject getInstalledGameObject(String installerId) {
+            return installerId == null ? null : installedObjects.get(installerId);
+        }
+
+        public void register(String installerId, GameObject gameObject) {
+            installedObjectIds.put(installerId, gameObject.getId());
+            installedObjects.put(installerId, gameObject);
         }
     }
 
@@ -55,7 +67,7 @@ public class PveScenarioInstaller {
         );
 
         applyMaxHpOverride(gameObject, installObject.maxHp());
-        runtime.getInstalledObjectIds().put(installObject.installerId(), gameObject.getId());
+        runtime.register(installObject.installerId(), gameObject);
         return gameObject;
     }
 
@@ -63,18 +75,7 @@ public class PveScenarioInstaller {
         if (runtime == null || installerId == null || installerId.isBlank()) {
             return null;
         }
-
-        int objectId = runtime.getInstalledObjectId(installerId);
-        if (objectId < 0) {
-            return null;
-        }
-
-        for (GameObject gameObject : gameContext.getGameObjects()) {
-            if (gameObject.getId() == objectId) {
-                return gameObject;
-            }
-        }
-        return null;
+        return runtime.getInstalledGameObject(installerId);
     }
 
     private void applyMaxHpOverride(GameObject gameObject, Integer maxHp) {

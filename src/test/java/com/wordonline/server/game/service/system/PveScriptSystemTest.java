@@ -176,7 +176,7 @@ class PveScriptSystemTest {
     }
 
     @Test
-    void installerDestroyedFiresWhenTheObjectIsRemovedFromTheWorld() {
+    void installerDestroyedFiresOnceTheObjectIsDestroyed() {
         GameContext context = newGameContext();
         PveScenarioInstaller installer = new PveScenarioInstaller();
         installer.install(List.of(), context);
@@ -190,9 +190,26 @@ class PveScriptSystemTest {
         system.update(context);
         verify(sessionObject, never()).sendFrameInfo(anyLong(), any());
 
+        boss.destroy();
         world.remove(boss);
         system.update(context);
         verify(sessionObject, times(2)).sendFrameInfo(anyLong(), any(PveScriptEventDto.class));
+    }
+
+    // Missing from gameContext.getGameObjects() is not destroyed: a new object joins that list a frame late.
+    @Test
+    void installerDestroyedDoesNotFireForAnObjectOnlyAbsentFromTheWorldList() {
+        GameContext context = newGameContext();
+        PveScenarioInstaller installer = new PveScenarioInstaller();
+        installer.install(List.of(), context);
+        GameObject boss = installBoss(installer, context, "boss", 100);
+        world.remove(boss);
+
+        var scenario = new PveScenario(List.of(), List.of(), List.of(
+                event("e1", PveTriggerType.InstallerDestroyed, 0, "boss", List.of("dead"), List.of())
+        ), PveScenarioRules.defaultRules());
+        newSystem(scenario, installer).update(context);
+        verify(sessionObject, never()).sendFrameInfo(anyLong(), any());
     }
 
     @Test

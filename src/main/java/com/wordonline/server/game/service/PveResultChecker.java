@@ -97,23 +97,17 @@ public class PveResultChecker extends ResultChecker {
         boolean allTerminal = true;
 
         for (String installerId : objectiveInstallerIds) {
-            int objectiveId = runtime.getInstalledObjectId(installerId);
-            if (objectiveId < 0) {
+            GameObject objective = runtime.getInstalledGameObject(installerId);
+            if (objective == null) {
                 // Not installed yet: this objective blocks the win.
                 allTerminal = false;
                 continue;
             }
-            if (seenObjectives.contains(objectiveId)) {
+            if (seenObjectives.contains(objective.getId())) {
                 continue;
             }
-
-            GameObject objective = getSessionObject().getGameContext().getGameObjects().stream()
-                    .filter(o -> o.getId() == objectiveId)
-                    .findFirst()
-                    .orElse(null);
-
-            if (objective == null || PveObjectiveTarget.isTerminal(objective)) {
-                seenObjectives.add(objectiveId);
+            if (PveObjectiveTarget.isTerminal(objective)) {
+                seenObjectives.add(objective.getId());
                 continue;
             }
 

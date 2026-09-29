@@ -51,7 +51,7 @@ class PveResultCheckerTest {
         PveResultChecker checker = newChecker();
         PveScenarioInstaller.RuntimeState runtime = new PveScenarioInstaller.RuntimeState();
         GameObject boss = boss();
-        runtime.getInstalledObjectIds().put("boss", boss.getId());
+        runtime.register("boss", boss);
 
         checker.setObjectiveInstallerIds(List.of("boss"));
         checker.setRuntime(runtime);
@@ -71,7 +71,7 @@ class PveResultCheckerTest {
         PveResultChecker checker = newChecker();
         PveScenarioInstaller.RuntimeState runtime = new PveScenarioInstaller.RuntimeState();
         GameObject boss = boss();
-        runtime.getInstalledObjectIds().put("boss", boss.getId());
+        runtime.register("boss", boss);
         boss.destroy();
         world.remove(boss);
 
@@ -84,7 +84,7 @@ class PveResultCheckerTest {
 
         // Once it is installed and destroyed too, the win goes through.
         GameObject extra = boss();
-        runtime.getInstalledObjectIds().put("extra", extra.getId());
+        runtime.register("extra", extra);
         extra.destroy();
         world.remove(extra);
 
@@ -104,5 +104,23 @@ class PveResultCheckerTest {
         when(gameContext.getFrameNum()).thenReturn(10 * 20);
         assertThat(checker.checkResult()).isTrue();
         assertThat(checker.getLoser()).isEqualTo(Master.RightPlayer);
+    }
+
+    // A freshly installed object joins gameContext.getGameObjects() only on the next frame.
+    // Being absent from that list at frame 0 must not count as destroyed; it once cleared
+    // every scenario the instant the match started.
+    @Test
+    void anObjectiveNotYetInTheWorldListDoesNotClear() {
+        PveResultChecker checker = newChecker();
+        PveScenarioInstaller.RuntimeState runtime = new PveScenarioInstaller.RuntimeState();
+        GameObject boss = new GameObject(Master.RightPlayer, PrefabType.ZapMouse, Vector3.ZERO, gameContext);
+        runtime.register("boss", boss);
+
+        checker.setObjectiveInstallerIds(List.of("boss"));
+        checker.setRuntime(runtime);
+        checker.configureRules(PveScenarioRules.defaultRules());
+
+        assertThat(world).doesNotContain(boss);
+        assertThat(checker.checkResult()).isFalse();
     }
 }

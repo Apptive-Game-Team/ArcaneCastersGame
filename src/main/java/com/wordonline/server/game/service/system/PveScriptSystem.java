@@ -81,35 +81,13 @@ public class PveScriptSystem implements GameSystem {
     }
 
     private boolean isInstallerDestroyed(PveScenarioEvent eventSpec, GameContext gameContext) {
-        Integer objectId = resolveInstalledObjectId(eventSpec.targetInstallerId());
-        if (objectId == null) {
-            // Not installed yet: the event does not fire.
-            return false;
-        }
-        GameObject target = findGameObjectById(gameContext, objectId);
-        // The object was swept from the world entirely, which is as terminal as it gets.
-        return target == null || PveObjectiveTarget.isTerminal(target);
+        GameObject target = resolveTarget(eventSpec.targetInstallerId(), gameContext);
+        // Not installed yet: the event does not fire.
+        return target != null && PveObjectiveTarget.isTerminal(target);
     }
 
     private GameObject resolveTarget(String installerId, GameContext gameContext) {
         return installer == null ? null : installer.getInstalledObject(gameContext, installerId);
-    }
-
-    private Integer resolveInstalledObjectId(String installerId) {
-        if (runtime == null || installerId == null || installerId.isBlank()) {
-            return null;
-        }
-        int objectId = runtime.getInstalledObjectId(installerId);
-        return objectId < 0 ? null : objectId;
-    }
-
-    private GameObject findGameObjectById(GameContext gameContext, int objectId) {
-        for (GameObject gameObject : gameContext.getGameObjects()) {
-            if (gameObject.getId() == objectId) {
-                return gameObject;
-            }
-        }
-        return null;
     }
 
     private void sendDialogueIfAny(PveScenarioEvent eventSpec, GameContext gameContext) {
