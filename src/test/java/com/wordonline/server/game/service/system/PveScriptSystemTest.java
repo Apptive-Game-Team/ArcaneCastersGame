@@ -88,6 +88,7 @@ class PveScriptSystemTest {
             GameObject gameObject = invocation.getArgument(0);
             gameObject.addComponent(new TestMob(gameObject, maxHp));
             gameObject.flushComponents();
+            gameObject.setStatus(com.wordonline.server.game.dto.Status.Idle);
             world.add(gameObject);
             return null;
         }).when(context).createGameObject(any());
@@ -296,6 +297,7 @@ class PveScriptSystemTest {
             GameObject gameObject = invocation.getArgument(0);
             gameObject.addComponent(new TestMob(gameObject, 10));
             gameObject.flushComponents();
+            gameObject.setStatus(com.wordonline.server.game.dto.Status.Idle);
             world.add(gameObject);
             return null;
         }).when(context).createGameObject(any());
@@ -328,6 +330,7 @@ class PveScriptSystemTest {
             gameObject.addComponent(new TestMob(gameObject, 10));
             gameObject.addComponent(new Spawner(gameObject, 0, PrefabType.ZapMouse));
             gameObject.flushComponents();
+            gameObject.setStatus(com.wordonline.server.game.dto.Status.Idle);
             world.add(gameObject);
             return null;
         }).when(context).createGameObject(any());
@@ -362,6 +365,7 @@ class PveScriptSystemTest {
             gameObject.addComponent(new TestMob(gameObject, 10));
             gameObject.addComponent(new Spawner(gameObject, 0, PrefabType.ZapMouse));
             gameObject.flushComponents();
+            gameObject.setStatus(com.wordonline.server.game.dto.Status.Idle);
             world.add(gameObject);
             return null;
         }).when(context).createGameObject(any());
@@ -406,6 +410,7 @@ class PveScriptSystemTest {
             gameObject.addComponent(new Spawner(gameObject, 0, PrefabType.LeafSlime, 10f, false, 1));
             gameObject.addComponent(new TestBossMob(gameObject, 1000));
             gameObject.flushComponents();
+            gameObject.setStatus(com.wordonline.server.game.dto.Status.Idle);
             world.add(gameObject);
             return null;
         }).when(context).createGameObject(any());

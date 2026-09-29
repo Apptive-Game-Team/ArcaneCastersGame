@@ -28,6 +28,7 @@ class PveScenarioInstallerTest {
             GameObject gameObject = invocation.getArgument(0);
             gameObject.addComponent(new TestMob(gameObject, prefabMaxHp));
             gameObject.flushComponents();
+            gameObject.setStatus(com.wordonline.server.game.dto.Status.Idle);
             return null;
         }).when(gameContext).createGameObject(any());
         return gameContext;
@@ -130,11 +131,20 @@ class PveScenarioInstallerTest {
         var bossMob = new com.wordonline.server.game.domain.object.component.mob.statemachine.attacker.PVEBossMob(
                 boss, 1000, 0f, 0, 2.5f, 7f, java.util.List.of());
         boss.addComponent(bossMob);
+        boss.addComponent(new com.wordonline.server.game.domain.object.component.TimedSelfDestroyer(boss, 60));
         boss.flushComponents();
+        installer.finishPendingSetup();
+        // Still initializing: nothing is applied yet.
         org.assertj.core.api.Assertions.assertThat(bossMob.getMaxHp()).isEqualTo(1000);
 
-        installer.applyPendingMaxHp();
+        boss.setStatus(com.wordonline.server.game.dto.Status.Idle);
+
+        installer.finishPendingSetup();
         org.assertj.core.api.Assertions.assertThat(bossMob.getMaxHp()).isEqualTo(600);
         org.assertj.core.api.Assertions.assertThat(bossMob.getHp()).isEqualTo(600);
+        // A scenario structure never expires on its own.
+        boss.flushComponents();
+        org.assertj.core.api.Assertions.assertThat(
+                boss.getComponent(com.wordonline.server.game.domain.object.component.TimedSelfDestroyer.class)).isNull();
     }
 }

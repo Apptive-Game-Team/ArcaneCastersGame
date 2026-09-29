@@ -45,7 +45,7 @@ public class PveScriptSystem implements GameSystem {
             return;
         }
         if (installer != null) {
-            installer.applyPendingMaxHp();
+            installer.finishPendingSetup();
         }
 
         for (PveScenarioEvent eventSpec : scenario.events()) {

@@ -1,6 +1,7 @@
 package com.wordonline.server.game.service.pve;
 
 import com.wordonline.server.game.domain.object.GameObject;
+import com.wordonline.server.game.domain.object.component.TimedSelfDestroyer;
 import com.wordonline.server.game.domain.object.component.mob.Mob;
 import com.wordonline.server.game.domain.pve.PveObjectiveTarget;
 import com.wordonline.server.game.domain.object.component.magic.Spawner;
@@ -79,28 +80,35 @@ public class PveScenarioInstaller {
     }
 
     // A new GameObject gets its components from its prefab initializer only when it starts, a
-    // frame after it is created, so the boss mob does not exist yet at install time. The override
-    // waits here and applyPendingMaxHp retries it every frame until the mob is there.
-    private final Map<GameObject, Integer> pendingMaxHp = new HashMap<>();
+    // frame after it is created, so nothing can be adjusted at install time. Every installed
+    // object waits here, with its max_hp override (or null), until finishPendingSetup finds it
+    // started; PveScriptSystem calls that every frame.
+    private final Map<GameObject, Integer> pendingSetup = new HashMap<>();
 
     private void applyMaxHpOverride(GameObject gameObject, Integer maxHp) {
-        if (maxHp == null) {
-            return;
-        }
-        pendingMaxHp.put(gameObject, maxHp);
-        applyPendingMaxHp();
+        pendingSetup.put(gameObject, maxHp);
+        finishPendingSetup();
     }
 
-    public void applyPendingMaxHp() {
-        pendingMaxHp.entrySet().removeIf(entry -> {
-            if (entry.getKey().isDestroyed()) {
+    public void finishPendingSetup() {
+        pendingSetup.entrySet().removeIf(entry -> {
+            GameObject gameObject = entry.getKey();
+            if (gameObject.isDestroyed()) {
                 return true;
             }
-            Mob mob = findHealthMob(entry.getKey());
-            if (mob == null) {
+            if (!gameObject.isInitialized()) {
                 return false;
             }
-            mob.overrideMaxHp(entry.getValue());
+            // Scenario structures stay until the player breaks them. Buildings borrowed from
+            // player magics (GroundCannon, RockTurret, ...) carry a lifetime; an objective that
+            // expires on its own hands the player a free win.
+            for (TimedSelfDestroyer lifetime : gameObject.getComponents(TimedSelfDestroyer.class)) {
+                gameObject.removeComponent(lifetime);
+            }
+            Mob mob = findHealthMob(gameObject);
+            if (entry.getValue() != null && mob != null) {
+                mob.overrideMaxHp(entry.getValue());
+            }
             return true;
         });
     }
