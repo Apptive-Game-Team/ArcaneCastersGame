@@ -92,6 +92,13 @@ public abstract class SimplePveBossInitializer extends PrefabInitializer {
         gameObject.addCollider(new CircleCollider(gameObject, (float) parameters.getValue(parameterKey, "radius"), true));
         gameObject.setElement(elementType);
 
+        // The boss mob goes on before the Spawner: a Spawner is also a Mob, and damage, slows and
+        // every other effect find their target with getComponent(Mob.class), which returns the
+        // first one. With the Spawner first, all damage landed on it and was discarded.
+        int maxHp = (int) parameters.getValue(parameterKey, "hp");
+        List<Magic> magics = resolveMagics(magicNames);
+        gameObject.addComponent(createBossMob(gameObject, maxHp, magics));
+
         SpawnConfig spawnConfig = selectRandomSpawnConfig();
         if (spawnConfig != null) {
             gameObject.addComponent(new Spawner(
@@ -103,10 +110,6 @@ public abstract class SimplePveBossInitializer extends PrefabInitializer {
                     spawnConfig.spawnCount()
             ));
         }
-
-        int maxHp = (int) parameters.getValue(parameterKey, "hp");
-        List<Magic> magics = resolveMagics(magicNames);
-        gameObject.addComponent(createBossMob(gameObject, maxHp, magics));
     }
 
     protected Magic parseMagic(String magicName) {

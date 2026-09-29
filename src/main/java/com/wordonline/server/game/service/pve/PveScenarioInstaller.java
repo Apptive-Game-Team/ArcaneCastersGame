@@ -78,18 +78,35 @@ public class PveScenarioInstaller {
         return runtime.getInstalledGameObject(installerId);
     }
 
+    // A new GameObject gets its components from its prefab initializer only when it starts, a
+    // frame after it is created, so the boss mob does not exist yet at install time. The override
+    // waits here and applyPendingMaxHp retries it every frame until the mob is there.
+    private final Map<GameObject, Integer> pendingMaxHp = new HashMap<>();
+
     private void applyMaxHpOverride(GameObject gameObject, Integer maxHp) {
         if (maxHp == null) {
             return;
         }
-        Mob mob = findHealthMob(gameObject);
-        if (mob != null) {
-            mob.overrideMaxHp(maxHp);
-        }
+        pendingMaxHp.put(gameObject, maxHp);
+        applyPendingMaxHp();
     }
 
-    // The mob whose hp is the structure's hp. A PVE boss carries a Spawner, which is also a Mob
-    // (hp 0) and is added before the boss mob, so the first Mob component is the wrong one.
+    public void applyPendingMaxHp() {
+        pendingMaxHp.entrySet().removeIf(entry -> {
+            if (entry.getKey().isDestroyed()) {
+                return true;
+            }
+            Mob mob = findHealthMob(entry.getKey());
+            if (mob == null) {
+                return false;
+            }
+            mob.overrideMaxHp(entry.getValue());
+            return true;
+        });
+    }
+
+    // The mob whose hp is the structure's hp. A PVE boss also carries a Spawner, which is a Mob
+    // with hp 0, so prefer the PveObjectiveTarget and never pick the Spawner.
     public static Mob findHealthMob(GameObject gameObject) {
         if (gameObject == null) {
             return null;

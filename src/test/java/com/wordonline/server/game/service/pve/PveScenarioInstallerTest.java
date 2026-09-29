@@ -111,4 +111,30 @@ class PveScenarioInstallerTest {
         public void onDestroy() {
         }
     }
+
+    // The prefab initializer adds the boss mob only when the object starts, a frame after install,
+    // so max_hp has to wait for it instead of being dropped.
+    @Test
+    void maxHpOverrideWaitsForTheBossMobToAppear() {
+        com.wordonline.server.game.service.GameContext context =
+                org.mockito.Mockito.mock(com.wordonline.server.game.service.GameContext.class);
+        PveScenarioInstaller installer = new PveScenarioInstaller();
+        installer.install(java.util.List.of(), context);
+        com.wordonline.server.game.domain.object.GameObject boss = installer.installOne(
+                new com.wordonline.server.game.domain.pve.PveInstallObject("boss",
+                        com.wordonline.server.game.domain.object.prefab.PrefabType.PveNatureSlimeNest,
+                        com.wordonline.server.game.dto.Master.RightPlayer,
+                        com.wordonline.server.game.domain.object.Vector3.ZERO, 600),
+                context);
+
+        var bossMob = new com.wordonline.server.game.domain.object.component.mob.statemachine.attacker.PVEBossMob(
+                boss, 1000, 0f, 0, 2.5f, 7f, java.util.List.of());
+        boss.addComponent(bossMob);
+        boss.flushComponents();
+        org.assertj.core.api.Assertions.assertThat(bossMob.getMaxHp()).isEqualTo(1000);
+
+        installer.applyPendingMaxHp();
+        org.assertj.core.api.Assertions.assertThat(bossMob.getMaxHp()).isEqualTo(600);
+        org.assertj.core.api.Assertions.assertThat(bossMob.getHp()).isEqualTo(600);
+    }
 }
