@@ -186,7 +186,7 @@ public class WordOnlineLoop extends GameLoop {
 
         beforeResultCheck();
 
-        if (gameContext.getGameTimer().isEnd()) {
+        if (hasTimeLimit() && gameContext.getGameTimer().isEnd()) {
             resolveTimedOutMatch();
             gameContext.getResultChecker().setEnd();
         }
@@ -234,5 +234,11 @@ public class WordOnlineLoop extends GameLoop {
 
     protected void beforeResultCheck() {
         // hook for specialized loops (e.g. PVE)
+    }
+
+    // Whether the match ends when the game timer runs out. PVE scenarios end on their own win
+    // condition instead.
+    protected boolean hasTimeLimit() {
+        return true;
     }
 }

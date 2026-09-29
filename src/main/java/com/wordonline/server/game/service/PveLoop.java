@@ -60,6 +60,14 @@ public class PveLoop extends WordOnlineLoop {
         setupPveScenario(sessionObject, resultChecker);
     }
 
+    // A boss fight is not a race against the PVP clock: at the time limit the loop compared hp
+    // with the untouched right side and scored a loss, which cut long scenarios off mid-fight.
+    // A scenario ends on its own objectives or Survive timer, or when the player dies.
+    @Override
+    protected boolean hasTimeLimit() {
+        return false;
+    }
+
     @Override
     protected void beforeResultCheck() {
         if (sessionObject.getSessionType() != SessionType.PVE) {

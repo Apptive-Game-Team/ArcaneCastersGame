@@ -434,4 +434,31 @@ class PveScriptSystemTest {
         system.update(context);
         verify(sessionObject, times(2)).sendFrameInfo(anyLong(), any(PveScriptEventDto.class));
     }
+
+    // A broken action is logged and skipped: the event's next action and the match go on.
+    @Test
+    void aFailingActionDoesNotStopTheNextAction() {
+        GameContext context = newGameContext();
+        PveScenarioInstaller installer = new PveScenarioInstaller();
+        installer.install(List.of(), context);
+        java.util.concurrent.atomic.AtomicBoolean firstCall = new java.util.concurrent.atomic.AtomicBoolean(true);
+        doAnswer(invocation -> {
+            if (firstCall.getAndSet(false)) {
+                throw new IllegalArgumentException("missing parameter row");
+            }
+            world.add(invocation.getArgument(0));
+            return null;
+        }).when(context).createGameObject(any());
+
+        var scenario = new PveScenario(List.of(), List.of(), List.of(
+                event("e1", PveTriggerType.FrameNumGte, 0, null, List.of(), List.of(
+                        new PveSpawnWaveAction(PrefabType.ZapMouse, 1, 14, 3),
+                        new PveSpawnWaveAction(PrefabType.ZapMouse, 2, 14, 7)))
+        ), PveScenarioRules.defaultRules());
+        PveScriptSystem system = newSystem(scenario, installer);
+
+        when(context.getFrameNum()).thenReturn(0);
+        org.assertj.core.api.Assertions.assertThatCode(() -> system.update(context)).doesNotThrowAnyException();
+        assertThat(world).hasSize(2);
+    }
 }

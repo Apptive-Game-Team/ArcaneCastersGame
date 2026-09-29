@@ -16,9 +16,11 @@ import com.wordonline.server.game.util.CollisionSystem;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.WeakHashMap;
 
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
@@ -27,6 +29,11 @@ import org.springframework.stereotype.Component;
 @Component
 @Scope("prototype")
 public class PhysicSystem implements CollisionSystem, GameSystem {
+
+    // Objects whose collision handling already failed once. Keyed by instance, weakly, and
+    // synchronized, for the same reasons as ComponentUpdateSystem's set.
+    private final Set<GameObject> failedCollisionObjects =
+            Collections.newSetFromMap(Collections.synchronizedMap(new WeakHashMap<GameObject, Boolean>()));
 
     private static final float SAME_PLACE_THRESHOLD = 1e-6f;
 
@@ -176,26 +183,39 @@ public class PhysicSystem implements CollisionSystem, GameSystem {
                         return;
                     }
 
-                    a.getComponents(Collidable.class).forEach(collidable -> collidable.onCollision(b));
-                    b.getComponents(Collidable.class).forEach(collidable -> collidable.onCollision(a));
-
-                    // Map walls still receive the general collision above, but they are
-                    // boundaries rather than enemies that can be attacked.
-                    if (isSameSide(a, b)
-                            || a.getType() == PrefabType.Wall
-                            || b.getType() == PrefabType.Wall) {
-                        return;
+                    // A collision handler that throws skips this pair instead of ending the
+                    // match; reported once per object so a pair that keeps failing does not flood the log.
+                    try {
+                        handleCollision(a, b);
+                    } catch (RuntimeException e) {
+                        if (failedCollisionObjects.add(a)) {
+                            log.error("[Physic] collision handling failed, pair skipped; a: {} {}, b: {} {}",
+                                    a.getId(), a.getType(), b.getId(), b.getType(), e);
+                        }
                     }
-
-                    // a friendly reaction above may have destroyed one of the two objects
-                    if (a.isDestroyed() || b.isDestroyed()) {
-                        return;
-                    }
-
-                    a.getComponents(Collidable.class).forEach(collidable -> collidable.onCollisionWithEnemy(b));
-                    b.getComponents(Collidable.class).forEach(collidable -> collidable.onCollisionWithEnemy(a));
                 }
         );
+    }
+
+    private void handleCollision(GameObject a, GameObject b) {
+        a.getComponents(Collidable.class).forEach(collidable -> collidable.onCollision(b));
+        b.getComponents(Collidable.class).forEach(collidable -> collidable.onCollision(a));
+
+        // Map walls still receive the general collision above, but they are
+        // boundaries rather than enemies that can be attacked.
+        if (isSameSide(a, b)
+                || a.getType() == PrefabType.Wall
+                || b.getType() == PrefabType.Wall) {
+            return;
+        }
+
+        // a friendly reaction above may have destroyed one of the two objects
+        if (a.isDestroyed() || b.isDestroyed()) {
+            return;
+        }
+
+        a.getComponents(Collidable.class).forEach(collidable -> collidable.onCollisionWithEnemy(b));
+        b.getComponents(Collidable.class).forEach(collidable -> collidable.onCollisionWithEnemy(a));
     }
 
     private boolean isSameSide(GameObject a, GameObject b) {

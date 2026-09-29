@@ -18,12 +18,14 @@ import com.wordonline.server.game.service.GameContext;
 import com.wordonline.server.game.service.GameLoop;
 import com.wordonline.server.game.service.pve.PveScenarioInstaller;
 import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
 import java.util.HashSet;
 import java.util.Set;
 
+@Slf4j
 @Component
 @Scope("prototype")
 public class PveScriptSystem implements GameSystem {
@@ -52,11 +54,17 @@ public class PveScriptSystem implements GameSystem {
             if (fired.contains(eventSpec.id())) {
                 continue;
             }
-            if (!isSatisfied(eventSpec, gameContext)) {
+            if (!isSatisfiedSafely(eventSpec, gameContext)) {
                 continue;
             }
+            // Marked fired first, so an event whose trigger or action throws is not retried
+            // every frame.
             fired.add(eventSpec.id());
-            sendDialogueIfAny(eventSpec, gameContext);
+            try {
+                sendDialogueIfAny(eventSpec, gameContext);
+            } catch (RuntimeException e) {
+                log.error("[PVE] dialogue failed; event: {}", eventSpec.id(), e);
+            }
             runActions(eventSpec, gameContext);
         }
     }
@@ -107,13 +115,30 @@ public class PveScriptSystem implements GameSystem {
 
     private void runActions(PveScenarioEvent eventSpec, GameContext gameContext) {
         for (PveScenarioAction action : eventSpec.actions()) {
-            if (action instanceof PveSpawnWaveAction spawnWave) {
-                runSpawnWave(spawnWave, gameContext);
-            } else if (action instanceof PveInstallObjectAction installObject) {
-                runInstallObject(installObject, gameContext);
-            } else if (action instanceof PveSetSpawnerAction setSpawner) {
-                runSetSpawner(setSpawner, gameContext);
+            // One broken action (a bad prefab, a missing installer) is logged and skipped; the
+            // event's other actions and the match go on.
+            try {
+                if (action instanceof PveSpawnWaveAction spawnWave) {
+                    runSpawnWave(spawnWave, gameContext);
+                } else if (action instanceof PveInstallObjectAction installObject) {
+                    runInstallObject(installObject, gameContext);
+                } else if (action instanceof PveSetSpawnerAction setSpawner) {
+                    runSetSpawner(setSpawner, gameContext);
+                }
+            } catch (RuntimeException e) {
+                log.error("[PVE] action failed, skipped; event: {}, action: {}", eventSpec.id(), action, e);
             }
+        }
+    }
+
+    private boolean isSatisfiedSafely(PveScenarioEvent eventSpec, GameContext gameContext) {
+        try {
+            return isSatisfied(eventSpec, gameContext);
+        } catch (RuntimeException e) {
+            // A trigger that cannot be evaluated never fires, rather than ending the match.
+            fired.add(eventSpec.id());
+            log.error("[PVE] trigger failed, event disabled; event: {}", eventSpec.id(), e);
+            return false;
         }
     }
 
