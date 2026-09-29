@@ -7,7 +7,12 @@ public record SessionDto(
         Long uid1,
         Long uid2,
         SessionType sessionType,
-        Long scenarioId
+        Long scenarioId,
+        java.util.List<Long> leftDeckCardIds,
+        java.util.List<Long> rightDeckCardIds
 ) {
+    public SessionDto(String sessionId, Long uid1, Long uid2, SessionType sessionType, Long scenarioId) {
+        this(sessionId, uid1, uid2, sessionType, scenarioId, null, null);
+    }
 
 }

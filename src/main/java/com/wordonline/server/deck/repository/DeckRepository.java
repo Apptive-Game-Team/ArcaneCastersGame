@@ -44,6 +44,12 @@ public class DeckRepository {
             WHERE id = :userId;
             """;
 
+    private static final String GET_MAGICS = """
+            SELECT id, name, 1 AS count
+            FROM magics
+            WHERE id IN (:magicIds);
+            """;
+
     private final JdbcClient jdbcClient;
 
     public List<CardsDto> getSelectedDeck(long userId) {
@@ -71,5 +77,18 @@ public class DeckRepository {
                 .param("userId", userId)
                 .query(Long.class)
                 .optional();
+    }
+
+    public List<CardsDto> getMagics(List<Long> magicIds) {
+        if (magicIds.isEmpty()) {
+            return List.of();
+        }
+        return jdbcClient.sql(GET_MAGICS)
+                .param("magicIds", magicIds)
+                .query((rs, num) -> new CardsDto(
+                        rs.getLong("id"),
+                        rs.getString("name"),
+                        rs.getInt("count")))
+                .list();
     }
 }

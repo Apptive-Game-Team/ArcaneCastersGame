@@ -36,6 +36,9 @@ public class MagicInputHandler {
     public InputResponseDto handleInput(GameContext gameContext, long userId, MagicUseRequestDto inputRequestDto) {
         Master master = gameContext.getSessionObject().getUserSide(userId);
         PlayerData playerData = gameContext.getGameSessionData().getPlayerData(master);
+        if (gameContext.getResultChecker().checkResult()) {
+            return rejectAfterGameEnd(master, playerData, inputRequestDto.getId());
+        }
 
         long magicId = inputRequestDto.getMagicId();
         if (magicId <= DatabaseMagicParser.INVALID_MAGIC_ID || inputRequestDto.getPosition() == null) {
@@ -94,6 +97,9 @@ public class MagicInputHandler {
     // the game action queue, so the cast itself lands here between frames.
     public InputResponseDto handleBotPlayerInput(GameContext gameContext, Master master, InputRequestDto inputRequestDto) {
         PlayerData playerData = gameContext.getGameSessionData().getPlayerData(master);
+        if (gameContext.getResultChecker().checkResult()) {
+            return rejectAfterGameEnd(master, playerData, inputRequestDto.getId());
+        }
 
         long magicId = inputRequestDto.getMagicId();
         if (!playerData.cards.contains(magicId)) {
@@ -153,6 +159,9 @@ public class MagicInputHandler {
                                                 Vector3 position,
                                                 Vector3 castOrigin) {
         PlayerData playerData = gameContext.getGameSessionData().getPlayerData(master);
+        if (gameContext.getResultChecker().checkResult()) {
+            return rejectAfterGameEnd(master, playerData, -1);
+        }
 
         if (magic == null) {
             inputEventPublisher.publish(InputHandleEvent.fail(master, InputResultCode.FAIL_INVALID_MAGIC));
@@ -182,6 +191,12 @@ public class MagicInputHandler {
         magic.run(gameContext, master, rangeOrigin, castPosition);
         inputEventPublisher.publish(new InputHandleEvent(master, InputResultCode.SUCCESS, magic.id));
         return new InputResponseDto(true, InputResultCode.SUCCESS, playerData.mana, -1, magic.id);
+    }
+
+    private InputResponseDto rejectAfterGameEnd(Master master, PlayerData playerData, int requestId) {
+        inputEventPublisher.publish(InputHandleEvent.fail(master, InputResultCode.FAIL_GAME_ENDED));
+        return new InputResponseDto("Game has ended.", false, InputResultCode.FAIL_GAME_ENDED,
+                playerData.mana, requestId, -1);
     }
 
     private void discardCard(GameContext gameContext, Master master, PlayerData playerData, long magicId) {

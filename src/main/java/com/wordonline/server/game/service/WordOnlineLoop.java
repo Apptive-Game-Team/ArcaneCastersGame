@@ -29,6 +29,9 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 public class WordOnlineLoop extends GameLoop {
 
+    // Keep sending frames for one second so clients can see the final action play out.
+    private static final int GAME_END_GRACE_FRAMES = GameLoop.FPS;
+
     private final SyncFrameDataSystem frameDataSystem;
     private final GameActionSystem gameActionSystem;
     private final BotAgentSystem botSystem;
@@ -43,6 +46,8 @@ public class WordOnlineLoop extends GameLoop {
 
     private volatile BotAgent leftBotAgent;
     private volatile BotAgent rightBotAgent;
+    private Integer endDetectedFrame;
+    private boolean gameEndHandled;
 
     public WordOnlineLoop(MmrService mmrService,
                           UserService userService, GameContext gameContext,
@@ -182,18 +187,26 @@ public class WordOnlineLoop extends GameLoop {
         feverTimeSystem.update(gameContext);
 
         // bot tick (practice bots and pve enemy bots are both handled inside BotAgentSystem)
-        botSystem.update(gameContext);
+        if (endDetectedFrame == null && !gameContext.getResultChecker().checkResult()) {
+            botSystem.update(gameContext);
+        }
 
         beforeResultCheck();
 
-        if (hasTimeLimit() && gameContext.getGameTimer().isEnd()) {
+        if (hasTimeLimit() && endDetectedFrame == null && gameContext.getGameTimer().isEnd()) {
             resolveTimedOutMatch();
             gameContext.getResultChecker().setEnd();
         }
 
         // Check for game over
         if (gameContext.getResultChecker().checkResult()) {
-            handleGameEnd();
+            if (endDetectedFrame == null) {
+                endDetectedFrame = gameContext.getFrameNum();
+            }
+            if (!gameEndHandled && gameContext.getFrameNum() - endDetectedFrame >= GAME_END_GRACE_FRAMES) {
+                gameEndHandled = true;
+                handleGameEnd();
+            }
         }
 
         gameObjectStateInitialSystem.update(gameContext);
