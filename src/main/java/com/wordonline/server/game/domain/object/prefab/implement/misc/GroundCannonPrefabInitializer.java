@@ -6,6 +6,7 @@ import com.wordonline.server.game.domain.parameter.ParameterKey;
 import com.wordonline.server.game.domain.magic.ElementType;
 import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.component.effect.RockDeathRemnant;
+import com.wordonline.server.game.domain.object.component.effect.RockRemnantSize;
 import com.wordonline.server.game.domain.object.component.TimedSelfDestroyer;
 import com.wordonline.server.game.domain.object.component.effect.receiver.CommonEffectReceiver;
 import com.wordonline.server.game.domain.object.component.mob.simple.Cannon;
@@ -41,7 +42,7 @@ public class GroundCannonPrefabInitializer extends PrefabInitializer {
                 gameObject,
                 60
         ));
-        gameObject.addComponent(new RockDeathRemnant(gameObject));
+        gameObject.addComponent(new RockDeathRemnant(gameObject, RockRemnantSize.MEDIUM));
         gameObject.setElement(ElementType.ROCK);
         gameObject.getComponents().add(new CommonEffectReceiver(gameObject));
     }

@@ -70,6 +70,25 @@ class RockDeathRemnantTest {
     }
 
     @Test
+    void mediumSourceCreatesMediumRockRemnant() {
+        GameContext gameContext = mock(GameContext.class);
+        GameObject deadRock = new GameObject(
+                Master.LeftPlayer,
+                PrefabType.RockGolem,
+                Vector3.ZERO,
+                gameContext
+        );
+        RockDeathRemnant remnant = new RockDeathRemnant(deadRock, RockRemnantSize.MEDIUM);
+        clearInvocations(gameContext);
+
+        remnant.onCombatDeath();
+
+        ArgumentCaptor<GameObject> created = ArgumentCaptor.forClass(GameObject.class);
+        verify(gameContext).createGameObject(created.capture());
+        assertThat(created.getValue().getType()).isEqualTo(PrefabType.MediumRockRemnant);
+    }
+
+    @Test
     void directDestroyDoesNotCreateRockRemnant() {
         GameContext gameContext = mock(GameContext.class);
         GameObject deadRock = new GameObject(

@@ -88,6 +88,14 @@ hospitality bot reads the player's board as weaker than it is, and it plays
 weaker than intended. Shots, drops and explosions deliberately do not implement
 it — they are in flight rather than standing on the field.
 
+A battlefield-resource conversion that can produce more than one prefab must not
+implement `ObjectSummoningMagic` just to make the bot call it a summon. The interface
+declares one prefab, and `BoardValue` merges duplicate prefab prices with `Math::min`;
+declaring the cheapest possible conversion result would silently reprice every normally
+summoned copy of that prefab. Earth Call is the concrete case: it consumes an already-paid
+remnant and may produce either `MiniRock` or `RockGolem`. Give such a mechanic a dedicated
+bot contract if bots need to cast it; do not lie in the single-prefab contract.
+
 ## Database Changes
 
 `../database/migration` is the source of truth for the shared game database.
