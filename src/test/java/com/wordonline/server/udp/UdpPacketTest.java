@@ -28,7 +28,10 @@ class UdpPacketTest {
         byte[] wire = new UdpPacket(UdpPacketType.FRAME, 0, 1, 2L, new byte[0]).encode();
 
         assertThat(wire).hasSize(UdpPacket.HEADER_SIZE);
-        assertThat(wire).startsWith((byte) 0xAC, (byte) 6, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1);
+        // Same vector as the client's UdpPacketTests.GoldenFrame; change both or neither.
+        assertThat(wire).containsExactly(
+                (byte) 0xAC, (byte) 6, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1,
+                (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 2);
     }
 
     @Test
