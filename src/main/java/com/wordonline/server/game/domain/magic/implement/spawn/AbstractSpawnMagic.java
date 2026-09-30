@@ -2,6 +2,7 @@ package com.wordonline.server.game.domain.magic.implement.spawn;
 
 import java.util.concurrent.ThreadLocalRandom;
 
+import com.wordonline.server.game.config.GameConfig;
 import com.wordonline.server.game.domain.magic.Magic;
 import com.wordonline.server.game.domain.magic.ObjectSummoningMagic;
 import com.wordonline.server.game.domain.object.GameObject;
@@ -49,6 +50,11 @@ public abstract class AbstractSpawnMagic extends Magic implements ObjectSummonin
     @Override
     public int summonedQuantity() {
         return parameters.intValueOrDefault(ParameterKey.QUANTITY, DEFAULT_QUANTITY);
+    }
+
+    @Override
+    public boolean summonsAirborne() {
+        return spawnHeight >= GameConfig.AERIAL_STANDARD_HEIGHT;
     }
 
     private Vector3 spawnPosition(Vector3 position, int quantity) {

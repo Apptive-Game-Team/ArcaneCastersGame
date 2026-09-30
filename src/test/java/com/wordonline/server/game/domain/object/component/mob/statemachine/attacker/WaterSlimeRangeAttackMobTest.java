@@ -102,7 +102,7 @@ class WaterSlimeRangeAttackMobTest {
     }
 
     @Test
-    void lethalDamageCreatesExactlyOneNeutralWaterFieldAtDeathPosition() {
+    void lethalDamageCreatesExactlyOneOwnedWaterFieldAtDeathPosition() {
         GameContext gameContext = mock(GameContext.class);
         Vector3 deathPosition = new Vector3(2f, 0f, 3f);
         GameObject waterSlime = new GameObject(
@@ -118,7 +118,7 @@ class WaterSlimeRangeAttackMobTest {
         ArgumentCaptor<GameObject> created = ArgumentCaptor.forClass(GameObject.class);
         verify(gameContext, times(1)).createGameObject(created.capture());
         assertThat(created.getValue().getType()).isEqualTo(PrefabType.WaterField);
-        assertThat(created.getValue().getMaster()).isEqualTo(Master.None);
+        assertThat(created.getValue().getMaster()).isEqualTo(Master.LeftPlayer);
         assertThat(created.getValue().getPosition()).isEqualTo(deathPosition);
         assertThat(waterSlime.isDestroyed()).isTrue();
     }

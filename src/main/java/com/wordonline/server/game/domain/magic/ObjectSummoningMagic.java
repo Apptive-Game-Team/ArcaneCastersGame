@@ -29,4 +29,12 @@ public interface ObjectSummoningMagic {
     default int summonedQuantity() {
         return 1;
     }
+
+    /**
+     * Whether the bodies appear in the air. Flyers may be placed over anything, and cast
+     * placement does not check them for overlap.
+     */
+    default boolean summonsAirborne() {
+        return false;
+    }
 }

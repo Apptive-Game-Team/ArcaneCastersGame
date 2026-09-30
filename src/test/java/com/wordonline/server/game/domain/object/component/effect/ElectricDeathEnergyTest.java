@@ -9,7 +9,6 @@ import com.wordonline.server.game.domain.object.component.Component;
 import com.wordonline.server.game.domain.object.component.Damageable;
 import com.wordonline.server.game.domain.object.component.effect.statuseffect.OverchargeStatusEffect;
 import com.wordonline.server.game.domain.object.component.mob.Mob;
-import com.wordonline.server.game.domain.object.prefab.PrefabType;
 import com.wordonline.server.game.domain.parameter.GameObjectKey;
 import com.wordonline.server.game.domain.parameter.GameObjectParameters;
 import com.wordonline.server.game.domain.parameter.ParameterKey;
@@ -36,17 +35,12 @@ import static org.mockito.Mockito.when;
 class ElectricDeathEnergyTest {
 
     @Test
-    void createsOneOwnedElectricFieldAtDeathPositionWithoutAnAbsorber() {
+    void leavesTheElectricFieldToDeathFieldWithoutAnAbsorber() {
         Fixture fixture = fixture(new Vector3(3f, 2f, 4f), Master.LeftPlayer, List.of());
 
         fixture.component.onCombatDeath();
 
-        ArgumentCaptor<GameObject> created = ArgumentCaptor.forClass(GameObject.class);
-        verify(fixture.gameContext).createGameObject(created.capture());
-        GameObject field = created.getValue();
-        assertThat(field.getType()).isEqualTo(PrefabType.ElectricField);
-        assertThat(field.getMaster()).isEqualTo(Master.LeftPlayer);
-        assertThat(field.getPosition()).isEqualTo(new Vector3(3f, 2f, 4f));
+        verify(fixture.gameContext, never()).createGameObject(any(GameObject.class));
         verifyNoInteractions(fixture.dtoBuilder);
     }
 
@@ -80,12 +74,15 @@ class ElectricDeathEnergyTest {
 
     @Test
     void handlesRepeatedCombatDeathOnlyOnce() {
-        Fixture fixture = fixture(new Vector3(3f, 2f, 4f), Master.LeftPlayer, List.of());
+        Vector3 deathPosition = new Vector3(3f, 0f, 4f);
+        GameObject absorber = candidate(7, new Vector3(4f, 0f, 4f),
+                Master.LeftPlayer, true, true, true, true);
+        Fixture fixture = fixture(deathPosition, Master.LeftPlayer, List.of(absorber));
 
         fixture.component.onCombatDeath();
         fixture.component.onCombatDeath();
 
-        verify(fixture.gameContext).createGameObject(any(GameObject.class));
+        verify(absorber).addComponent(any(OverchargeStatusEffect.class));
     }
 
     @Test

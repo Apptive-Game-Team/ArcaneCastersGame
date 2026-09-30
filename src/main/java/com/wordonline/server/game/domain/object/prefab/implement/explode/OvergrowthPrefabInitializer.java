@@ -25,9 +25,10 @@ public class OvergrowthPrefabInitializer extends PrefabInitializer {
         var overgrowthParameters = parameters.object(GameObjectKey.OVERGROWTH);
         float radius = overgrowthParameters.floatValue(ParameterKey.RADIUS);
         int summonCount = overgrowthParameters.intValue(ParameterKey.QUANTITY);
+        int damage = overgrowthParameters.intValue(ParameterKey.DAMAGE);
 
         gameObject.addCollider(new CircleCollider(gameObject, radius, true));
         gameObject.setElement(ElementType.NATURE);
-        gameObject.addComponent(new OvergrowthExplosion(gameObject, radius, summonCount));
+        gameObject.addComponent(new OvergrowthExplosion(gameObject, radius, summonCount, damage));
     }
 }

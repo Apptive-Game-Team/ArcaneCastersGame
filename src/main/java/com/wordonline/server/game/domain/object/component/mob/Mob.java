@@ -131,6 +131,7 @@ public abstract class Mob extends Component implements Damageable, GaugeComponen
     void completeDeath() {
         gameObject.getComponents(CombatDeathListener.class)
                 .forEach(CombatDeathListener::onCombatDeath);
+        DeathField.spawn(gameObject);
         onDeath();
     }
 

@@ -78,6 +78,13 @@ public class MagicInputHandler {
                 castRange(gameContext, magic)
         );
 
+        // 자리가 막혔으면 카드와 마나를 쓰기 전에 거절한다.
+        if (CastPlacement.isBlocked(gameContext, magic, castPosition)) {
+            log.trace("{}: magic {} is not valid : placement overlaps a body", master, magicId);
+            inputEventPublisher.publish(InputHandleEvent.fail(master, InputResultCode.FAIL_INVALID_PLACE));
+            return new InputResponseDto("Cannot place here.", false, InputResultCode.FAIL_INVALID_PLACE, playerData.mana, inputRequestDto.getId(), -1);
+        }
+
         boolean valid = playerData.useCard(magicId, manaCost(gameContext, magic));
 
         if (!valid) {
@@ -130,6 +137,15 @@ public class MagicInputHandler {
                 clampToMapBounds(inputRequestDto.getPosition()),
                 castRange(gameContext, magic)
         );
+
+        Vector3 freeSpot = CastPlacement.findFreeSpotForBot(
+                gameContext, magic, castPosition, castOrigin, castRange(gameContext, magic)).orElse(null);
+        if (freeSpot == null) {
+            log.trace("{}: magic {} is not valid : no free spot to place", master, magicId);
+            inputEventPublisher.publish(InputHandleEvent.fail(master, InputResultCode.FAIL_INVALID_PLACE));
+            return new InputResponseDto("Cannot place here.", false, InputResultCode.FAIL_INVALID_PLACE, playerData.mana, inputRequestDto.getId(), -1);
+        }
+        castPosition = freeSpot;
 
         boolean valid = playerData.useCard(magicId, manaCost(gameContext, magic));
 
@@ -227,10 +243,10 @@ public class MagicInputHandler {
         return origin.plus(position.subtract(origin).normalize().multiply((float) range));
     }
 
-    private static final float MAP_MIN_X = 0f;
-    private static final float MAP_MAX_X = 18f;
-    private static final float MAP_MIN_Z = 0f;
-    private static final float MAP_MAX_Z = 10f;
+    static final float MAP_MIN_X = 0f;
+    static final float MAP_MAX_X = 18f;
+    static final float MAP_MIN_Z = 0f;
+    static final float MAP_MAX_Z = 10f;
 
     private Vector3 clampToMapBounds(Vector3 position) {
         return new Vector3(
