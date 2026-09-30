@@ -1,5 +1,7 @@
 package com.wordonline.server.game.domain;
 
+import com.wordonline.server.game.channel.FrameChannel;
+import com.wordonline.server.game.channel.StompFrameChannel;
 import com.wordonline.server.game.dto.Master;
 import com.wordonline.server.game.dto.PingChecker;
 import com.wordonline.server.game.service.CardDeck;
@@ -27,13 +29,11 @@ public class SessionObject {
     private final String sessionId;
     private long leftUserId;
     private long rightUserId;
-    private final SimpMessagingTemplate template;
+    private final FrameChannel frameChannel;
     private final String url;
-    // STOMP destinations are fixed strings, so they are built once instead of formatted on every
-    // send. The broadcast one never changes; the per-user ones are rebuilt when a user id changes.
+    // The spectator registry is keyed by the STOMP broadcast destination, so it is kept here even
+    // though sending goes through the transport-agnostic frameChannel.
     private final String broadcastDestination;
-    private String leftUserDestination;
-    private String rightUserDestination;
     private final CardDeck leftUserCardDeck;
     private final CardDeck rightUserCardDeck;
     private List<Long> leftDeckCardIds;
@@ -106,14 +106,25 @@ public class SessionObject {
                          List<Long> rightUserCards,
                          SessionType sessionType,
                          Long scenarioId) {
+        this(sessionId, leftUserId, rightUserId,
+                new StompFrameChannel(template, StompFrameChannel.frameInfoUrl(sessionId)),
+                leftUserCards, rightUserCards, sessionType, scenarioId);
+    }
+
+    public SessionObject(String sessionId,
+                         long leftUserId,
+                         long rightUserId,
+                         FrameChannel frameChannel,
+                         List<Long> leftUserCards,
+                         List<Long> rightUserCards,
+                         SessionType sessionType,
+                         Long scenarioId) {
         this.sessionId = sessionId;
         this.leftUserId = leftUserId;
         this.rightUserId = rightUserId;
-        this.template = template;
-        this.url = String.format("/game/%s/frameInfos", sessionId);
+        this.frameChannel = frameChannel;
+        this.url = StompFrameChannel.frameInfoUrl(sessionId);
         this.broadcastDestination = url + "/0";
-        this.leftUserDestination = userDestination(leftUserId);
-        this.rightUserDestination = userDestination(rightUserId);
         this.leftDeckCardIds = List.copyOf(leftUserCards);
         this.rightDeckCardIds = List.copyOf(rightUserCards);
         this.randomSeed = ThreadLocalRandom.current().nextLong();
@@ -168,7 +179,7 @@ public class SessionObject {
         if (userId < 0) {
             return;
         }
-        template.convertAndSend(destinationFor(userId), data);
+        frameChannel.send(userId, data);
     }
 
     // this method is used to broadcast frame information to spectators (userId = 0)
@@ -176,7 +187,7 @@ public class SessionObject {
         if (!hasSpectators()) {
             return;
         }
-        template.convertAndSend(broadcastDestination, data);
+        frameChannel.broadcast(data);
     }
 
     // convertAndSend serializes the payload before it reaches the broker, and the broker channel
@@ -236,27 +247,12 @@ public class SessionObject {
         }
     }
 
-    private String destinationFor(long userId) {
-        if (userId == leftUserId) {
-            return leftUserDestination;
-        }
-        if (userId == rightUserId) {
-            return rightUserDestination;
-        }
-        return userDestination(userId);
-    }
-
-    private String userDestination(long userId) {
-        return String.format("%s/%d", url, userId);
-    }
-
     // Called from the debug HTTP endpoint, off the loop thread. The hand and the deck are plain
     // loop-thread collections now, so resetting them is queued like any other input. The user id
     // assignment stays inline because callers read it back straight after the call.
     public void setLeftUser(long userId, List<Long> cards) {
         leftUserId = userId;
         leftDeckCardIds = List.copyOf(cards);
-        leftUserDestination = userDestination(userId);
         GameContext gameContext = getGameContext();
         gameContext.submitAction("setLeftUserDeck", () -> {
             gameContext.getGameSessionData().leftPlayerData.cards.clear();
@@ -267,7 +263,6 @@ public class SessionObject {
     public void setRightUser(long userId, List<Long> cards) {
         rightUserId = userId;
         rightDeckCardIds = List.copyOf(cards);
-        rightUserDestination = userDestination(userId);
         GameContext gameContext = getGameContext();
         gameContext.submitAction("setRightUserDeck", () -> {
             gameContext.getGameSessionData().rightPlayerData.cards.clear();
