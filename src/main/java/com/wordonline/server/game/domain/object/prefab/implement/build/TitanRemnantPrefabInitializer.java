@@ -5,6 +5,7 @@ import com.wordonline.server.game.domain.magic.ElementType;
 import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.component.TimedSelfDestroyer;
 import com.wordonline.server.game.domain.object.component.effect.RockDeathRemnant;
+import com.wordonline.server.game.domain.object.component.effect.RockRemnantSize;
 import com.wordonline.server.game.domain.object.component.effect.receiver.BuildingEffectReceiver;
 import com.wordonline.server.game.domain.object.component.mob.simple.TitanRemnantMob;
 import com.wordonline.server.game.domain.object.component.physic.CircleCollider;
@@ -45,7 +46,7 @@ public class TitanRemnantPrefabInitializer extends PrefabInitializer {
                 stats.floatValue(ParameterKey.DURATION)
         ));
         gameObject.setElement(ElementType.ROCK);
-        gameObject.addComponent(new RockDeathRemnant(gameObject));
+        gameObject.addComponent(new RockDeathRemnant(gameObject, RockRemnantSize.MEDIUM));
         gameObject.addComponent(new BuildingEffectReceiver(gameObject));
     }
 }

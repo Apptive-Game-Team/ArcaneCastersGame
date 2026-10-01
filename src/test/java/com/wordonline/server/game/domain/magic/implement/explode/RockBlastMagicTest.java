@@ -25,7 +25,7 @@ import static org.mockito.Mockito.when;
 class RockBlastMagicTest {
 
     @Test
-    void consumesEveryRemnantAndCreatesOneOwnedExplosionAtEachPosition() {
+    void consumesEveryRemnantAndLeavesSmallRemnantAfterMediumRemnantExplodes() {
         Parameters parameters = mock(Parameters.class);
         GameObjectParameters rockBlastParameters = mock(GameObjectParameters.class);
         GameContext context = mock(GameContext.class);
@@ -42,11 +42,19 @@ class RockBlastMagicTest {
         new RockBlastMagic(parameters).run(context, Master.RightPlayer, castPosition);
 
         ArgumentCaptor<GameObject> created = ArgumentCaptor.forClass(GameObject.class);
-        verify(context, times(2)).createGameObject(created.capture());
-        assertThat(created.getAllValues()).allMatch(object -> object.getType() == PrefabType.RockExplode);
-        assertThat(created.getAllValues()).allMatch(object -> object.getMaster() == Master.RightPlayer);
-        assertThat(created.getAllValues()).extracting(GameObject::getPosition)
+        verify(context, times(3)).createGameObject(created.capture());
+        List<GameObject> explosions = created.getAllValues().stream()
+                .filter(object -> object.getType() == PrefabType.RockExplode)
+                .toList();
+        assertThat(explosions).allMatch(object -> object.getMaster() == Master.RightPlayer);
+        assertThat(explosions).extracting(GameObject::getPosition)
                 .containsExactly(new Vector3(2f, 0f, 3f), new Vector3(4f, 0f, 5f));
+        assertThat(created.getAllValues()).filteredOn(object -> object.getType() == PrefabType.RockRemnant)
+                .singleElement()
+                .satisfies(remainder -> {
+                    assertThat(remainder.getMaster()).isEqualTo(Master.LeftPlayer);
+                    assertThat(remainder.getPosition()).isEqualTo(new Vector3(4f, 0f, 5f));
+                });
         assertThat(small.isDestroyed()).isTrue();
         assertThat(medium.isDestroyed()).isTrue();
         assertThat(unrelated.isDestroyed()).isFalse();

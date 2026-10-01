@@ -39,9 +39,14 @@ public class RockBlastMagic extends Magic {
                 .toList();
 
         for (GameObject remnant : remnants) {
+            RockRemnantSize size = RockRemnantSize.fromPrefab(remnant.getType()).orElseThrow();
             Vector3 explosionPosition = new Vector3(remnant.getPosition());
+            Master remnantMaster = remnant.getMaster();
             remnant.destroy();
             new GameObject(master, PrefabType.RockExplode, explosionPosition, gameContext);
+            size.blastRemainderPrefab().ifPresent(prefabType ->
+                    new GameObject(remnantMaster, prefabType, new Vector3(explosionPosition), gameContext)
+            );
         }
     }
 }

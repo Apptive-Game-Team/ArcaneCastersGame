@@ -100,7 +100,9 @@ bot contract if bots need to cast it; do not lie in the single-prefab contract.
 
 Only summons and buildings that both contain the Rock element and are medium-sized or
 larger leave a `RockDeathRemnant`. Large objects leave `MediumRockRemnant`; medium
-objects leave the existing small `RockRemnant`. Projectiles, spell effects, temporary
+objects leave the existing small `RockRemnant`. `RockGolem` is the explicit exception:
+although large, it leaves the small `RockRemnant`. `TitanRemnant` is the inverse
+exception: it leaves `MediumRockRemnant`. Projectiles, spell effects, temporary
 spawn markers, non-Rock objects, and small summons/buildings never leave rubble. Keep
 `RockDeathRemnantPrefabAllowlistTest` synchronized with this rule when adding prefabs.
 

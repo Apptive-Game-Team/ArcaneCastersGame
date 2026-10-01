@@ -41,17 +41,17 @@ import static org.mockito.Mockito.when;
 class RockDeathRemnantPrefabAllowlistTest {
 
     @Test
-    void attachesSizedRemnantsOnlyToMediumOrLargerRockSummonsAndBuildings() {
+    void attachesConfiguredRemnantSizesOnlyToEligibleRockSummonsAndBuildings() {
         Parameters parameters = parameters();
-        List<PrefabInitializer> large = List.of(
-                new RockGolemPrefabInitializer(parameters),
+        List<PrefabInitializer> mediumRemnantSources = List.of(
                 new WallGolemPrefabInitializer(parameters),
-                new MagmaSpiritPrefabInitializer(parameters)
-        );
-        List<PrefabInitializer> medium = List.of(
-                new GroundCannonPrefabInitializer(parameters),
-                new GroundTowerPrefabInitializer(parameters),
+                new MagmaSpiritPrefabInitializer(parameters),
                 new TitanRemnantPrefabInitializer(parameters)
+        );
+        List<PrefabInitializer> smallRemnantSources = List.of(
+                new RockGolemPrefabInitializer(parameters),
+                new GroundCannonPrefabInitializer(parameters),
+                new GroundTowerPrefabInitializer(parameters)
         );
         List<PrefabInitializer> excluded = List.of(
                 new RockMagePrefabInitializer(parameters),
@@ -69,10 +69,10 @@ class RockDeathRemnantPrefabAllowlistTest {
                 new RockRunePrefabInitializer(parameters)
         );
 
-        for (PrefabInitializer initializer : large) {
+        for (PrefabInitializer initializer : mediumRemnantSources) {
             assertCreatesRockRemnant(initializer, PrefabType.MediumRockRemnant);
         }
-        for (PrefabInitializer initializer : medium) {
+        for (PrefabInitializer initializer : smallRemnantSources) {
             assertCreatesRockRemnant(initializer, PrefabType.RockRemnant);
         }
         for (PrefabInitializer initializer : excluded) {

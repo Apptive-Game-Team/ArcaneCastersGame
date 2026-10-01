@@ -41,7 +41,7 @@ public class RockGolemPrefabInitializer extends PrefabInitializer {
                 rockGolemParameters.floatValue(ParameterKey.ATTACK_INTERVAL)
         ));
         gameObject.setElement(ElementType.ROCK);
-        gameObject.addComponent(new RockDeathRemnant(gameObject, RockRemnantSize.MEDIUM));
+        gameObject.addComponent(new RockDeathRemnant(gameObject, RockRemnantSize.SMALL));
         gameObject.getComponents().add(new CommonEffectReceiver(gameObject));
     }
 }

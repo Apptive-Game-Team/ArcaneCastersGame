@@ -5,15 +5,21 @@ import com.wordonline.server.game.domain.object.prefab.PrefabType;
 import java.util.Optional;
 
 public enum RockRemnantSize {
-    SMALL(PrefabType.RockRemnant, PrefabType.MiniRock),
-    MEDIUM(PrefabType.MediumRockRemnant, PrefabType.RockGolem);
+    SMALL(PrefabType.RockRemnant, PrefabType.MiniRock, null),
+    MEDIUM(PrefabType.MediumRockRemnant, PrefabType.RockGolem, PrefabType.RockRemnant);
 
     private final PrefabType remnantPrefab;
     private final PrefabType summonedPrefab;
+    private final PrefabType blastRemainderPrefab;
 
-    RockRemnantSize(PrefabType remnantPrefab, PrefabType summonedPrefab) {
+    RockRemnantSize(
+            PrefabType remnantPrefab,
+            PrefabType summonedPrefab,
+            PrefabType blastRemainderPrefab
+    ) {
         this.remnantPrefab = remnantPrefab;
         this.summonedPrefab = summonedPrefab;
+        this.blastRemainderPrefab = blastRemainderPrefab;
     }
 
     public PrefabType remnantPrefab() {
@@ -22,6 +28,10 @@ public enum RockRemnantSize {
 
     public PrefabType summonedPrefab() {
         return summonedPrefab;
+    }
+
+    public Optional<PrefabType> blastRemainderPrefab() {
+        return Optional.ofNullable(blastRemainderPrefab);
     }
 
     public static Optional<RockRemnantSize> fromPrefab(PrefabType prefabType) {
