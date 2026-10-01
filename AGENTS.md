@@ -96,6 +96,14 @@ summoned copy of that prefab. Earth Call is the concrete case: it consumes an al
 remnant and may produce either `MiniRock` or `RockGolem`. Give such a mechanic a dedicated
 bot contract if bots need to cast it; do not lie in the single-prefab contract.
 
+## Rock Remnants
+
+Only summons and buildings that both contain the Rock element and are medium-sized or
+larger leave a `RockDeathRemnant`. Large objects leave `MediumRockRemnant`; medium
+objects leave the existing small `RockRemnant`. Projectiles, spell effects, temporary
+spawn markers, non-Rock objects, and small summons/buildings never leave rubble. Keep
+`RockDeathRemnantPrefabAllowlistTest` synchronized with this rule when adding prefabs.
+
 ## Database Changes
 
 `../database/migration` is the source of truth for the shared game database.
