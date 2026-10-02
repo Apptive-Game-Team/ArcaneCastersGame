@@ -6,6 +6,8 @@ import com.wordonline.server.game.domain.parameter.GameObjectKey;
 import com.wordonline.server.game.domain.parameter.ParameterKey;
 import com.wordonline.server.game.domain.magic.ElementType;
 import com.wordonline.server.game.domain.object.GameObject;
+import com.wordonline.server.game.domain.object.component.effect.RockDeathRemnant;
+import com.wordonline.server.game.domain.object.component.effect.RockRemnantSize;
 import com.wordonline.server.game.domain.object.component.effect.receiver.CommonEffectReceiver;
 import com.wordonline.server.game.domain.object.component.mob.detector.TargetMask;
 import com.wordonline.server.game.domain.object.component.mob.statemachine.attacker.SummonerMob;
@@ -44,6 +46,7 @@ public class MagmaSpiritPrefabInitializer extends PrefabInitializer {
                 PrefabType.MagmaFist
         ));
         gameObject.setElement(EnumSet.of(ElementType.FIRE,ElementType.ROCK));
+        gameObject.addComponent(new RockDeathRemnant(gameObject, RockRemnantSize.MEDIUM));
         gameObject.getComponents().add(new CommonEffectReceiver(gameObject));
         gameObject.addComponent(new AreaEffectProvider(
                 gameObject,

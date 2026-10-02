@@ -5,7 +5,6 @@ import com.wordonline.server.game.domain.magic.ElementType;
 import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.Vector3;
 import com.wordonline.server.game.domain.object.component.TimedSelfDestroyer;
-import com.wordonline.server.game.domain.object.component.effect.RockDeathRemnant;
 import com.wordonline.server.game.domain.object.component.effect.receiver.CommonEffectReceiver;
 import com.wordonline.server.game.domain.object.component.magic.FlameLauncher;
 import com.wordonline.server.game.domain.object.component.mob.simple.DummyMob;
@@ -59,7 +58,6 @@ class DragonTowerPrefabInitializerTest {
         assertThat(selfDestroyer).isNotNull();
         assertThat(selfDestroyer.getGauge().maxValue()).isEqualTo(20f);
 
-        assertThat(findComponent(dragonTower, RockDeathRemnant.class)).isNotNull();
         assertThat(findComponent(dragonTower, CommonEffectReceiver.class)).isNotNull();
     }
 

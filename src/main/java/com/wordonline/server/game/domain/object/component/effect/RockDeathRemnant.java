@@ -4,13 +4,18 @@ import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.Vector3;
 import com.wordonline.server.game.domain.object.component.CombatDeathListener;
 import com.wordonline.server.game.domain.object.component.Component;
-import com.wordonline.server.game.domain.object.prefab.PrefabType;
 
 public class RockDeathRemnant extends Component implements CombatDeathListener {
+    private final RockRemnantSize size;
     private boolean consumed;
 
     public RockDeathRemnant(GameObject gameObject) {
+        this(gameObject, RockRemnantSize.SMALL);
+    }
+
+    public RockDeathRemnant(GameObject gameObject, RockRemnantSize size) {
         super(gameObject);
+        this.size = size;
     }
 
     @Override
@@ -21,7 +26,7 @@ public class RockDeathRemnant extends Component implements CombatDeathListener {
         consumed = true;
         new GameObject(
                 gameObject.getMaster(),
-                PrefabType.RockRemnant,
+                size.remnantPrefab(),
                 new Vector3(gameObject.getPosition()),
                 getGameContext()
         );

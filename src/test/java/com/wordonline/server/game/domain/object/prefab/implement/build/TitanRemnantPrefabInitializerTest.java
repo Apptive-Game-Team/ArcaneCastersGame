@@ -6,6 +6,7 @@ import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.Vector3;
 import com.wordonline.server.game.domain.object.component.Component;
 import com.wordonline.server.game.domain.object.component.TimedSelfDestroyer;
+import com.wordonline.server.game.domain.object.component.effect.RockDeathRemnant;
 import com.wordonline.server.game.domain.object.component.effect.receiver.BuildingEffectReceiver;
 import com.wordonline.server.game.domain.object.component.mob.simple.TitanRemnantMob;
 import com.wordonline.server.game.domain.object.component.physic.CircleCollider;
@@ -53,6 +54,7 @@ class TitanRemnantPrefabInitializerTest {
         assertThat(components(remnant)).anyMatch(RigidBody.class::isInstance);
         assertThat(components(remnant)).anyMatch(TitanRemnantMob.class::isInstance);
         assertThat(components(remnant)).anyMatch(BuildingEffectReceiver.class::isInstance);
+        assertThat(components(remnant)).anyMatch(RockDeathRemnant.class::isInstance);
         assertThat(components(remnant)
                 .filter(TimedSelfDestroyer.class::isInstance)
                 .map(TimedSelfDestroyer.class::cast)

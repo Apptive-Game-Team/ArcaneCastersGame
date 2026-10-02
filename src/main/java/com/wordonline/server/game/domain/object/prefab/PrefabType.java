@@ -122,6 +122,8 @@ public enum PrefabType {
     BombSpriteExplosion("bomb_sprite_explosion_prefab"),
     MiniRock("mini_rock_prefab"),
     RockRemnant("rock_remnant_prefab"),
+    MediumRockRemnant("medium_rock_remnant_prefab"),
+    EarthCall("earth_call_prefab"),
 
     LifeTree("life_tree_prefab"),
     RockTurret("rock_turret_prefab"),
