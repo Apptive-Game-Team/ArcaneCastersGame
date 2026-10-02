@@ -28,6 +28,11 @@ Register properties classes with `@ConfigurationPropertiesScan` on the applicati
 ## Testing Guidelines
 The project uses `spring-boot-starter-test`, JUnit Platform, Spring Security test support, Awaitility, and H2 for test data. Put unit and integration tests in `src/test/java`, and name them `*Test` or `*IntegrationTest`. Reuse `src/test/resources/application.yml`, `schema-h2.sql`, and `data-h2.sql` for database-backed tests. Run `./gradlew test` before opening a PR.
 
+For regenerating the offline Fire Shot preview or diagnosing Windows JDK test
+startup failures in `UnixDomainSockets.connect0`, follow
+[fire-shot-preview.md](docs/fire-shot-preview.md). Do not change gameplay or
+runtime settings to work around that machine-specific Gradle startup failure.
+
 ## Commit & Pull Request Guidelines
 Match the recent commit style: short imperative subjects with an optional scope, for example `refactor(component): use addComponent helper` or `feature(deactivebot)`. Keep commits focused on one concern. PRs should include a clear summary, linked issue or task, test notes, and any API or gameplay impact. For protocol, DTO, or debug-visual changes, include sample payloads or screenshots when helpful.
 Name issue branches with the pattern `<issue-label>/<issue-number>`, for example `feature/253`. When no issue covers the work yet, create the issue before you create the branch: the branch name's number and prefix both come from it. Never open a branch named after the change instead of the issue.
