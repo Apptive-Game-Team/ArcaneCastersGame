@@ -3,7 +3,7 @@
 ## Ordered representative scenarios
 
 Run `./gradlew test --tests com.wordonline.server.game.preview.MagicScenarioPreviewTest
--PpreviewExport=true` to export nine recordings into `build/previews/scenarios/`.
+-PpreviewExport=true` to export 21 recordings (30 scenarios) into `build/previews/scenarios/`.
 Copy those generated JSON files into the client `Assets/Resources/MagicPreviews/`.
 The old exporter below remains a version-1 compatibility fixture; do not use it to
 overwrite the new multi-scenario Fire Shot asset during normal regeneration.
@@ -27,6 +27,27 @@ both EarthCall conversions followed by the resulting creature's attack.
 
 This is representative coverage, not a claim that all magic or elemental
 interactions are covered. No production gameplay or database change is required.
+
+The additional batch covers water/lightning shots, piercing WindBlade,
+reflecting RollingRock, Fire/Wind drops, Water/Wind explosions, both RockBlast
+remnant sizes and MiniRock/ThunderBird/WaterSlime swarms. Assertions also cover
+friendly Overcharge/extra shots, ThunderBird death-energy transfer/field and
+WaterSlime trail/Wet. All three swarm attack masks are GROUND; aerial appearance
+does not imply anti-air attacks. WaterExplosion currently applies Burn and launch,
+while ordinary Drop has no Burn/Knockback provider; recordings preserve this.
+
+Swarm quantity is three. The fixture runs the real spawn spell then stages only
+newly pending swarm positions deterministically inside its +/-1 spawn range,
+preserving height. This does not replace attack/movement/effect logic. Its
+Vector3 is also retained by the already queued CreatedObjectDto: mutate those
+coordinates before capture instead of replacing the Vector3, or the first create
+frame keeps the random spawn coordinates despite later updates being fixed.
+Avoid simultaneous first-contact ties in projectile fixtures: sorting DTOs does
+not make HashSet collision processing deterministic. Water/Electric shot radius
+is an explicit illustrative 0.3 so only the primary target collides first;
+the adjacent target still receives real impact splash damage.
+
+Validation for this batch: full server suite 664 passed, repeated capture equal.
 
 Run `./gradlew test --tests com.wordonline.server.game.preview.FireShotPreviewTest
 -PpreviewExport=true --rerun-tasks` (one command) to write

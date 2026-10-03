@@ -6,9 +6,9 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.wordonline.server.game.domain.*;
 import com.wordonline.server.game.domain.magic.Magic;
 import com.wordonline.server.game.domain.magic.implement.build.*;
-import com.wordonline.server.game.domain.magic.implement.drop.FrenzyMagic;
+import com.wordonline.server.game.domain.magic.implement.drop.*;
 import com.wordonline.server.game.domain.magic.implement.explode.*;
-import com.wordonline.server.game.domain.magic.implement.shoot.FireShotMagic;
+import com.wordonline.server.game.domain.magic.implement.shoot.*;
 import com.wordonline.server.game.domain.magic.implement.spawn.*;
 import com.wordonline.server.game.domain.object.*;
 import com.wordonline.server.game.domain.object.component.IntervalAttacker;
@@ -17,11 +17,18 @@ import com.wordonline.server.game.domain.object.component.mob.Mob;
 import com.wordonline.server.game.domain.object.component.physic.*;
 import com.wordonline.server.game.domain.object.prefab.*;
 import com.wordonline.server.game.domain.object.prefab.implement.drop.FrenzyTotemPrefabInitializer;
-import com.wordonline.server.game.domain.object.prefab.implement.explode.ElectricExplodePrefabInitializer;
 import com.wordonline.server.game.domain.object.prefab.implement.fire.FireShotPrefabInitializer;
 import com.wordonline.server.game.domain.object.prefab.implement.misc.*;
 import com.wordonline.server.game.domain.object.prefab.implement.rock.*;
 import com.wordonline.server.game.domain.object.prefab.implement.wind.WindSpiritPrefabInitializer;
+import com.wordonline.server.game.domain.object.prefab.implement.wind.WindBladePrefabInitializer;
+import com.wordonline.server.game.domain.object.prefab.implement.water.*;
+import com.wordonline.server.game.domain.object.prefab.implement.lightning.ElectricShotPrefabInitializer;
+import com.wordonline.server.game.domain.object.prefab.implement.misc.third.ThunderBirdPrefabInitializer;
+import com.wordonline.server.game.domain.object.prefab.implement.drop.FireDropPrefabInitializer;
+import com.wordonline.server.game.domain.object.prefab.implement.drop.WindDropPrefabInitializer;
+import com.wordonline.server.game.domain.object.prefab.implement.lightning.ElectricFieldPrefabInitializer;
+import com.wordonline.server.game.domain.object.prefab.implement.explode.*;
 import com.wordonline.server.game.dto.*;
 import com.wordonline.server.game.service.*;
 import com.wordonline.server.game.service.system.*;
@@ -190,8 +197,167 @@ class MagicScenarioPreviewTest {
                 assertThat(c.hp(target)).isLessThan(1000);
             }
         }
-        assertThat(clips).hasSize(9);
+        captureExpansion(clips);
+        assertThat(clips).hasSize(21);
         return clips;
+    }
+
+    private void captureExpansion(Map<String, ObjectNode> clips) {
+        for (boolean lightning : new boolean[]{false, true}) {
+            try (Capture c = new Capture()) {
+                GameObject target = c.target(Master.RightPlayer, 7, 0, 5);
+                GameObject adjacent = c.target(Master.RightPlayer, 7, 0, 5.7f);
+                Magic magic = lightning ? new LightningShotMagic() : new WaterShotMagic();
+                c.record(clips, lightning ? "lightning_shot" : "water_shot", "impact",
+                        lightning ? "직격·주변 피해와 감전" : "직격·주변 피해와 젖음",
+                        lightning ? "Impact, splash and Shock" : "Impact, splash and Wet", 5,
+                        tick -> { if (tick == 12) magic.run(c.context, Master.LeftPlayer, new Vector3(7, 0, 5)); });
+                assertThat(c.hp(target)).isLessThan(1000);
+                assertThat(c.hp(adjacent)).isLessThan(1000);
+                assertThat(c.seenEffects).contains(lightning ? "Shock" : "Wet");
+            }
+        }
+        try (Capture c = new Capture()) {
+            new thunderBirdSwarmMagic(c.parameters).run(c.context, Master.LeftPlayer, new Vector3(5, 0, 5));
+            c.stageSwarm(PrefabType.ThunderBird, 5);
+            GameObject ally = c.pending(PrefabType.ThunderBird);
+            c.record(clips, "lightning_shot", "overcharge", "아군 전기 소환수 과충전·추가 번개",
+                    "Allied lightning summon overcharge and extra shots", 7,
+                    tick -> {
+                        if (tick == 12) new LightningShotMagic().run(c.context, Master.LeftPlayer, new Vector3(ally.getPosition()));
+                        if (tick == 45) c.target(Master.RightPlayer, 6.5f, 0, 5);
+                    });
+            assertThat(c.seenEffects).contains("Overcharge");
+            assertThat(c.seenProjectiles).contains("ElectricShot");
+        }
+        try (Capture c = new Capture()) {
+            GameObject first = c.target(Master.RightPlayer, 5, 0, 5);
+            GameObject second = c.target(Master.RightPlayer, 7, 0, 5);
+            GameObject third = c.target(Master.RightPlayer, 9, 0, 5);
+            c.record(clips, "wind_blade", "pierce", "연속 관통·피해 감소", "Piercing with damage decay", 4,
+                    tick -> { if (tick == 12) new WindBladeMagic().run(c.context, Master.LeftPlayer, new Vector3(9, 0, 5)); });
+            assertThat(c.hp(first)).isLessThan(c.hp(second));
+            assertThat(c.hp(second)).isLessThan(c.hp(third));
+            assertThat(c.hp(third)).isLessThan(1000);
+        }
+        try (Capture c = new Capture()) {
+            GameObject target = c.target(Master.RightPlayer, 6.5f, 0, 5);
+            boolean[] reflected = {false};
+            c.record(clips, "rock_rolling", "bounce", "적과 충돌 후 반사", "Bounce off an enemy", 4,
+                    tick -> {
+                        if (tick == 12) new RockRollingMagic().run(c.context, Master.LeftPlayer, new Vector3(6.5f, 0, 5));
+                        for (GameObject object : c.context.getActiveGameObjects()) {
+                            if (object.getType() == PrefabType.RockRolling &&
+                                    object.getComponent(com.wordonline.server.game.domain.object.component.magic.RollingRock.class).getDirection().getX() < 0)
+                                reflected[0] = true;
+                        }
+                    });
+            assertThat(c.hp(target)).isLessThan(1000);
+            assertThat(reflected[0]).isTrue();
+        }
+        for (boolean fire : new boolean[]{false, true}) {
+            try (Capture c = new Capture()) {
+                GameObject target = c.target(Master.RightPlayer, 6, 0, 5);
+                Magic magic = fire ? new FireDropMagic() : new WindDropMagic();
+                c.record(clips, fire ? "fire_drop" : "wind_drop", "fall", "낙하·직격 피해", "Drop and direct impact", 4,
+                        tick -> { if (tick == 12) magic.run(c.context, Master.LeftPlayer, new Vector3(6, 0, 5)); });
+                assertThat(c.hp(target)).isLessThan(1000);
+                assertThat(c.seenTypes).contains(fire ? "FireDrop" : "WindDrop");
+                // Production Drop has no status provider; do not invent Burn/Knockback.
+                assertThat(c.seenEffects).doesNotContain("Burn", "Knockback");
+            }
+        }
+        for (boolean water : new boolean[]{false, true}) {
+            try (Capture c = new Capture()) {
+                GameObject target = c.target(Master.RightPlayer, 6.5f, 0, 5);
+                GameObject adjacent = c.target(Master.RightPlayer, 7, 0, 5);
+                GameObject distant = c.target(Master.RightPlayer, 10, 0, 5);
+                float[] peakHeight = {0};
+                Magic magic = water ? new WaterExplosionMagic() : new WindExplosionMagic();
+                c.record(clips, water ? "water_explosion" : "wind_explosion", "area",
+                        water ? "범위 피해·화상·공중 띄우기" : "범위 피해·밀치기",
+                        water ? "Area damage, Burn and launch" : "Area damage and knockback", 4,
+                        tick -> {
+                            if (tick == 12) magic.run(c.context, Master.LeftPlayer, new Vector3(6, 0, 5));
+                            peakHeight[0] = Math.max(peakHeight[0], target.getPosition().getY());
+                        });
+                assertThat(c.hp(target)).isLessThan(1000);
+                assertThat(c.hp(adjacent)).isLessThan(1000);
+                assertThat(c.hp(distant)).isEqualTo(1000);
+                assertThat(c.seenEffects).contains(water ? "Burn" : "Knockback");
+                if (water) assertThat(peakHeight[0]).isGreaterThan(0.2f);
+                else assertThat(target.getPosition().getX()).isGreaterThan(6.5f);
+            }
+        }
+        for (boolean medium : new boolean[]{false, true}) {
+            try (Capture c = new Capture()) {
+                GameObject remnant = new GameObject(Master.LeftPlayer, medium ? PrefabType.MediumRockRemnant : PrefabType.RockRemnant, new Vector3(6, 0, 5), c.context);
+                GameObject target = c.target(Master.RightPlayer, 6.5f, 0, 5);
+                c.record(clips, "rock_blast", medium ? "medium" : "small",
+                        medium ? "중간 잔해 폭발·작은 잔해 잔존" : "작은 잔해 폭발·소모",
+                        medium ? "Medium remnant bursts, small remnant remains" : "Small remnant bursts and is consumed", 4,
+                        tick -> { if (tick == 12) new RockBlastMagic(c.parameters).run(c.context, Master.LeftPlayer, new Vector3(6, 0, 5)); });
+                assertThat(remnant.isDestroyed()).isTrue();
+                assertThat(c.seenTypes).contains("RockExplode");
+                assertThat(c.hp(target)).isLessThan(1000);
+                assertThat(c.context.getActiveGameObjects().stream().anyMatch(o -> o.getType() == PrefabType.RockRemnant)).isEqualTo(medium);
+            }
+        }
+        for (PrefabType type : new PrefabType[]{PrefabType.MiniRock, PrefabType.ThunderBird, PrefabType.WaterSlime}) {
+            try (Capture c = new Capture()) {
+                GameObject target = c.target(Master.RightPlayer, type == PrefabType.WaterSlime ? 9 : 6.5f, 0, 5);
+                Magic magic = switch (type) {
+                    case MiniRock -> new MiniRockSwarmMagic(c.parameters);
+                    case ThunderBird -> new thunderBirdSwarmMagic(c.parameters);
+                    default -> new WaterSlimeSwarmMagic(c.parameters);
+                };
+                String name = switch (type) {
+                    case MiniRock -> "mini_rock_swarm";
+                    case ThunderBird -> "thunder_bird_swarm";
+                    default -> "water_slime_swarm";
+                };
+                c.record(clips, name, "ground", "무리 소환·지상 공격", "Swarm summon and ground attack", 6,
+                        tick -> {
+                            if (tick == 12) {
+                                magic.run(c.context, Master.LeftPlayer, new Vector3(4, 0, 5));
+                                c.stageSwarm(type, 4);
+                            }
+                        });
+                assertThat(c.hp(target)).isLessThan(1000);
+                if (type == PrefabType.WaterSlime) {
+                    assertThat(c.seenProjectiles).contains("WaterShot");
+                    assertThat(c.seenTypes).contains("WaterField");
+                }
+            }
+        }
+        try (Capture c = new Capture()) {
+            GameObject target = c.target(Master.RightPlayer, 9, 0, 5);
+            c.record(clips, "water_slime_swarm", "trail", "이동 경로 물 필드·젖음", "Water trail and Wet", 6,
+                    tick -> {
+                        if (tick == 12) {
+                            new WaterSlimeSwarmMagic(c.parameters).run(c.context, Master.LeftPlayer, new Vector3(4, 0, 5));
+                            c.stageSwarm(PrefabType.WaterSlime, 4);
+                        }
+                        // Place a passive victim onto a real emitted trail; movement/field logic is real.
+                        if (tick == 55) c.context.getActiveGameObjects().stream()
+                                .filter(o -> o.getType() == PrefabType.WaterField).findFirst()
+                                .ifPresent(field -> target.setPosition(new Vector3(field.getPosition())));
+                    });
+            assertThat(c.seenTypes).contains("WaterField");
+            assertThat(c.seenEffects).contains("Wet");
+        }
+        try (Capture c = new Capture()) {
+            new thunderBirdSwarmMagic(c.parameters).run(c.context, Master.LeftPlayer, new Vector3(5, 0, 5));
+            c.stageSwarm(PrefabType.ThunderBird, 5);
+            GameObject dying = c.pending(PrefabType.ThunderBird);
+            c.record(clips, "thunder_bird_swarm", "death_energy", "사망 낙하·전기 필드·아군 에너지 흡수",
+                    "Death fall, electric field and ally absorption", 7,
+                    tick -> { if (tick == 20) dying.getComponent(Mob.class).onDamaged(new AttackInfo(10000, com.wordonline.server.game.domain.magic.ElementType.NONE)); });
+            assertThat(dying.isDestroyed()).isTrue();
+            assertThat(c.seenTypes).contains("ElectricField");
+            assertThat(c.seenProjectiles).contains("ElectricAbsorb");
+            assertThat(c.seenEffects).contains("Overcharge");
+        }
     }
 
     private static final class Capture implements AutoCloseable {
@@ -209,7 +375,7 @@ class MagicScenarioPreviewTest {
                     Map.entry("speed", 2d), Map.entry("damage", 100d), Map.entry("attack_interval", 0.8d),
                     Map.entry("attack_range", 3d), Map.entry("range", 3d), Map.entry("duration", 3d),
                     Map.entry("sub_speed", 1.5d), Map.entry("sub_damage", 80d), Map.entry("sub_attack_range", 0.5d),
-                    Map.entry("buff_duration", 2d));
+                    Map.entry("buff_duration", 2d), Map.entry("z_force", 5d));
             Map<String, Double> status = Map.ofEntries(
                     Map.entry("burn_duration", 2d), Map.entry("burn_total_damage", 80d),
                     Map.entry("wet_duration", 8d), Map.entry("wet_nature_heal", 20d),
@@ -218,7 +384,11 @@ class MagicScenarioPreviewTest {
             ParameterService service = mock(ParameterService.class);
             when(service.getValue(anyString(), anyString())).thenAnswer(call -> {
                 String object = call.getArgument(0), key = call.getArgument(1);
-                if (object.equals("fire_shot") && key.equals("speed")) return 8d;
+                if (Set.of("fire_shot", "water_shot", "electric_shot", "wind_blade", "rock_rolling").contains(object) && key.equals("speed")) return 8d;
+                // Avoid simultaneous first-contact ties; splash still reaches the adjacent fixture.
+                if (Set.of("water_shot", "electric_shot").contains(object) && key.equals("radius")) return 0.3d;
+                if (Set.of("fire_drop", "wind_drop", "wind_explode", "water_explosion", "rock_explode", "rock_blast").contains(object) && key.equals("radius")) return 2d;
+                if (object.equals("electric_field") && key.equals("radius")) return 5d;
                 if ((object.equals("electric_explode") || object.equals("sand_storm") || object.equals("earth_call")) && key.equals("radius")) return 2d;
                 if (object.equals("healing_totem") && key.equals("damage")) return -80d;
                 if (object.equals("frenzy_totem") && key.equals("speed")) return 5d;
@@ -226,7 +396,10 @@ class MagicScenarioPreviewTest {
                 if (!values.containsKey(key)) throw new AssertionError("Missing preview fixture parameter " + object + "." + key);
                 return values.get(key);
             });
-            when(service.getValueOrDefault(anyString(), anyString(), anyDouble())).thenAnswer(call -> call.getArgument(2));
+            when(service.getValueOrDefault(anyString(), anyString(), anyDouble())).thenAnswer(call -> {
+                if (call.getArgument(1).equals("quantity") && Set.of("mini_rock", "thunder_bird", "water_slime").contains(call.getArgument(0))) return 3d;
+                return call.getArgument(2);
+            });
             parameters = new Parameters(service);
             var data = new GameSessionData(new PlayerData(null), new PlayerData(null));
             context = new GameContext(null, data, parameters, null, null);
@@ -246,6 +419,19 @@ class MagicScenarioPreviewTest {
             prefabs.put(PrefabType.RockRemnant, new RockRemnantPrefabInitializer(parameters));
             prefabs.put(PrefabType.MediumRockRemnant, new MediumRockRemnantPrefabInitializer(parameters));
             prefabs.put(PrefabType.MiniRock, new MiniRockPrefabInitializer(parameters));
+            prefabs.put(PrefabType.WaterShot, new WaterShotPrefabInitializer(parameters));
+            prefabs.put(PrefabType.ElectricShot, new ElectricShotPrefabInitializer(parameters));
+            prefabs.put(PrefabType.WindBlade, new WindBladePrefabInitializer(parameters));
+            prefabs.put(PrefabType.RockRolling, new RockRollingPrefabInitializer(parameters));
+            prefabs.put(PrefabType.FireDrop, new FireDropPrefabInitializer(parameters));
+            prefabs.put(PrefabType.WindDrop, new WindDropPrefabInitializer(parameters));
+            prefabs.put(PrefabType.WaterExplosion, new WaterExplosionPrefabInitializer(parameters));
+            prefabs.put(PrefabType.WindExplode, new WindExplodePrefabInitializer(parameters));
+            prefabs.put(PrefabType.RockExplode, new RockExplodePrefabInitializer(parameters));
+            prefabs.put(PrefabType.WaterSlime, new WaterSlimePrefabInitializer(parameters));
+            prefabs.put(PrefabType.ThunderBird, new ThunderBirdPrefabInitializer(parameters));
+            prefabs.put(PrefabType.WaterField, new WaterFieldPrefabInitializer(parameters));
+            prefabs.put(PrefabType.ElectricField, new ElectricFieldPrefabInitializer(parameters));
             prefabs.put(PrefabType.Player, new PrefabInitializer(PrefabType.Player) {
                 @Override public void initialize(GameObject object) { }
             });
@@ -274,13 +460,24 @@ class MagicScenarioPreviewTest {
             return context.getGameSessionData().gameObjectsToAdd.stream().filter(o -> o.getType() == type).findFirst().orElseThrow();
         }
         int hp(GameObject object) { return object.getComponent(Mob.class).getHp(); }
+        void stageSwarm(PrefabType type, float x) {
+            List<GameObject> swarm = context.getGameSessionData().gameObjectsToAdd.stream()
+                    .filter(o -> o.getType() == type).toList();
+            assertThat(swarm).hasSize(3);
+            for (int i = 0; i < swarm.size(); i++) {
+                GameObject object = swarm.get(i);
+                // The queued create DTO retains this Vector3 reference: stage it too, before capture.
+                object.getPosition().setX(x);
+                object.getPosition().setZ(4.4f + i * 0.6f);
+            }
+        }
         int id(int original) { return ids.computeIfAbsent(original, ignored -> ids.size() + 1); }
 
         void record(Map<String, ObjectNode> clips, String magic, String scenarioId, String ko, String en, float duration, IntConsumer action) {
             ObjectNode clip = clips.computeIfAbsent(magic, name -> {
                 ObjectNode node = JSON.createObjectNode();
                 node.put("version", 2).put("magic", name).put("frameDuration", DT);
-                node.put("source", "MagicScenarioPreviewTest; production mechanics; fixed illustrative parameters; passive fixture targets");
+                node.put("source", "MagicScenarioPreviewTest; production mechanics; fixed illustrative parameters; passive fixture targets; swarms staged deterministically within spawn range");
                 node.putArray("scenarios");
                 return node;
             });

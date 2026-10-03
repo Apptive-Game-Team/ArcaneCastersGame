@@ -129,6 +129,10 @@ This repository keeps its own skills under `.agents/skills/`. Read the one that 
 
 ## Architecture & Game Engine Reference
 
+Before extending offline magic recordings, read `docs/fire-shot-preview.md`.
+It records queued-create Vector3 aliasing and collision first-contact ties that
+can make a staged fixture nondeterministic even when sorted DTOs look stable.
+
 For in-depth explanations of the server systems, refer to the following developer documentation:
 - **System Overview & Protocols**: [system-overview.md](file:///Users/jeong-yunseong/development/word-online/dev/game-server/docs/system-overview.md)
 - **Thread & Session Management**: [session-management.md](file:///Users/jeong-yunseong/development/word-online/dev/game-server/docs/session-management.md)
