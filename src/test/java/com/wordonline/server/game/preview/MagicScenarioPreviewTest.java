@@ -366,6 +366,8 @@ class MagicScenarioPreviewTest {
         final MockedStatic<PrefabProvider> provider;
         final Set<String> seenTypes = new HashSet<>(), seenEffects = new HashSet<>(), seenProjectiles = new HashSet<>();
         final Map<Integer, Integer> ids = new LinkedHashMap<>();
+        final List<GameObject> fixtureTargets = new ArrayList<>();
+        final Map<String, Double> fixtureParameters = new TreeMap<>();
         final GameObjectAddRemoteSystem lifecycle = new GameObjectAddRemoteSystem();
         final boolean expanded;
         final MockedStatic<java.util.concurrent.ThreadLocalRandom> randomSource;
@@ -416,7 +418,7 @@ class MagicScenarioPreviewTest {
                     Map.entry("shock_stun_duration", 1d), Map.entry("shock_refresh_duration", 1d),
                     Map.entry("sandstorm_effect_duration", 1d), Map.entry("sandstorm_effect_damage", 30d));
             ParameterService service = mock(ParameterService.class);
-            when(service.getValue(anyString(), anyString())).thenAnswer(call -> {
+            org.mockito.stubbing.Answer<Double> fixtureValue = call -> {
                 String object = call.getArgument(0), key = call.getArgument(1);
                 if (expanded) return RemainingMagicPreviewTest.fixtureValue(object, key);
                 if (Set.of("fire_shot", "water_shot", "electric_shot", "wind_blade", "rock_rolling").contains(object) && key.equals("speed")) return 8d;
@@ -430,12 +432,18 @@ class MagicScenarioPreviewTest {
                 Map<String, Double> values = object.equals("game") ? status : common;
                 if (!values.containsKey(key)) throw new AssertionError("Missing preview fixture parameter " + object + "." + key);
                 return values.get(key);
+            };
+            when(service.getValue(anyString(), anyString())).thenAnswer(call -> {
+                double value = fixtureValue.answer(call);
+                fixtureParameters.put(call.getArgument(0) + "." + call.getArgument(1), value);
+                return value;
             });
             when(service.getValueOrDefault(anyString(), anyString(), anyDouble())).thenAnswer(call -> {
-                if (expanded && call.getArgument(1).equals("quantity")) return 3d;
-                if (call.getArgument(1).equals("quantity") && Set.of("mini_rock", "thunder_bird", "water_slime").contains(call.getArgument(0))) return 3d;
-                return call.getArgument(2);
+                double value = fixtureDefault(call.getArgument(0), call.getArgument(1), call.getArgument(2), expanded);
+                fixtureParameters.put(call.getArgument(0) + "." + call.getArgument(1), value);
+                return value;
             });
+            /* Defaults are recorded too: runtime aura scaling must not consult live DB cache. */
             parameters = new Parameters(service);
             var data = new GameSessionData(new PlayerData(expanded ? new ManaCharger(parameters) : null), new PlayerData(expanded ? new ManaCharger(parameters) : null));
             if (expanded) data.leftPlayerData.manaCharger.initMaxMana();
@@ -498,8 +506,16 @@ class MagicScenarioPreviewTest {
 
         GameObject target(Master master, float x, float y, float z) {
             creatingTarget = true;
-            try { return new GameObject(master, PrefabType.ElectricSlime, new Vector3(x, y, z), context); }
+            try {
+                GameObject object = new GameObject(master, PrefabType.ElectricSlime, new Vector3(x, y, z), context);
+                fixtureTargets.add(object);
+                return object;
+            }
             finally { creatingTarget = false; }
+        }
+        private static double fixtureDefault(String object, String key, double fallback, boolean expanded) {
+            if (key.equals("quantity") && (expanded || Set.of("mini_rock", "thunder_bird", "water_slime").contains(object))) return 3;
+            return fallback;
         }
         GameObject pending(PrefabType type) {
             return context.getGameSessionData().gameObjectsToAdd.stream().filter(o -> o.getType() == type).findFirst().orElseThrow();
@@ -603,6 +619,9 @@ class MagicScenarioPreviewTest {
                 events.removeAll().addAll(sortedEvents);
                 lifecycle.update(context);
             }
+            var targetIds = scenario.putArray("fixtureTargetIds");
+            fixtureTargets.stream().map(object -> ids.get(object.getId())).filter(Objects::nonNull).sorted().forEach(targetIds::add);
+            scenario.set("parameters", JSON.valueToTree(fixtureParameters));
         }
         @Override public void close() {
             provider.close();

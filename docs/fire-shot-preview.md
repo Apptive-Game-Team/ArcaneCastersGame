@@ -16,6 +16,13 @@ projection endpoints (`start` and `end`), events and object IDs consistently.
 Independent collision updates/events are sorted because collision pairs use a
 HashSet and their enumeration has no stable wire order.
 
+Each scenario also exports `fixtureTargetIds`, containing only normalized passive
+target IDs, and `parameters`, containing the fixture's exact `owner.key` reads.
+The client uses them to initialize native presentation without the live parameter
+cache. Initial ElectricSlime death-energy absorbers are not fixture targets;
+never infer fixture identity from type, team or initial-frame membership.
+These recording metadata fields are not production wire DTO changes.
+
 Production magics, initializers, attacks, effects, lifecycle and physics run
 offline. Only the parameter store, caster and passive targets are fixtures.
 Fixed illustrative parameters intentionally keep demonstrations short; they are
