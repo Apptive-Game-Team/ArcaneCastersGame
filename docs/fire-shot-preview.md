@@ -49,6 +49,62 @@ the adjacent target still receives real impact splash damage.
 
 Validation for this batch: full server suite 664 passed, repeated capture equal.
 
+## Remaining catalog expansion
+
+Run `./gradlew test -PpreviewExport=true` to export the complete 85-magic catalog
+(164 scenarios). `RemainingMagicPreviewTest` explicitly adds 64 names discovered
+from production Spring magic beans, including existing PVE nests. Every remaining
+bean must have an explicit scenario registration; unknown constructor dependencies,
+prefabs and parameter reads fail. Each parameterized row captures one magic twice
+and compares complete JSON, keeping memory bounded rather than retaining two
+all-catalog trees. Full suite: 728 tests passed with Gradle's default 512MB test heap.
+
+Read `captureAll`, `support`, and `secondary` in that test as the scenario matrix:
+supported ground/air attacks precede support, aura, multiple-target, evolution and
+combat-death situations. Special assertions cover RockMage concentrated double
+shots and multiple targets; EvilEnt light-target grab/pull/FireFist/Burn versus
+heavy-target punch; CloudDragon chain and Wet aura; SeaSerpent aligned beam hits,
+off-axis miss and water trail; FireLord's delayed children; DimensionToad panic
+and alternating children; StormStag tiers 2/3/4 and electric impact; Fire/Magma
+auras; rock remnants and electrical death-energy transfer; seed evolution and
+TreeGolem healing/trail. Ordinary spawn/build cases also record real combat death.
+
+Support cases verify LifeTree healing, Bubble protection, Rallying movement and
+Inspired, real ManaCharger rate rise/restoration, RepairTotem TTL freeze versus an
+unprotected control and expiry after the aura, Leafair allied HP/TTL recovery,
+WindTotem push and delayed ShockTrap activation. SpiritBomb records ally HP
+10000→5000, four roughly one-second beam ticks totaling rounded 70% absorbed HP,
+actual beam width/duration and energy absorption. WillOWisp changes ownership
+and attacks the former side. Crater separately shows enemy collision and neutral
+FireField landing; Firework shell creation occurs after its aim projection.
+
+Preserve current mechanics, including surprising ones: owned LeafField's provider
+currently targets enemies, so GrassGenerator heals/snares the enemy, not the ally;
+AquaArcher's projected WaterShot alone does not apply Wet. StormStag has no
+electrical death-energy component. Four legacy slime nests have no matching client
+runtime art and use an explicitly documented SeedNest preview proxy. This is not
+exhaustive coverage of every elemental permutation or exact live database balance.
+
+### Fixture traps
+
+- Prefab initializer discovery must key by Spring bean name. SeedSpirit inherits
+  LeafSlime's initializer type field and EmberSpirit uses the `fire_slime_prefab`
+  bean; indexing only `prefabType` silently wires the wrong initializer.
+- Integer parameter reads need nonzero integer intervals: VineColony reads
+  `attack_interval` with `intValue`. An illustrative 0.8 truncates to zero and its
+  real catch-up loop never terminates, exhausting heap. Use 1 in this fixture;
+  do not modify production mechanics or claim this caused an unrelated app crash.
+- Seed random draws before constructors cache trajectories (especially Crater),
+  not only after spawning. Seed `ThreadLocalRandom` draws and random unit vectors
+  in the test scope; retain real production algorithms and spawn heights.
+- CollisionPair reorders endpoints by identity hash as well as storing pairs in
+  a HashSet. Sorting DTOs or replacing only the collection does not stabilize
+  orientation. The expanded fixture uses a LinkedHashSet and a per-physics-tick
+  stub-only Pair construction scope preserving broadphase argument order. Close
+  mocks each tick and clear inline mocks per capture to avoid retention.
+- Keep position projection endpoints' flat `x/y/z` when exporting. The preview
+  consumer must not confuse them with a game object's nested `position` vector.
+
 Run `./gradlew test --tests com.wordonline.server.game.preview.FireShotPreviewTest
 -PpreviewExport=true --rerun-tasks` (one command) to write
 `build/previews/fire_shot.json`. Normal tests do not export files.

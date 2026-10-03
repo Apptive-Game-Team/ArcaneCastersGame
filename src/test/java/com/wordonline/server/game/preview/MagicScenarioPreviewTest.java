@@ -360,15 +360,49 @@ class MagicScenarioPreviewTest {
         }
     }
 
-    private static final class Capture implements AutoCloseable {
+    static final class Capture implements AutoCloseable {
         final Parameters parameters;
         final GameContext context;
         final MockedStatic<PrefabProvider> provider;
         final Set<String> seenTypes = new HashSet<>(), seenEffects = new HashSet<>(), seenProjectiles = new HashSet<>();
         final Map<Integer, Integer> ids = new LinkedHashMap<>();
         final GameObjectAddRemoteSystem lifecycle = new GameObjectAddRemoteSystem();
+        final boolean expanded;
+        final MockedStatic<java.util.concurrent.ThreadLocalRandom> randomSource;
+        final MockedStatic<Vector3> directionSource;
+        ObjectNode lastScenario;
+        boolean creatingTarget;
 
         Capture() {
+            this(false);
+        }
+
+        Capture(boolean expanded) {
+            this.expanded = expanded;
+            if (expanded) {
+                // Control draws, not trajectories: production random-spawn algorithms still run.
+                var random = mock(java.util.concurrent.ThreadLocalRandom.class);
+                var seeded = new Random(20468);
+                when(random.nextDouble()).thenAnswer(a -> seeded.nextDouble());
+                when(random.nextFloat()).thenAnswer(a -> seeded.nextFloat());
+                when(random.nextDouble(anyDouble(), anyDouble())).thenAnswer(a -> {
+                    double low = a.getArgument(0), high = a.getArgument(1);
+                    return low + seeded.nextDouble() * (high - low);
+                });
+                when(random.nextFloat(anyFloat(), anyFloat())).thenAnswer(a -> {
+                    float low = a.getArgument(0), high = a.getArgument(1);
+                    return low + seeded.nextFloat() * (high - low);
+                });
+                when(random.nextInt(anyInt())).thenAnswer(a -> seeded.nextInt((int) a.getArgument(0)));
+                when(random.nextInt(anyInt(), anyInt())).thenAnswer(a -> seeded.nextInt((int) a.getArgument(0), (int) a.getArgument(1)));
+                randomSource = mockStatic(java.util.concurrent.ThreadLocalRandom.class, CALLS_REAL_METHODS);
+                randomSource.when(java.util.concurrent.ThreadLocalRandom::current).thenReturn(random);
+                directionSource = mockStatic(Vector3.class, CALLS_REAL_METHODS);
+                directionSource.when(Vector3::randomUnitVector).thenAnswer(a -> {
+                    double angle = seeded.nextDouble() * Math.PI * 2;
+                    return new Vector3((float) Math.cos(angle), 0, (float) Math.sin(angle));
+                });
+            } else { randomSource = null; directionSource = null; }
             // Fixed, named illustrative values. Unknown reads fail rather than Mockito's 0 default.
             Map<String, Double> common = Map.ofEntries(
                     Map.entry("hp", 1000d), Map.entry("mass", 10d), Map.entry("radius", 0.6d),
@@ -384,6 +418,7 @@ class MagicScenarioPreviewTest {
             ParameterService service = mock(ParameterService.class);
             when(service.getValue(anyString(), anyString())).thenAnswer(call -> {
                 String object = call.getArgument(0), key = call.getArgument(1);
+                if (expanded) return RemainingMagicPreviewTest.fixtureValue(object, key);
                 if (Set.of("fire_shot", "water_shot", "electric_shot", "wind_blade", "rock_rolling").contains(object) && key.equals("speed")) return 8d;
                 // Avoid simultaneous first-contact ties; splash still reaches the adjacent fixture.
                 if (Set.of("water_shot", "electric_shot").contains(object) && key.equals("radius")) return 0.3d;
@@ -397,11 +432,13 @@ class MagicScenarioPreviewTest {
                 return values.get(key);
             });
             when(service.getValueOrDefault(anyString(), anyString(), anyDouble())).thenAnswer(call -> {
+                if (expanded && call.getArgument(1).equals("quantity")) return 3d;
                 if (call.getArgument(1).equals("quantity") && Set.of("mini_rock", "thunder_bird", "water_slime").contains(call.getArgument(0))) return 3d;
                 return call.getArgument(2);
             });
             parameters = new Parameters(service);
-            var data = new GameSessionData(new PlayerData(null), new PlayerData(null));
+            var data = new GameSessionData(new PlayerData(expanded ? new ManaCharger(parameters) : null), new PlayerData(expanded ? new ManaCharger(parameters) : null));
+            if (expanded) data.leftPlayerData.manaCharger.initMaxMana();
             context = new GameContext(null, data, parameters, null, null);
             context.setObjectsInfoDtoBuilder(new ObjectsInfoDtoBuilder(context));
             context.setPhysics(new SimplePhysics(data.gameObjects));
@@ -437,8 +474,12 @@ class MagicScenarioPreviewTest {
             });
             prefabs.put(PrefabType.ElectricSlime, new PrefabInitializer(PrefabType.ElectricSlime) {
                 @Override public void initialize(GameObject object) {
+                    if (expanded && !creatingTarget) {
+                        RemainingMagicPreviewTest.initializer(PrefabType.ElectricSlime, parameters).initialize(object);
+                        return;
+                    }
                     object.addCollider(new CircleCollider(object, 0.35f, true));
-                    object.addComponent(new PassiveTarget(object));
+                    object.addComponent(new PassiveTarget(object, expanded ? 10000 : 1000));
                     object.addComponent(new RigidBody(object, 10));
                     if (object.getPosition().getY() == 0) object.addComponent(new ZPhysics(object));
                     object.addComponent(new CommonEffectReceiver(object));
@@ -446,6 +487,8 @@ class MagicScenarioPreviewTest {
             });
             provider = mockStatic(PrefabProvider.class, invocation -> {
                 PrefabType type = invocation.getArgument(0);
+                if (!prefabs.containsKey(type) && expanded)
+                    prefabs.put(type, RemainingMagicPreviewTest.initializer(type, parameters));
                 if (!prefabs.containsKey(type)) throw new AssertionError("Missing preview prefab " + type);
                 return prefabs.get(type);
             });
@@ -454,7 +497,9 @@ class MagicScenarioPreviewTest {
         }
 
         GameObject target(Master master, float x, float y, float z) {
-            return new GameObject(master, PrefabType.ElectricSlime, new Vector3(x, y, z), context);
+            creatingTarget = true;
+            try { return new GameObject(master, PrefabType.ElectricSlime, new Vector3(x, y, z), context); }
+            finally { creatingTarget = false; }
         }
         GameObject pending(PrefabType type) {
             return context.getGameSessionData().gameObjectsToAdd.stream().filter(o -> o.getType() == type).findFirst().orElseThrow();
@@ -477,25 +522,49 @@ class MagicScenarioPreviewTest {
             ObjectNode clip = clips.computeIfAbsent(magic, name -> {
                 ObjectNode node = JSON.createObjectNode();
                 node.put("version", 2).put("magic", name).put("frameDuration", DT);
-                node.put("source", "MagicScenarioPreviewTest; production mechanics; fixed illustrative parameters; passive fixture targets; swarms staged deterministically within spawn range");
+                node.put("source", expanded ? "RemainingMagicPreviewTest; production mechanics; fixed illustrative parameters; passive fixture targets; seeded random draws and collision directions" : "MagicScenarioPreviewTest; production mechanics; fixed illustrative parameters; passive fixture targets; swarms staged deterministically within spawn range");
                 node.putArray("scenarios");
                 return node;
             });
             ObjectNode scenario = clip.withArray("scenarios").addObject();
+            lastScenario = scenario;
             scenario.put("id", scenarioId).put("labelKo", ko).put("labelEn", en).put("duration", duration);
             var frames = scenario.putArray("frames");
             lifecycle.update(context);
             var reset = new GameObjectStateInitialSystem();
             var physics = new PhysicSystem();
+            if (expanded) {
+                // Pair iteration has no production ordering contract. Fix only fixture order
+                // so multi-body overlaps do not depend on JVM identity hash codes.
+                try {
+                    var pairs = PhysicSystem.class.getDeclaredField("collidedPairs");
+                    pairs.setAccessible(true);
+                    pairs.set(physics, new LinkedHashSet<>());
+                } catch (ReflectiveOperationException e) { throw new AssertionError(e); }
+            }
             for (int tick = 0; tick < Math.round(duration / DT); tick++) {
                 reset.update(context);
                 action.accept(tick);
                 for (GameObject object : List.copyOf(context.getActiveGameObjects())) object.update();
-                physics.update(context);
+                if (expanded) {
+                    // Scope construction mocks to one tick, not an entire multi-clip catalog.
+                    try (var pairs = mockConstruction(com.wordonline.server.game.util.Pair.class, withSettings().stubOnly(), (pair, construction) -> {
+                        when(pair.a()).thenReturn(construction.arguments().get(0));
+                        when(pair.b()).thenReturn(construction.arguments().get(1));
+                    })) { physics.update(context); }
+                } else physics.update(context);
                 // Real snapshots provide initial HP/effects too; create DTOs do not carry gauges.
                 for (GameObject object : context.getActiveGameObjects()) object.applyUpdate();
                 ObjectNode frame = frames.addObject();
                 frame.put("time", tick * (double) DT);
+                if (expanded) {
+                    // ManaWell's real charger is not a GameObject gauge; record its actual rate.
+                    try {
+                        var manaField = ManaCharger.class.getDeclaredField("manaChangeValue");
+                        manaField.setAccessible(true);
+                        frame.put("manaRate", ((com.wordonline.server.game.domain.Stat) manaField.get(context.getGameSessionData().leftPlayerData.manaCharger)).total());
+                    } catch (ReflectiveOperationException e) { throw new AssertionError(e); }
+                }
                 JsonNode objects = JSON.valueToTree(context.getObjectsInfoDto());
                 for (String key : new String[]{"create", "update"}) {
                     for (JsonNode entry : objects.path(key)) {
@@ -535,11 +604,16 @@ class MagicScenarioPreviewTest {
                 lifecycle.update(context);
             }
         }
-        @Override public void close() { provider.close(); }
+        @Override public void close() {
+            provider.close();
+            if (directionSource != null) directionSource.close();
+            if (randomSource != null) randomSource.close();
+            if (expanded) org.mockito.Mockito.framework().clearInlineMocks();
+        }
     }
 
     private static final class PassiveTarget extends Mob implements Collidable {
-        PassiveTarget(GameObject object) { super(object, 1000, 0); }
+        PassiveTarget(GameObject object, int hp) { super(object, hp, 0); }
         @Override public void start() { }
         @Override public void onDestroy() { }
         @Override public void onDeath() { gameObject.destroy(); }
