@@ -24,7 +24,8 @@ never infer fixture identity from type, team or initial-frame membership.
 These recording metadata fields are not production wire DTO changes.
 
 Production magics, initializers, attacks, effects, lifecycle and physics run
-offline. Only the parameter store, caster and passive targets are fixtures.
+offline. The parameter store, caster, passive targets and the preview-only
+omission of automatic DeathField.spawn are fixtures.
 Fixed illustrative parameters intentionally keep demonstrations short; they are
 not live balance. Unknown prefab/parameter reads fail. Capturing twice must yield
 identical JSON. Assertions cover ground knockback/death rubble, air self-destruct,
@@ -38,12 +39,19 @@ interactions are covered. No production gameplay or database change is required.
 The additional batch covers water/lightning shots, piercing WindBlade,
 reflecting RollingRock, Fire/Wind drops, Water/Wind explosions, both RockBlast
 remnant sizes and MiniRock/ThunderBird/WaterSlime swarms. Assertions also cover
-friendly Overcharge/extra shots, ThunderBird death-energy transfer/field and
+friendly Overcharge/extra shots, ThunderBird death-energy transfer (without a death field) and
 WaterSlime trail/Wet. All three swarm attack masks are GROUND; aerial appearance
 does not imply anti-air attacks. WaterExplosion currently applies Burn and launch,
 while ordinary Drop has no Burn/Knockback provider; recordings preserve this.
 
-Swarm quantity is three. The fixture runs the real spawn spell then stages only
+One-cast counts come from PreviewSummonQuantities, an explicit V001 parameter_id=9
+snapshot: MiniRock 2, EmberSpirit 5, SeedSpirit 4, ThunderBird/WaterSlime 3,
+VineSpirit/ZapMouse 2; ordinary summons default to 1. Do not use a universal 3.
+Quantity on GrassGenerator counts later fields, not the initial building; keep
+initial cast bodies separate from offspring, evolution inputs and support allies.
+Capture.cast checks the queued initial batch against ObjectSummoningMagic and the
+independent snapshot. Parameter ownership comes from the spell, not prefab aliases.
+The fixture runs the real spawn spell then stages only
 newly pending swarm positions deterministically inside its +/-1 spawn range,
 preserving height. This does not replace attack/movement/effect logic. Its
 Vector3 is also retained by the already queued CreatedObjectDto: mutate those
@@ -59,7 +67,7 @@ Validation for this batch: full server suite 664 passed, repeated capture equal.
 ## Remaining catalog expansion
 
 Run `./gradlew test -PpreviewExport=true` to export the complete 85-magic catalog
-(164 scenarios). `RemainingMagicPreviewTest` explicitly adds 64 names discovered
+(129 scenarios). `RemainingMagicPreviewTest` explicitly adds 64 names discovered
 from production Spring magic beans, including existing PVE nests. Every remaining
 bean must have an explicit scenario registration; unknown constructor dependencies,
 prefabs and parameter reads fail. Each parameterized row captures one magic twice
@@ -68,13 +76,30 @@ all-catalog trees. Full suite: 728 tests passed with Gradle's default 512MB test
 
 Read `captureAll`, `support`, and `secondary` in that test as the scenario matrix:
 supported ground/air attacks precede support, aura, multiple-target, evolution and
-combat-death situations. Special assertions cover RockMage concentrated double
+remnant/energy-transfer situations. Special assertions cover RockMage concentrated double
 shots and multiple targets; EvilEnt light-target grab/pull/FireFist/Burn versus
 heavy-target punch; CloudDragon chain and Wet aura; SeaSerpent aligned beam hits,
 off-axis miss and water trail; FireLord's delayed children; DimensionToad panic
 and alternating children; StormStag tiers 2/3/4 and electric impact; Fire/Magma
 auras; rock remnants and electrical death-energy transfer; seed evolution and
-TreeGolem healing/trail. Ordinary spawn/build cases also record real combat death.
+TreeGolem healing/trail. The 35 generic combat_death cases have been removed.
+
+Automatic death-created ground fields are intentionally omitted at their source
+with a scoped test-only DeathField static mock. Production code is unchanged; no
+field-type DTO filtering is allowed, since it would hide legitimate trails/areas
+and leave dangling references. Rock remnants and energy absorption remain.
+SeaSerpent water trails, TreeGolem leaf trails, Crater landing FireFields and
+WindSpirit's self-destruct attack are still asserted.
+
+Area units' ordinary attack cases now have separated enemy groups: Tower,
+Towerback (air), BubbleSpirit, FireSpirit, CloudDragon, SeaSerpent, ElectricTower,
+DragonTower, BombSprite, FireworkTower, MagmaSpirit and TitanRemnant. Require hit
+events on multiple fixture IDs from the same actor in one damage batch; CloudDragon
+requires the same ChainLightning ID across frames. Final HP alone could represent
+multiple independent single-target attacks and is not adequate evidence. Small
+splash and collinear beam layouts stay within real attack ranges. Blast parameters
+for BombSpriteBomb (2), FireworkShell (1.5), MagmaFist (1), TitanFist (1.25) use the
+baseline snapshot instead of the generic .4 collider fixture.
 
 Support cases verify LifeTree healing, Bubble protection, Rallying movement and
 Inspired, real ManaCharger rate rise/restoration, RepairTotem TTL freeze versus an
@@ -111,6 +136,9 @@ exhaustive coverage of every elemental permutation or exact live database balanc
   mocks each tick and clear inline mocks per capture to avoid retention.
 - Keep position projection endpoints' flat `x/y/z` when exporting. The preview
   consumer must not confuse them with a game object's nested `position` vector.
+- Passive targets have trigger-only colliders. CombatRange does not count those as
+  body radii, whereas overlapSphereAll uses hitboxes. Place MagmaFist victims within
+  its actual radius; do not inflate the blast just because a sphere fixture worked.
 
 Run `./gradlew test --tests com.wordonline.server.game.preview.FireShotPreviewTest
 -PpreviewExport=true --rerun-tasks` (one command) to write

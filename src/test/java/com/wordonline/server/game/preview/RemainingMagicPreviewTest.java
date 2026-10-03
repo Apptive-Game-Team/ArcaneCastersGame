@@ -41,6 +41,14 @@ class RemainingMagicPreviewTest {
             "healing_totem", "lightning_explosion", "sand_storm", "frenzy_totem", "earth_call",
             "water_shot", "lightning_shot", "wind_blade", "rock_rolling", "fire_drop", "wind_drop",
             "water_explosion", "wind_explosion", "rock_blast", "mini_rock_swarm", "thunder_bird_swarm", "water_slime_swarm");
+    // Damage sources, verified from server components (not projectile artwork).
+    private static final Map<String, String> AREA_UNITS = Map.ofEntries(
+            Map.entry("tower", "GroundTower"), Map.entry("bubble_spirit", "BubbleSpirit"),
+            Map.entry("fire_spirit", "FireSpirit"), Map.entry("cloud_dragon", "ChainLightning"),
+            Map.entry("sea_serpent", "SeaSerpent"), Map.entry("electric_tower", "ElectricTower"),
+            Map.entry("dragon_tower", "DragonFlame"), Map.entry("bomb_sprite", "BombSpriteBomb"),
+            Map.entry("firework_tower", "FireworkShell"), Map.entry("magma_spirit", "MagmaFist"),
+            Map.entry("titan_remnant", "TitanFist"));
 
     static java.util.stream.Stream<String> remainingNames() {
         return MAGICS.keySet().stream().filter(name -> !PREVIOUS.contains(name));
@@ -76,6 +84,12 @@ class RemainingMagicPreviewTest {
 
     static double fixtureValue(String object, String key) {
         // Explicit illustrative values, not a zero/default fallback for unknown reads.
+        if (key.equals("quantity")) return PreviewSummonQuantities.forOwner(object);
+        // Actual blast sizes from the same baseline; generic collider .4 hid AoE.
+        if (key.equals("radius") && object.equals("bomb_sprite_bomb")) return 2;
+        if (key.equals("radius") && object.equals("firework_shell")) return 1.5;
+        if (key.equals("radius") && object.equals("magma_fist")) return 1;
+        if (key.equals("radius") && object.equals("titan_fist")) return 1.25;
         if (key.equals("damage") && Set.of("life_tree", "healing_totem").contains(object)) return -80;
         if (key.equals("duration") && Set.of("ground_cannon", "ground_tower", "rock_turret").contains(object)) return 3;
         if (key.equals("speed") && Set.of("storm_stag", "zap_mouse").contains(object)) return 4;
@@ -102,7 +116,7 @@ class RemainingMagicPreviewTest {
             case "buff_duration" -> 2;
             case "z_force", "push_force" -> 5;
             case "projectile_speed" -> 8;
-            case "quantity", "chain_count", "vine_count" -> 3;
+            case "chain_count", "vine_count" -> 3;
             case "min_damage" -> 20;
             case "max_mana" -> 100;
             case "acceleration" -> 5;
@@ -186,12 +200,33 @@ class RemainingMagicPreviewTest {
         try (Capture c = new Capture(true)) {
             float targetX = name.equals("crater") ? 5.5f : 7;
             GameObject target = c.target(Master.RightPlayer, targetX, air ? 2f : 0, 5);
+            if (AREA_UNITS.containsKey(name)) {
+                if (name.equals("sea_serpent")) {
+                    // Collinear victims and an untouched off-axis control explain the beam.
+                    c.target(Master.RightPlayer, 5.8f, air ? 2f : 0, 5);
+                    c.target(Master.RightPlayer, 8.2f, air ? 2f : 0, 5);
+                } else if (name.equals("magma_spirit")) {
+                    // OnStartAttacker uses body-edge CombatRange, whereas these
+                    // passive fixtures have trigger-only colliders (no body radius).
+                    c.target(Master.RightPlayer, 7.65f, 0, 5.7f);
+                    c.target(Master.RightPlayer, 7, 0, 4.1f);
+                } else if (Set.of("cloud_dragon", "electric_tower", "fire_spirit", "bomb_sprite", "firework_tower").contains(name)) {
+                    c.target(Master.RightPlayer, 8.2f, air ? 2f : 0, 5.8f);
+                    c.target(Master.RightPlayer, 6.5f, air ? 2f : 0, 6.4f);
+                } else {
+                    // Small splash: don't enlarge mechanics to fit the display.
+                    c.target(Master.RightPlayer, 7.9f, air ? 2f : 0, 5.8f);
+                    c.target(Master.RightPlayer, 6.9f, air ? 2f : 0, 6.1f);
+                }
+            }
             boolean area = Set.of("rock_drop", "nature_drop", "lightning_drop", "meteor_shower", "leafair", "magma_explosion", "overgrowth", "razor_gale", "shock_overload", "vine_world", "tornado_strike").contains(name);
             float duration = name.endsWith("slime_nest") || name.equals("fire_lord_spirit") ? 14 : 9;
             if (name.equals("fire_spirit")) duration = 3.5f;
             c.record(clips, name, air ? "air" : "ground", air ? "공중 공격" : "지상 공격", air ? "Air attack" : "Ground attack", duration,
-                    tick -> { if (tick == 12) magic(name, c).run(c.context, Master.LeftPlayer, new Vector3(area ? targetX : (MAGICS.get(name).getPackageName().contains("shoot") ? targetX : 4), air && area ? 2f : 0, 5)); });
+                    tick -> { if (tick == 12) c.cast(magic(name, c), new Vector3(area ? targetX : (MAGICS.get(name).getPackageName().contains("shoot") ? targetX : 4), air && area ? 2f : 0, 5)); });
             attackChecks.assertThat(c.hp(target)).as("%s %s attack damage", name, air ? "air" : "ground").isLessThan(10000);
+            if (AREA_UNITS.containsKey(name))
+                c.assertMultiVictimHit(name.equals("cloud_dragon"), AREA_UNITS.get(name));
             Map<String, String> status = Map.ofEntries(Map.entry("vine_spirit", "Snared"),
                     Map.entry("fire_spirit", "Burn"), Map.entry("magma_spirit", "Burn"), Map.entry("lightning_drop", "Shock"),
                     Map.entry("shock_overload", "Shock"), Map.entry("storm_stag", "Overcharge"));
@@ -232,7 +267,7 @@ class RemainingMagicPreviewTest {
                 GameObject ally = c.target(Master.LeftPlayer, 5, 0, 5);
                 ally.getComponent(Mob.class).onDamaged(new AttackInfo(400, ElementType.NONE));
                 c.record(clips, name, "support", "아군 회복·보호", "Ally healing or protection", 5,
-                        tick -> { if (tick == 12) magic(name, c).run(c.context, Master.LeftPlayer, new Vector3(4, 0, 5)); });
+                        tick -> { if (tick == 12) c.cast(magic(name, c), new Vector3(4, 0, 5)); });
                 if (name.equals("life_tree")) assertThat(c.hp(ally)).isGreaterThan(9600);
                 else assertThat(c.seenEffects).contains("Bubble");
             }
@@ -240,7 +275,7 @@ class RemainingMagicPreviewTest {
         if (selectedName.equals("rallying_totem")) try (Capture c = new Capture(true)) {
             GameObject ally = new GameObject(Master.LeftPlayer, PrefabType.AquaArcher, new Vector3(3, 0, 5), c.context);
             c.record(clips, "rallying_totem", "rally", "집결 이동·고무", "Rally movement and Inspired", 5,
-                    tick -> { if (tick == 12) magic("rallying_totem", c).run(c.context, Master.LeftPlayer, new Vector3(6, 0, 5)); });
+                    tick -> { if (tick == 12) c.cast(magic("rallying_totem", c), new Vector3(6, 0, 5)); });
             assertThat(ally.getPosition().getX()).isGreaterThan(3);
             assertThat(c.seenEffects).contains("Inspired");
         }
@@ -250,7 +285,7 @@ class RemainingMagicPreviewTest {
             boolean[] preserved = {false};
             c.record(clips, "repair_totem", "preserve", "건물 수명 유지·종료 후 소멸", "Building lifetime preserved, resumes after aura", 10,
                     tick -> {
-                        if (tick == 12) magic("repair_totem", c).run(c.context, Master.LeftPlayer, new Vector3(4, 0, 5));
+                        if (tick == 12) c.cast(magic("repair_totem", c), new Vector3(4, 0, 5));
                         if (tick == 85) preserved[0] = !ally.isDestroyed() && control.isDestroyed();
                     });
             assertThat(preserved[0]).isTrue();
@@ -260,7 +295,7 @@ class RemainingMagicPreviewTest {
         if (selectedName.equals("mana_well")) try (Capture c = new Capture(true)) {
             c.record(clips, "mana_well", "mana", "마나 충전 속도 증가·종료 후 복귀", "Mana charge rate rises and restores", 6,
                     tick -> {
-                        if (tick == 12) magic("mana_well", c).run(c.context, Master.LeftPlayer, new Vector3(5, 0, 5));
+                        if (tick == 12) c.cast(magic("mana_well", c), new Vector3(5, 0, 5));
                         if (tick == 70) c.context.getActiveGameObjects().stream().filter(o -> o.getType() == PrefabType.ManaWell).findFirst().orElseThrow().destroy();
                     });
             List<Double> rates = new ArrayList<>();
@@ -271,13 +306,13 @@ class RemainingMagicPreviewTest {
         if (selectedName.equals("wind_totem")) try (Capture c = new Capture(true)) {
             GameObject target = c.target(Master.RightPlayer, 6, 0, 5);
             c.record(clips, "wind_totem", "push", "전방 영역 밀치기", "Push a target in the forward volume", 5,
-                    tick -> { if (tick == 12) magic("wind_totem", c).run(c.context, Master.LeftPlayer, new Vector3(4, 0, 5)); });
+                    tick -> { if (tick == 12) c.cast(magic("wind_totem", c), new Vector3(4, 0, 5)); });
             assertThat(target.getPosition().getX()).isGreaterThan(6);
         }
         if (selectedName.equals("shock_trap")) try (Capture c = new Capture(true)) {
             GameObject enemy = c.target(Master.RightPlayer, 6, 0, 5);
             c.record(clips, "shock_trap", "trigger", "적 접근·지연 감전", "Enemy proximity, delayed shock", 5,
-                    tick -> { if (tick == 12) magic("shock_trap", c).run(c.context, Master.LeftPlayer, new Vector3(4, 0, 5)); });
+                    tick -> { if (tick == 12) c.cast(magic("shock_trap", c), new Vector3(4, 0, 5)); });
             assertThat(c.seenEffects).contains("Shock");
         }
         if (selectedName.equals("grass_generator")) try (Capture c = new Capture(true)) {
@@ -286,7 +321,7 @@ class RemainingMagicPreviewTest {
             ally.getComponent(Mob.class).onDamaged(new AttackInfo(500, ElementType.NONE));
             enemy.getComponent(Mob.class).onDamaged(new AttackInfo(500, ElementType.NONE));
             c.record(clips, "grass_generator", "grass", "잎 필드 확장·속박·현재 서버 회복 대상", "Leaf carpet, snare and current server healing recipients", 10,
-                    tick -> { if (tick == 12) magic("grass_generator", c).run(c.context, Master.LeftPlayer, new Vector3(4, 0, 5)); });
+                    tick -> { if (tick == 12) c.cast(magic("grass_generator", c), new Vector3(4, 0, 5)); });
             assertThat(c.seenTypes).contains("LeafField");
             // Owned LeafField currently uses enemy-only EffectProvider; preserve, don't fix gameplay here.
             assertThat(c.hp(ally)).isEqualTo(9500);
@@ -297,7 +332,7 @@ class RemainingMagicPreviewTest {
             GameObject controlled = new GameObject(Master.RightPlayer, PrefabType.MiniRock, new Vector3(6, 0, 5), c.context);
             GameObject formerAlly = c.target(Master.RightPlayer, 8, 0, 5);
             c.record(clips, "will_o_wisp", "control", "진영 전환·이전 아군 공격", "Change ownership and attack former side", 7,
-                    tick -> { if (tick == 12) magic("will_o_wisp", c).run(c.context, Master.LeftPlayer, new Vector3(6, 0, 5)); });
+                    tick -> { if (tick == 12) c.cast(magic("will_o_wisp", c), new Vector3(6, 0, 5)); });
             assertThat(controlled.getMaster()).isEqualTo(Master.LeftPlayer);
             assertThat(c.hp(formerAlly)).isLessThan(10000);
         }
@@ -305,7 +340,7 @@ class RemainingMagicPreviewTest {
             GameObject ally = c.target(Master.LeftPlayer, 3, 0, 6);
             GameObject enemy = c.target(Master.RightPlayer, 7, 0, 5);
             c.record(clips, "spirit_bomb", "channel", "아군 체력 흡수·네 번 빔 피해", "Ally HP absorption and four beam ticks", 6,
-                    tick -> { if (tick == 12) magic("spirit_bomb", c).run(c.context, Master.LeftPlayer, new Vector3(9, 0, 5)); });
+                    tick -> { if (tick == 12) c.cast(magic("spirit_bomb", c), new Vector3(9, 0, 5)); });
             assertThat(c.hp(ally)).isEqualTo(5000);
             assertThat(c.hp(enemy)).isEqualTo(6500);
             assertThat(c.seenProjectiles).contains("ElectricAbsorb", "SpiritBombBeam");
@@ -332,7 +367,7 @@ class RemainingMagicPreviewTest {
             boolean[] recovered = {false};
             c.record(clips, name, "ally_recovery", "아군 체력 회복·수명 재충전", "Ally HP healing and lifetime refill", 11,
                     tick -> {
-                        if (tick == 50) magic(name, c).run(c.context, Master.LeftPlayer, new Vector3(5, 0, 5));
+                        if (tick == 50) c.cast(magic(name, c), new Vector3(5, 0, 5));
                         if (tick == 130) recovered[0] = !ally.isDestroyed() && control.isDestroyed();
                     });
             assertThat(c.hp(ally)).isGreaterThan(9500);
@@ -342,13 +377,13 @@ class RemainingMagicPreviewTest {
         if (Set.of("fire_spirit", "magma_spirit", "cloud_dragon").contains(name)) try (Capture c = new Capture(true)) {
             c.target(Master.RightPlayer, 4.9f, name.equals("cloud_dragon") ? 2f : 0f, 5);
             c.record(clips, name, "aura", "주변 상태 효과", "Nearby status aura", 3,
-                    tick -> { if (tick == 12) magic(name, c).run(c.context, Master.LeftPlayer, new Vector3(4, 0, 5)); });
+                    tick -> { if (tick == 12) c.cast(magic(name, c), new Vector3(4, 0, 5)); });
             assertThat(c.seenEffects).contains(name.equals("cloud_dragon") ? "Wet" : "Burn");
         }
         if (name.equals("dimension_toad")) try (Capture c = new Capture(true)) {
             new GameObject(Master.RightPlayer, PrefabType.MiniRock, new Vector3(6, 0, 5), c.context);
             c.record(clips, name, "panic", "적 유닛 접근·도주·자식 소환", "Approaching enemy unit, panic and child summons", 6,
-                    tick -> { if (tick == 12) magic(name, c).run(c.context, Master.LeftPlayer, new Vector3(4, 0, 5)); });
+                    tick -> { if (tick == 12) c.cast(magic(name, c), new Vector3(4, 0, 5)); });
             assertThat(c.seenEffects).contains("Panic");
             assertThat(c.seenTypes).contains("FireTadpole", "LightningTadpole");
         }
@@ -360,7 +395,7 @@ class RemainingMagicPreviewTest {
             }
             c.record(clips, name, heavy ? "heavy_punch" : "pull", heavy ? "무거운 적·일반 주먹" : "끌어오기·화염 주먹·화상",
                     heavy ? "Heavy victim, punch without pull" : "Grab, pull, fire fist and Burn", 8,
-                    tick -> { if (tick == 12) magic(name, c).run(c.context, Master.LeftPlayer, new Vector3(4, 0, 5)); });
+                    tick -> { if (tick == 12) c.cast(magic(name, c), new Vector3(4, 0, 5)); });
             if (heavy) {
                 assertThat(c.seenProjectiles).contains("EvilEntPunchArm").doesNotContain("EvilEntGrabArm", "EvilEntFireFist");
             } else {
@@ -372,7 +407,7 @@ class RemainingMagicPreviewTest {
         if (name.equals("sea_serpent")) try (Capture c = new Capture(true)) {
             c.target(Master.RightPlayer, 10, 0, 5);
             c.record(clips, name, "water_trail", "이동 경로 물 필드·젖음", "Movement water trail and Wet", 7,
-                    tick -> { if (tick == 12) magic(name, c).run(c.context, Master.LeftPlayer, new Vector3(3, 0, 5)); });
+                    tick -> { if (tick == 12) c.cast(magic(name, c), new Vector3(3, 0, 5)); });
             assertThat(c.seenTypes).contains("WaterField");
         }
         Map<String, PrefabType> rockDeaths = Map.of("wall_golem", PrefabType.WallGolem,
@@ -388,7 +423,8 @@ class RemainingMagicPreviewTest {
         Map<String, PrefabType> electricDeaths = Map.of("thunder_spirit", PrefabType.ThunderSpirit,
                 "storm_rider", PrefabType.StormRider, "zap_mouse", PrefabType.ZapMouse);
         if (electricDeaths.containsKey(name)) try (Capture c = new Capture(true)) {
-            GameObject unit = new GameObject(Master.LeftPlayer, electricDeaths.get(name), new Vector3(5, 0, 5), c.context);
+            List<GameObject> cast = c.cast(magic(name, c), new Vector3(5, 0, 5));
+            GameObject unit = cast.stream().filter(object -> object.getType() == electricDeaths.get(name)).findFirst().orElseThrow();
             GameObject absorber = new GameObject(Master.LeftPlayer, PrefabType.ElectricSlime, new Vector3(5.3f, 0, 5), c.context);
             c.record(clips, name, "death_energy", "사망·아군 전기 에너지 흡수", "Combat death and allied energy absorption", 4,
                     tick -> { if (tick == 24) {
@@ -397,16 +433,20 @@ class RemainingMagicPreviewTest {
                     } });
             assertThat(c.seenProjectiles).contains("ElectricAbsorb");
             assertThat(c.seenEffects).contains("Overcharge");
+            assertThat(c.skippedDeathFields).isPositive();
+            assertThat(c.seenTypes).doesNotContain("ElectricField");
         }
         if (Set.of("rock_mage", "cloud_dragon", "sea_serpent", "chain_lightning").contains(name)) try (Capture c = new Capture(true)) {
             GameObject first = c.target(Master.RightPlayer, 6, 0, 5);
             GameObject second = c.target(Master.RightPlayer, 7, 0, name.equals("sea_serpent") ? 5 : 5.5f);
             GameObject offAxis = name.equals("sea_serpent") ? c.target(Master.RightPlayer, 7, 0, 7) : null;
             c.record(clips, name, "multiple", "복수 대상·공격 방식", "Multiple targets and attack mode", 6,
-                    tick -> { if (tick == 12) magic(name, c).run(c.context, Master.LeftPlayer, new Vector3(name.equals("chain_lightning") ? 7 : 4, 0, 5)); });
+                    tick -> { if (tick == 12) c.cast(magic(name, c), new Vector3(name.equals("chain_lightning") ? 7 : 4, 0, 5)); });
             assertThat(c.hp(first)).isLessThan(10000);
             assertThat(c.hp(second)).isLessThan(10000);
             if (offAxis != null) assertThat(c.hp(offAxis)).isEqualTo(10000);
+            if (!name.equals("rock_mage")) c.assertMultiVictimHit(
+                    !name.equals("sea_serpent"), name.equals("sea_serpent") ? "SeaSerpent" : "ChainLightning");
             if (name.equals("cloud_dragon")) {
                 assertThat(c.seenProjectiles).contains("WaterShot");
                 assertThat(c.seenTypes).contains("ChainLightning");
@@ -414,7 +454,7 @@ class RemainingMagicPreviewTest {
         }
         if (name.equals("crater")) try (Capture c = new Capture(true)) {
             c.record(clips, name, "landing", "불씨 착지·중립 화염 필드", "Ember landing and neutral fire fields", 7,
-                    tick -> { if (tick == 12) magic(name, c).run(c.context, Master.LeftPlayer, new Vector3(5, 0, 5)); });
+                    tick -> { if (tick == 12) c.cast(magic(name, c), new Vector3(5, 0, 5)); });
             assertThat(c.seenTypes).contains("FireField");
         }
         if (Set.of("overgrowth", "vine_world", "vine_toss", "vine_fan", "vine_colony").contains(name)) try (Capture c = new Capture(true)) {
@@ -422,7 +462,7 @@ class RemainingMagicPreviewTest {
             GameObject seed = new GameObject(Master.LeftPlayer, PrefabType.SeedSpirit, new Vector3(seedX, 0, 5), c.context);
             c.target(Master.RightPlayer, seedX, 0, 5.3f);
             c.record(clips, name, "evolution", "씨앗 정령 진화·진화 후 공격", "Seed evolution and evolved attack", 6,
-                    tick -> { if (tick == 12) magic(name, c).run(c.context, Master.LeftPlayer, new Vector3(6, 0, 5)); });
+                    tick -> { if (tick == 12) c.cast(magic(name, c), new Vector3(6, 0, 5)); });
             assertThat(seed.isDestroyed()).isTrue();
             assertThat(c.seenTypes).contains(name.equals("overgrowth") ? "TreeGolem" : "VineSpirit");
         }
@@ -436,21 +476,6 @@ class RemainingMagicPreviewTest {
             assertThat(c.hp(unit)).isGreaterThan(600);
             assertThat(c.hp(ally)).isGreaterThan(9600);
             assertThat(c.seenTypes).contains("LeafField");
-        }
-        if ((MAGICS.get(name).getPackageName().contains("spawn") || MAGICS.get(name).getPackageName().contains("build"))
-                && !Set.of("rallying_totem", "tornado_strike").contains(name)
-                && !rockDeaths.containsKey(name) && !electricDeaths.containsKey(name)) try (Capture c = new Capture(true)) {
-            GameObject[] source = {null};
-            c.record(clips, name, "combat_death", "소환체 사망·서버 부가효과", "Summon combat death and server aftermath", 5,
-                    tick -> {
-                        if (tick == 12) magic(name, c).run(c.context, Master.LeftPlayer, new Vector3(5, 0, 5));
-                        if (tick == 25) {
-                            source[0] = c.context.getActiveGameObjects().stream().filter(o -> o.getMaster() == Master.LeftPlayer
-                                    && o.getType() != PrefabType.Player && o.hasComponent(Mob.class)).findFirst().orElseThrow();
-                            source[0].getComponent(Mob.class).onDamaged(new AttackInfo(100000, ElementType.NONE));
-                        }
-                    });
-            assertThat(source[0].isDestroyed()).as("Combat death: %s", name).isTrue();
         }
     }
 
