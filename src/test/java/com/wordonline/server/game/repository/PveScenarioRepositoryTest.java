@@ -98,6 +98,15 @@ class PveScenarioRepositoryTest {
                     survive_seconds INT
                 )
                 """).update();
+        // Mirrors the pve_scenario_shields table of the database repository.
+        jdbcClient.sql("""
+                CREATE TABLE pve_scenario_shields (
+                    scenario_id BIGINT NOT NULL,
+                    installer_id VARCHAR(50) NOT NULL,
+                    source_installer_id VARCHAR(50) NOT NULL,
+                    PRIMARY KEY (scenario_id, installer_id, source_installer_id)
+                )
+                """).update();
         pveScenarioRepository = new PveScenarioRepository(jdbcClient);
     }
 
@@ -111,6 +120,29 @@ class PveScenarioRepositoryTest {
                 .param("installerId", installerId)
                 .param("maxHp", maxHp)
                 .update();
+    }
+
+    @Test
+    void loadsShieldRowsOfOnlyTheRequestedScenario() {
+        insertBossInstaller(1L, "boss", null);
+        jdbcClient.sql("""
+                INSERT INTO pve_scenario_shields (scenario_id, installer_id, source_installer_id)
+                VALUES (1, 'boss', 'pillar_b'), (1, 'boss', 'pillar_a'), (2, 'other', 'x')
+                """).update();
+
+        var scenario = pveScenarioRepository.findById(1L).orElseThrow();
+
+        assertThat(scenario.shields()).extracting("installerId", "sourceInstallerId")
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple("boss", "pillar_a"),
+                        org.assertj.core.groups.Tuple.tuple("boss", "pillar_b"));
+    }
+
+    @Test
+    void scenarioWithoutShieldRowsHasNoShields() {
+        insertBossInstaller(1L, "boss", null);
+
+        assertThat(pveScenarioRepository.findById(1L).orElseThrow().shields()).isEmpty();
     }
 
     @Test
