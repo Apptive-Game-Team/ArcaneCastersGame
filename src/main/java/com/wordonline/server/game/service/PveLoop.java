@@ -7,6 +7,7 @@ import com.wordonline.server.game.dto.result.ResultMmrDto;
 import com.wordonline.server.game.service.bot.BotCounterEvaluator;
 import com.wordonline.server.game.service.pve.PveScenarioInstaller;
 import com.wordonline.server.game.service.pve.PveScenarioRegistry;
+import com.wordonline.server.game.service.system.PveObjectiveSystem;
 import com.wordonline.server.game.service.system.PveScriptSystem;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Service;
@@ -21,6 +22,7 @@ public class PveLoop extends WordOnlineLoop {
     private final PveScenarioRegistry pveScenarioRegistry;
     private final PveScenarioInstaller pveScenarioInstaller;
     private final PveScriptSystem pveScriptSystem;
+    private PveObjectiveSystem pveObjectiveSystem;
 
     public PveLoop(MmrService mmrService,
                    UserService userService,
@@ -55,6 +57,7 @@ public class PveLoop extends WordOnlineLoop {
 
         PveResultChecker resultChecker = new PveResultChecker(sessionObject);
         gameContext.setResultChecker(resultChecker);
+        pveObjectiveSystem = new PveObjectiveSystem(resultChecker);
 
         // PveLoop should always setup a PVE scenario regardless of SessionType guard.
         setupPveScenario(sessionObject, resultChecker);
@@ -75,6 +78,9 @@ public class PveLoop extends WordOnlineLoop {
         }
 
         pveScriptSystem.update(gameContext);
+        if (pveObjectiveSystem != null) {
+            pveObjectiveSystem.update(gameContext);
+        }
     }
 
     private void setupPveScenario(SessionObject sessionObject, PveResultChecker resultChecker) {
