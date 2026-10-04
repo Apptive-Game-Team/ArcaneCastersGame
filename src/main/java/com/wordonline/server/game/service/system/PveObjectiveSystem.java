@@ -8,13 +8,24 @@ import com.wordonline.server.game.service.GameLoop;
 import com.wordonline.server.game.service.PveResultChecker;
 
 /**
- * Sends the PVE win condition to both users on the first update, then again only when the
- * remaining seconds or the remaining objectives change.
+ * Sends the PVE win condition to both users on the first update, then again when the remaining
+ * seconds or the remaining objectives change, and once every {@value #RESEND_SECONDS} seconds
+ * even when nothing changed.
+ *
+ * <p>The resend is what lets a client that subscribed late, or reconnected, learn the objective.
+ * The match loop starts before the client has subscribed to its frame topic, and a topic message
+ * is not replayed, so a message sent once at the start can be lost. A match that is won by
+ * destroying targets changes only when a target dies, so without the resend its objective line
+ * would stay missing until the first kill.
  */
 public class PveObjectiveSystem implements GameSystem {
 
+    static final int RESEND_SECONDS = 2;
+    private static final int RESEND_FRAMES = RESEND_SECONDS * GameLoop.FPS;
+
     private final PveResultChecker resultChecker;
     private PveObjectiveDto lastSent;
+    private int lastSentFrame;
 
     public PveObjectiveSystem(PveResultChecker resultChecker) {
         this.resultChecker = resultChecker;
@@ -22,13 +33,16 @@ public class PveObjectiveSystem implements GameSystem {
 
     @Override
     public void update(GameContext gameContext) {
-        PveObjectiveDto dto = build(gameContext.getFrameNum());
+        int frameNum = gameContext.getFrameNum();
+        PveObjectiveDto dto = build(frameNum);
         if (lastSent != null
                 && lastSent.remainingSeconds() == dto.remainingSeconds()
-                && lastSent.objectivesRemaining() == dto.objectivesRemaining()) {
+                && lastSent.objectivesRemaining() == dto.objectivesRemaining()
+                && frameNum - lastSentFrame < RESEND_FRAMES) {
             return;
         }
         lastSent = dto;
+        lastSentFrame = frameNum;
 
         SessionObject sessionObject = gameContext.getSessionObject();
         sessionObject.sendFrameInfo(sessionObject.getLeftUserId(), dto);
