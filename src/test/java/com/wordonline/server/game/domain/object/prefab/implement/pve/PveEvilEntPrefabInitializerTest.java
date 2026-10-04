@@ -213,6 +213,42 @@ class PveEvilEntPrefabInitializerTest {
     }
 
     @Test
+    void switchesItsPunchesToAUnitThatAppearsCloserThanThePlayer() {
+        GameObject boss = newBoss();
+        GameObject player = newTarget(PrefabType.Player, PLAYER_POSITION, false);
+        Mob playerMob = player.getComponent(Mob.class);
+
+        tick(boss, 20 * 4); // alone on the field, the boss locks on the player
+        int playerHpWhenTheUnitAppears = playerMob.getHp();
+        assertThat(playerHpWhenTheUnitAppears).isLessThan(playerMob.getMaxHp());
+
+        GameObject unit = newTarget(PrefabType.RockSlime, new Vector3(10, 0, 5), false);
+        Mob unitMob = unit.getComponent(Mob.class);
+        tick(boss, 20 * 12);
+
+        assertThat(unitMob.getHp()).isLessThan(unitMob.getMaxHp());
+        // One more punch can land before the next once-a-second look for a closer enemy, no more.
+        assertThat(playerMob.getHp()).isGreaterThanOrEqualTo(playerHpWhenTheUnitAppears - 9);
+    }
+
+    @Test
+    void returnsToThePlayerWhenTheUnitsAreGone() {
+        GameObject boss = newBoss();
+        GameObject player = newTarget(PrefabType.Player, PLAYER_POSITION, false);
+        Mob playerMob = player.getComponent(Mob.class);
+        GameObject unit = newTarget(PrefabType.RockSlime, new Vector3(10, 0, 5), false);
+
+        tick(boss, 20 * 3);
+        assertThat(playerMob.getHp()).isEqualTo(playerMob.getMaxHp());
+
+        unit.setStatus(Status.Destroyed);
+        sessionData.gameObjects.remove(unit);
+        tick(boss, 20 * 6);
+
+        assertThat(playerMob.getHp()).isLessThan(playerMob.getMaxHp());
+    }
+
+    @Test
     void cardEvilEntIsUnchanged() {
         GameObjectParameters card = entParameters(180, 5f, 6f);
         when(card.floatValue(ParameterKey.SPEED)).thenReturn(0.45f);
