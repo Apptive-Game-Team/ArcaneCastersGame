@@ -4,6 +4,7 @@ import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.Vector3;
 import com.wordonline.server.game.domain.object.component.magic.Spawner;
 import com.wordonline.server.game.domain.object.component.mob.Mob;
+import com.wordonline.server.game.domain.object.component.mob.PveShieldComponent;
 import com.wordonline.server.game.domain.pve.PveInstallObject;
 import com.wordonline.server.game.domain.pve.PveInstallObjectAction;
 import com.wordonline.server.game.domain.pve.PveObjectiveTarget;
@@ -11,6 +12,7 @@ import com.wordonline.server.game.domain.pve.PveScenario;
 import com.wordonline.server.game.domain.pve.PveScenarioAction;
 import com.wordonline.server.game.domain.pve.PveScenarioEvent;
 import com.wordonline.server.game.domain.pve.PveSetSpawnerAction;
+import com.wordonline.server.game.domain.pve.PveShield;
 import com.wordonline.server.game.domain.pve.PveSpawnWaveAction;
 import com.wordonline.server.game.dto.Master;
 import com.wordonline.server.game.dto.pve.PveScriptEventDto;
@@ -22,7 +24,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Set;
 
 @Slf4j
@@ -40,6 +45,7 @@ public class PveScriptSystem implements GameSystem {
     private PveScenarioInstaller installer;
 
     private final Set<String> fired = new HashSet<>();
+    private final Set<GameObject> shieldAttached = Collections.newSetFromMap(new IdentityHashMap<>());
 
     @Override
     public void update(GameContext gameContext) {
@@ -48,6 +54,7 @@ public class PveScriptSystem implements GameSystem {
         }
         if (installer != null) {
             installer.finishPendingSetup();
+            attachShields(gameContext);
         }
 
         for (PveScenarioEvent eventSpec : scenario.events()) {
@@ -67,6 +74,38 @@ public class PveScriptSystem implements GameSystem {
             }
             runActions(eventSpec, gameContext);
         }
+    }
+
+    // A shielded installer gets its PveShieldComponent the first frame it is installed (it may be
+    // installed late by an InstallObject action). Whether the shield is up is not decided here:
+    // the component asks again on every damage attempt.
+    private void attachShields(GameContext gameContext) {
+        List<PveShield> shields = scenario.shields();
+        if (shields == null || shields.isEmpty()) {
+            return;
+        }
+        for (PveShield shield : shields) {
+            GameObject target = resolveTarget(shield.installerId(), gameContext);
+            if (target == null || target.isDestroyed() || !shieldAttached.add(target)) {
+                continue;
+            }
+            List<String> sourceIds = shields.stream()
+                    .filter(row -> row.installerId().equals(shield.installerId()))
+                    .map(PveShield::sourceInstallerId)
+                    .toList();
+            target.addComponent(new PveShieldComponent(target, () -> isAnySourceAlive(sourceIds, gameContext)));
+        }
+    }
+
+    // A source that was never installed does not count.
+    private boolean isAnySourceAlive(List<String> sourceIds, GameContext gameContext) {
+        for (String sourceId : sourceIds) {
+            GameObject source = resolveTarget(sourceId, gameContext);
+            if (source != null && !PveObjectiveTarget.isTerminal(source)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean isSatisfied(PveScenarioEvent eventSpec, GameContext gameContext) {
