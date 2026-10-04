@@ -113,6 +113,7 @@ public enum PrefabType {
     PveDimensionToad("pve_dimension_toad_prefab"),
     PveFireTadpole("pve_fire_tadpole_prefab"),
     PveLightningTadpole("pve_lightning_tadpole_prefab"),
+    PveEvilEnt("pve_evil_ent_prefab"),
 
     // New 2 card Magic
     EmberSpirit("fire_slime_prefab"),
