@@ -83,6 +83,17 @@ public class PveLoop extends WordOnlineLoop {
         }
     }
 
+    /**
+     * Answers a client's {@code pveSync} request on the loop thread: the current objective and the
+     * recent script events newer than {@code lastEventSeq}, to that user only.
+     */
+    public void sendPveStateTo(long userId, int lastEventSeq) {
+        if (pveObjectiveSystem != null) {
+            pveObjectiveSystem.sendCurrentTo(gameContext, userId);
+        }
+        pveScriptSystem.sendRecentEventsTo(gameContext, userId, lastEventSeq);
+    }
+
     private void setupPveScenario(SessionObject sessionObject, PveResultChecker resultChecker) {
         Long scenarioId = resolveScenarioId(sessionObject.getScenarioId());
         var scenario = pveScenarioRegistry.getScenario(scenarioId);

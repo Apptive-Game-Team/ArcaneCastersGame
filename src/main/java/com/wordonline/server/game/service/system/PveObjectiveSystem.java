@@ -8,24 +8,17 @@ import com.wordonline.server.game.service.GameLoop;
 import com.wordonline.server.game.service.PveResultChecker;
 
 /**
- * Sends the PVE win condition to both users on the first update, then again when the remaining
- * seconds or the remaining objectives change, and once every {@value #RESEND_SECONDS} seconds
- * even when nothing changed.
+ * Sends the PVE win condition to both users on the first update, then again only when the
+ * remaining seconds or the remaining objectives change.
  *
- * <p>The resend is what lets a client that subscribed late, or reconnected, learn the objective.
- * The match loop starts before the client has subscribed to its frame topic, and a topic message
- * is not replayed, so a message sent once at the start can be lost. A match that is won by
- * destroying targets changes only when a target dies, so without the resend its objective line
- * would stay missing until the first kill.
+ * <p>The match loop starts before the client has subscribed to its frame topic, and a topic
+ * message is not replayed, so the first message can be lost. The client asks for the current
+ * value with a {@code pveSync} input, answered by {@link #sendCurrentTo}.
  */
 public class PveObjectiveSystem implements GameSystem {
 
-    static final int RESEND_SECONDS = 2;
-    private static final int RESEND_FRAMES = RESEND_SECONDS * GameLoop.FPS;
-
     private final PveResultChecker resultChecker;
     private PveObjectiveDto lastSent;
-    private int lastSentFrame;
 
     public PveObjectiveSystem(PveResultChecker resultChecker) {
         this.resultChecker = resultChecker;
@@ -33,20 +26,22 @@ public class PveObjectiveSystem implements GameSystem {
 
     @Override
     public void update(GameContext gameContext) {
-        int frameNum = gameContext.getFrameNum();
-        PveObjectiveDto dto = build(frameNum);
+        PveObjectiveDto dto = build(gameContext.getFrameNum());
         if (lastSent != null
                 && lastSent.remainingSeconds() == dto.remainingSeconds()
-                && lastSent.objectivesRemaining() == dto.objectivesRemaining()
-                && frameNum - lastSentFrame < RESEND_FRAMES) {
+                && lastSent.objectivesRemaining() == dto.objectivesRemaining()) {
             return;
         }
         lastSent = dto;
-        lastSentFrame = frameNum;
 
         SessionObject sessionObject = gameContext.getSessionObject();
         sessionObject.sendFrameInfo(sessionObject.getLeftUserId(), dto);
         sessionObject.sendFrameInfo(sessionObject.getRightUserId(), dto);
+    }
+
+    /** Sends the current value to one user. The change detection of {@link #update} is untouched. */
+    public void sendCurrentTo(GameContext gameContext, long userId) {
+        gameContext.getSessionObject().sendFrameInfo(userId, build(gameContext.getFrameNum()));
     }
 
     private PveObjectiveDto build(int frameNum) {

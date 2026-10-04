@@ -86,35 +86,55 @@ class PveObjectiveSystemTest {
     }
 
     @Test
-    void doesNotResendWithinTheResendWindowWhileNothingChanges() {
+    void doesNotResendWhileNothingChanges() {
         checker.setObjectiveInstallerIds(List.of("a"));
         checker.configureRules(PveScenarioRules.defaultRules());
         install("a");
 
         updateAt(0);
         updateAt(1);
-        updateAt(PveObjectiveSystem.RESEND_SECONDS * GameLoop.FPS - 1);
+        updateAt(100);
+        updateAt(10 * GameLoop.FPS);
 
         verify(sessionObject, times(2)).sendFrameInfo(anyLong(), any());
         verify(sessionObject, never()).sendFrameInfo(org.mockito.ArgumentMatchers.eq(2L), any());
     }
 
     @Test
-    void resendsTheSameValueEveryTwoSecondsSoALateClientLearnsIt() {
+    void sendCurrentToAnswersOneUserWithoutDisturbingChangeDetection() {
+        checker.setObjectiveInstallerIds(List.of("a", "b"));
+        checker.configureRules(PveScenarioRules.defaultRules());
+        install("a");
+        updateAt(0);
+        org.mockito.Mockito.clearInvocations(sessionObject);
+
+        when(gameContext.getFrameNum()).thenReturn(5);
+        system.sendCurrentTo(gameContext, 2L);
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(sessionObject, times(1)).sendFrameInfo(org.mockito.ArgumentMatchers.eq(2L), captor.capture());
+        verify(sessionObject, never()).sendFrameInfo(org.mockito.ArgumentMatchers.eq(1L), any());
+        PveObjectiveDto dto = (PveObjectiveDto) captor.getValue();
+        assertThat(dto.type()).isEqualTo("pveObjective");
+        assertThat(dto.objectivesTotal()).isEqualTo(2);
+        assertThat(dto.objectivesRemaining()).isEqualTo(2);
+
+        updateAt(6);
+        verify(sessionObject, never()).sendFrameInfo(org.mockito.ArgumentMatchers.eq(1L), any());
+        verify(sessionObject, times(1)).sendFrameInfo(anyLong(), any());
+    }
+
+    @Test
+    void sendCurrentToBeforeTheFirstUpdateDoesNotSuppressTheFirstBroadcast() {
         checker.setObjectiveInstallerIds(List.of("a"));
         checker.configureRules(PveScenarioRules.defaultRules());
         install("a");
-        int window = PveObjectiveSystem.RESEND_SECONDS * GameLoop.FPS;
 
+        when(gameContext.getFrameNum()).thenReturn(0);
+        system.sendCurrentTo(gameContext, 1L);
         updateAt(0);
-        updateAt(window - 1);
-        updateAt(window);
-        updateAt(window + 5);
-        updateAt(2 * window);
 
-        List<PveObjectiveDto> sent = sentToLeft();
-        assertThat(sent).hasSize(3);
-        assertThat(sent).extracting(PveObjectiveDto::objectivesRemaining).containsOnly(1);
+        assertThat(sentToLeft()).hasSize(2);
     }
 
     @Test
@@ -145,7 +165,7 @@ class PveObjectiveSystemTest {
         updateAt(GameLoop.FPS);
         updateAt(10 * GameLoop.FPS - 1);
         updateAt(10 * GameLoop.FPS);
-        updateAt(10 * GameLoop.FPS + 10);
+        updateAt(10 * GameLoop.FPS + 50);
 
         List<PveObjectiveDto> sent = sentToLeft();
         assertThat(sent).extracting(PveObjectiveDto::remainingSeconds).containsExactly(10, 9, 1, 0);

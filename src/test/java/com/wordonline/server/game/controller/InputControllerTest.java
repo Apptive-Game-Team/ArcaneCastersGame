@@ -29,6 +29,7 @@ import com.wordonline.server.game.dto.input.InputResultCode;
 import com.wordonline.server.game.dto.input.MagicUseRequestDto;
 import com.wordonline.server.game.domain.bot.BotAgent;
 import com.wordonline.server.game.service.GameContext;
+import com.wordonline.server.game.service.PveLoop;
 import com.wordonline.server.game.service.WordOnlineLoop;
 import com.wordonline.server.game.service.MagicInputHandler;
 import com.wordonline.server.service.LocalizationService;
@@ -197,6 +198,52 @@ class InputControllerTest {
 
         verify(sessionObject, never()).tryConsumeEmoteCooldown(any());
         verify(sessionObject, never()).sendEmote(any());
+    }
+
+    private static InputRequestDto pveSyncRequest(int lastEventSeq) {
+        InputRequestDto dto = new InputRequestDto();
+        dto.setType("pveSync");
+        dto.setLastEventSeq(lastEventSeq);
+        return dto;
+    }
+
+    @Test
+    void queuesPveSyncAndAsksThePveLoopOnTheLoopThread() {
+        PveLoop pveLoop = mock(PveLoop.class);
+        when(sessionObject.getUserSide(7L)).thenReturn(Master.LeftPlayer);
+        when(sessionObject.getGameContext()).thenReturn(gameContext);
+        when(gameContext.getGameLoop()).thenReturn(pveLoop);
+
+        controller.handleInput("room-5", 7L, pveSyncRequest(4), principal(7L));
+
+        verifyNoInteractions(pveLoop);
+
+        drainQueuedAction("pveSync");
+
+        verify(pveLoop).sendPveStateTo(7L, 4);
+    }
+
+    @Test
+    void ignoresPveSyncInASessionThatIsNotPve() {
+        when(sessionObject.getUserSide(7L)).thenReturn(Master.LeftPlayer);
+        when(sessionObject.getGameContext()).thenReturn(gameContext);
+        when(gameContext.getGameLoop()).thenReturn(gameLoop);
+
+        controller.handleInput("room-5", 7L, pveSyncRequest(0), principal(7L));
+        drainQueuedAction("pveSync");
+
+        verifyNoInteractions(gameLoop);
+        verify(sessionObject, never()).sendFrameInfo(anyLong(), any());
+    }
+
+    @Test
+    void rejectsPveSyncFromUserWhoIsNotInTheSession() {
+        when(sessionObject.getUserSide(77L)).thenReturn(null);
+
+        assertThatThrownBy(() -> controller.handleInput("room-5", 77L, pveSyncRequest(0), principal(77L)))
+                .isInstanceOf(AuthorizationDeniedException.class);
+
+        verify(gameContext, never()).submitAction(any(), any());
     }
 
     private static InputRequestDto emoteRequest(String emote) {

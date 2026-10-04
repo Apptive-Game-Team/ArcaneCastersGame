@@ -461,4 +461,96 @@ class PveScriptSystemTest {
         org.assertj.core.api.Assertions.assertThatCode(() -> system.update(context)).doesNotThrowAnyException();
         assertThat(world).hasSize(2);
     }
+
+    // ---- seq and replay ----
+
+    private PveScriptSystem systemWithTwoSecondsEvents(GameContext context) {
+        PveScenarioInstaller installer = new PveScenarioInstaller();
+        installer.install(List.of(), context);
+        var scenario = new PveScenario(List.of(), List.of(), List.of(
+                event("e1", PveTriggerType.FrameNumGte, 10, null, List.of("one"), List.of()),
+                event("silent", PveTriggerType.FrameNumGte, 10, null, List.of(), List.of()),
+                event("e2", PveTriggerType.FrameNumGte, 20, null, List.of("two"), List.of()),
+                event("e3", PveTriggerType.FrameNumGte, 300, null, List.of("three"), List.of())
+        ), PveScenarioRules.defaultRules());
+        return newSystem(scenario, installer);
+    }
+
+    private List<PveScriptEventDto> sentTo(long userId) {
+        var captor = org.mockito.ArgumentCaptor.forClass(Object.class);
+        verify(sessionObject, org.mockito.Mockito.atLeast(0)).sendFrameInfo(org.mockito.ArgumentMatchers.eq(userId), captor.capture());
+        return captor.getAllValues().stream().map(PveScriptEventDto.class::cast).toList();
+    }
+
+    @Test
+    void numbersEventsWithLinesFromOneAndSkipsEventsWithoutLines() {
+        GameContext context = newGameContext();
+        when(sessionObject.getLeftUserId()).thenReturn(1L);
+        when(sessionObject.getRightUserId()).thenReturn(2L);
+        PveScriptSystem system = systemWithTwoSecondsEvents(context);
+
+        for (int frame : new int[] {10, 20, 300}) {
+            when(context.getFrameNum()).thenReturn(frame);
+            system.update(context);
+        }
+
+        List<PveScriptEventDto> sent = sentTo(1L);
+        assertThat(sent).extracting(PveScriptEventDto::seq).containsExactly(1, 2, 3);
+        assertThat(sent).extracting(PveScriptEventDto::key).containsExactly("key.e1", "key.e2", "key.e3");
+        assertThat(sentTo(2L)).extracting(PveScriptEventDto::seq).containsExactly(1, 2, 3);
+    }
+
+    @Test
+    void replaysOnlyNewerAndRecentEventsInOrderToTheAskingUser() {
+        GameContext context = newGameContext();
+        when(sessionObject.getLeftUserId()).thenReturn(1L);
+        when(sessionObject.getRightUserId()).thenReturn(2L);
+        PveScriptSystem system = systemWithTwoSecondsEvents(context);
+        for (int frame : new int[] {10, 20}) {
+            when(context.getFrameNum()).thenReturn(frame);
+            system.update(context);
+        }
+        org.mockito.Mockito.clearInvocations(sessionObject);
+
+        when(context.getFrameNum()).thenReturn(30);
+        system.sendRecentEventsTo(context, 7L, 0);
+
+        assertThat(sentTo(7L)).extracting(PveScriptEventDto::seq).containsExactly(1, 2);
+        verify(sessionObject, never()).sendFrameInfo(org.mockito.ArgumentMatchers.eq(1L), any());
+        verify(sessionObject, never()).sendFrameInfo(org.mockito.ArgumentMatchers.eq(2L), any());
+
+        org.mockito.Mockito.clearInvocations(sessionObject);
+        system.sendRecentEventsTo(context, 7L, 1);
+        assertThat(sentTo(7L)).extracting(PveScriptEventDto::seq).containsExactly(2);
+
+        org.mockito.Mockito.clearInvocations(sessionObject);
+        system.sendRecentEventsTo(context, 7L, 2);
+        verify(sessionObject, never()).sendFrameInfo(anyLong(), any());
+    }
+
+    @Test
+    void doesNotReplayEventsOlderThanTheReplayWindow() {
+        GameContext context = newGameContext();
+        when(sessionObject.getLeftUserId()).thenReturn(1L);
+        when(sessionObject.getRightUserId()).thenReturn(2L);
+        PveScriptSystem system = systemWithTwoSecondsEvents(context);
+        for (int frame : new int[] {10, 20}) {
+            when(context.getFrameNum()).thenReturn(frame);
+            system.update(context);
+        }
+        org.mockito.Mockito.clearInvocations(sessionObject);
+        int window = PveScriptSystem.REPLAY_SECONDS * com.wordonline.server.game.service.GameLoop.FPS;
+
+        // seq 1 was sent at frame 10, seq 2 at frame 20: only seq 2 is still inside the window.
+        when(context.getFrameNum()).thenReturn(10 + window + 1);
+        system.sendRecentEventsTo(context, 7L, 0);
+
+        assertThat(sentTo(7L)).extracting(PveScriptEventDto::seq).containsExactly(2);
+
+        // The next live event keeps counting after the replayed ones were pruned.
+        org.mockito.Mockito.clearInvocations(sessionObject);
+        when(context.getFrameNum()).thenReturn(300);
+        system.update(context);
+        assertThat(sentTo(1L)).extracting(PveScriptEventDto::seq).containsExactly(3);
+    }
 }
