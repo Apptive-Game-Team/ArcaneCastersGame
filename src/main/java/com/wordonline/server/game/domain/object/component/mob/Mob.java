@@ -127,11 +127,18 @@ public abstract class Mob extends Component implements Damageable, GaugeComponen
         return true;
     }
 
+    // A mob that must not leave an element field where it dies (a PVE gate keeper) overrides this.
+    protected boolean leavesDeathField() {
+        return true;
+    }
+
     // notifies the combat death listeners and runs the concrete death behavior
     void completeDeath() {
         gameObject.getComponents(CombatDeathListener.class)
                 .forEach(CombatDeathListener::onCombatDeath);
-        DeathField.spawn(gameObject);
+        if (leavesDeathField()) {
+            DeathField.spawn(gameObject);
+        }
         onDeath();
     }
 

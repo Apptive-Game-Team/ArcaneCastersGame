@@ -110,6 +110,9 @@ public enum PrefabType {
     PveWaterSlimeNest("pve_water_slime_nest_prefab"),
     PveVineColony("pve_vine_colony_prefab"),
     PveVineWitch("pve_vine_witch_prefab"),
+    PveDimensionToad("pve_dimension_toad_prefab"),
+    PveFireTadpole("pve_fire_tadpole_prefab"),
+    PveLightningTadpole("pve_lightning_tadpole_prefab"),
 
     // New 2 card Magic
     EmberSpirit("fire_slime_prefab"),
