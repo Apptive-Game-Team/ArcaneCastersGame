@@ -67,4 +67,6 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+    // Explicit offline example export; ordinary tests never overwrite preview assets.
+    systemProperty 'preview.export', providers.gradleProperty('previewExport').getOrElse('false')
 }
