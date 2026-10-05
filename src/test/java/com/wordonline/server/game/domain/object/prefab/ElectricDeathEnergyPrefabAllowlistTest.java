@@ -14,6 +14,8 @@ import com.wordonline.server.game.domain.object.prefab.implement.misc.ManaWellPr
 import com.wordonline.server.game.domain.object.prefab.implement.misc.StormRiderPrefabInitializer;
 import com.wordonline.server.game.domain.object.prefab.implement.misc.ThunderSpiritPrefabInitializer;
 import com.wordonline.server.game.domain.object.prefab.implement.misc.third.ThunderBirdPrefabInitializer;
+import com.wordonline.server.game.domain.object.prefab.implement.pve.PveDimensionToadPrefabInitializer;
+import com.wordonline.server.game.domain.object.prefab.implement.pve.PveLightningTadpolePrefabInitializer;
 import com.wordonline.server.game.domain.parameter.GameObjectParameters;
 import com.wordonline.server.game.dto.Master;
 import com.wordonline.server.game.service.GameContext;
@@ -35,6 +37,7 @@ class ElectricDeathEnergyPrefabAllowlistTest {
                 new ElectricSlimePrefabInitializer(parameters),
                 new ZapMousePrefabInitializer(parameters),
                 new LightningTadpolePrefabInitializer(parameters),
+                new PveLightningTadpolePrefabInitializer(parameters),
                 new ThunderSpiritPrefabInitializer(parameters),
                 new ThunderBirdPrefabInitializer(parameters),
                 new StormRiderPrefabInitializer(parameters)
@@ -43,7 +46,8 @@ class ElectricDeathEnergyPrefabAllowlistTest {
                 new ElectricTowerPrefabInitializer(parameters),
                 new ElectricSummonPrefabInitializer(parameters),
                 new ManaWellPrefabInitializer(parameters),
-                new DimensionToadPrefabInitializer(parameters)
+                new DimensionToadPrefabInitializer(parameters),
+                new PveDimensionToadPrefabInitializer(parameters)
         );
 
         for (PrefabInitializer initializer : eligible) {

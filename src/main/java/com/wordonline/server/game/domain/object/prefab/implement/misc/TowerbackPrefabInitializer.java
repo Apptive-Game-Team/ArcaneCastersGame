@@ -5,7 +5,6 @@ import com.wordonline.server.game.domain.parameter.GameObjectKey;
 import com.wordonline.server.game.domain.parameter.ParameterKey;
 import com.wordonline.server.game.domain.magic.ElementType;
 import com.wordonline.server.game.domain.object.GameObject;
-import com.wordonline.server.game.domain.object.component.effect.RockDeathRemnant;
 import com.wordonline.server.game.domain.object.component.effect.receiver.CommonEffectReceiver;
 import com.wordonline.server.game.domain.object.component.mob.detector.TargetMask;
 import com.wordonline.server.game.domain.object.component.mob.statemachine.attacker.AttackMob;
@@ -50,7 +49,6 @@ public class TowerbackPrefabInitializer extends PrefabInitializer {
                 towerbackParameters.floatValue(ParameterKey.ATTACK_INTERVAL),
                 towerbackParameters.floatValue(ParameterKey.ATTACK_RANGE)
         ));
-        gameObject.addComponent(new RockDeathRemnant(gameObject));
         gameObject.addComponent(new CommonEffectReceiver(gameObject));
     }
 }

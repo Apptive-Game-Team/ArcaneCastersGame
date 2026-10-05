@@ -7,11 +7,11 @@ import com.wordonline.server.game.dto.result.ResultMmrDto;
 import com.wordonline.server.game.service.bot.BotCounterEvaluator;
 import com.wordonline.server.game.service.pve.PveScenarioInstaller;
 import com.wordonline.server.game.service.pve.PveScenarioRegistry;
+import com.wordonline.server.game.service.system.PveObjectiveSystem;
 import com.wordonline.server.game.service.system.PveScriptSystem;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
 
 @Service
 @Scope("prototype")
@@ -22,6 +22,7 @@ public class PveLoop extends WordOnlineLoop {
     private final PveScenarioRegistry pveScenarioRegistry;
     private final PveScenarioInstaller pveScenarioInstaller;
     private final PveScriptSystem pveScriptSystem;
+    private PveObjectiveSystem pveObjectiveSystem;
 
     public PveLoop(MmrService mmrService,
                    UserService userService,
@@ -56,9 +57,18 @@ public class PveLoop extends WordOnlineLoop {
 
         PveResultChecker resultChecker = new PveResultChecker(sessionObject);
         gameContext.setResultChecker(resultChecker);
+        pveObjectiveSystem = new PveObjectiveSystem(resultChecker);
 
         // PveLoop should always setup a PVE scenario regardless of SessionType guard.
         setupPveScenario(sessionObject, resultChecker);
+    }
+
+    // A boss fight is not a race against the PVP clock: at the time limit the loop compared hp
+    // with the untouched right side and scored a loss, which cut long scenarios off mid-fight.
+    // A scenario ends on its own objectives or Survive timer, or when the player dies.
+    @Override
+    protected boolean hasTimeLimit() {
+        return false;
     }
 
     @Override
@@ -68,6 +78,20 @@ public class PveLoop extends WordOnlineLoop {
         }
 
         pveScriptSystem.update(gameContext);
+        if (pveObjectiveSystem != null) {
+            pveObjectiveSystem.update(gameContext);
+        }
+    }
+
+    /**
+     * Answers a client's {@code pveSync} request on the loop thread: the current objective and the
+     * recent script events newer than {@code lastEventSeq}, to that user only.
+     */
+    public void sendPveStateTo(long userId, int lastEventSeq) {
+        if (pveObjectiveSystem != null) {
+            pveObjectiveSystem.sendCurrentTo(gameContext, userId);
+        }
+        pveScriptSystem.sendRecentEventsTo(gameContext, userId, lastEventSeq);
     }
 
     private void setupPveScenario(SessionObject sessionObject, PveResultChecker resultChecker) {
@@ -77,13 +101,13 @@ public class PveLoop extends WordOnlineLoop {
         pveScenarioInstaller.install(scenario.installers(), gameContext);
         pveScriptSystem.setScenario(scenario);
         pveScriptSystem.setRuntime(pveScenarioInstaller.getRuntime());
+        pveScriptSystem.setInstaller(pveScenarioInstaller);
 
-        List<Integer> objectiveIds = scenario.objectiveInstallerIds().stream()
-                .map(installerId -> pveScenarioInstaller.getRuntime() == null
-                        ? -1
-                        : pveScenarioInstaller.getRuntime().getInstalledObjectId(installerId))
-                .toList();
-        resultChecker.setObjectiveIds(objectiveIds);
+        // Objectives are resolved by installer id on every check (see PveResultChecker), so an
+        // objective installed later by an InstallObject action is picked up once it exists.
+        resultChecker.setObjectiveInstallerIds(scenario.objectiveInstallerIds());
+        resultChecker.setRuntime(pveScenarioInstaller.getRuntime());
+        resultChecker.configureRules(scenario.rules());
     }
 
     private Long resolveScenarioId(Long scenarioId) {

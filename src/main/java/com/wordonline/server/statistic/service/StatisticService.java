@@ -37,8 +37,8 @@ public class StatisticService {
         builder.setLeftUserId(leftUserId);
         builder.setRightUserId(rightUserId);
 
-        saveDeck(leftUserId, builder);
-        saveDeck(rightUserId, builder);
+        saveDeck(leftUserId, gameContext.getSessionObject().getLeftDeckCardIds(), builder);
+        saveDeck(rightUserId, gameContext.getSessionObject().getRightDeckCardIds(), builder);
 
         gameResultBuilderMap.put(gameContext, builder);
     }
@@ -50,8 +50,11 @@ public class StatisticService {
                 );
     }
 
-    private void saveDeck(long userId, GameResultBuilder builder) {
-        List<CardDto> deckCards = deckService.getParticipantDeckCards(userId);
+    // The deck the session actually dealt from, not the selected deck read back out of the
+    // database: a session started from a matchmaking snapshot can differ from what the user
+    // has selected by the time the match ends.
+    private void saveDeck(long userId, List<Long> magicIds, GameResultBuilder builder) {
+        List<CardDto> deckCards = deckService.getCardsByMagicIds(magicIds);
         builder.recordDeck(userId, deckCards);
     }
 

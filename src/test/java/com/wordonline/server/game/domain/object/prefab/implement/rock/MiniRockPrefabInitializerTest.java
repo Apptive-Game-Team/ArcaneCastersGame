@@ -29,7 +29,7 @@ class MiniRockPrefabInitializerTest {
     }
 
     @Test
-    void leavesARemnantWhenKilledInCombat() {
+    void doesNotLeaveARemnantBecauseItIsSmall() {
         Parameters parameters = mock(Parameters.class);
         GameObjectParameters miniRockParameters = mock(GameObjectParameters.class);
         when(parameters.object(GameObjectKey.MINI_ROCK)).thenReturn(miniRockParameters);
@@ -42,7 +42,7 @@ class MiniRockPrefabInitializerTest {
 
         new MiniRockPrefabInitializer(parameters).initialize(miniRock);
 
-        assertThat(miniRock.getComponentsToAdd()).anyMatch(RockDeathRemnant.class::isInstance);
+        assertThat(miniRock.getComponentsToAdd()).noneMatch(RockDeathRemnant.class::isInstance);
     }
 
     @Test

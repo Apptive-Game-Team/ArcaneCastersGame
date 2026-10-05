@@ -8,7 +8,6 @@ import com.wordonline.server.game.domain.parameter.ParameterKey;
 import com.wordonline.server.game.domain.magic.ElementType;
 import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.component.TimedSelfDestroyer;
-import com.wordonline.server.game.domain.object.component.effect.RockDeathRemnant;
 import com.wordonline.server.game.domain.object.component.effect.receiver.CommonEffectReceiver;
 import com.wordonline.server.game.domain.object.component.mob.detector.TargetMask;
 import com.wordonline.server.game.domain.object.component.mob.simple.Turret;
@@ -45,7 +44,6 @@ public class RockTurretPrefabInitializer extends PrefabInitializer {
                 gameObject,
                 rockTurretParameters.floatValue(ParameterKey.DURATION)
         ));
-        gameObject.addComponent(new RockDeathRemnant(gameObject));
         gameObject.setElement(ElementType.ROCK);
         gameObject.getComponents().add(new CommonEffectReceiver(gameObject));
     }

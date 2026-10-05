@@ -36,6 +36,9 @@ public class MagicInputHandler {
     public InputResponseDto handleInput(GameContext gameContext, long userId, MagicUseRequestDto inputRequestDto) {
         Master master = gameContext.getSessionObject().getUserSide(userId);
         PlayerData playerData = gameContext.getGameSessionData().getPlayerData(master);
+        if (gameContext.getResultChecker().checkResult()) {
+            return rejectAfterGameEnd(master, playerData, inputRequestDto.getId());
+        }
 
         long magicId = inputRequestDto.getMagicId();
         if (magicId <= DatabaseMagicParser.INVALID_MAGIC_ID || inputRequestDto.getPosition() == null) {
@@ -69,11 +72,22 @@ public class MagicInputHandler {
             inputEventPublisher.publish(InputHandleEvent.fail(master, InputResultCode.FAIL_INVALID_PLACE));
             return new InputResponseDto("Caster is not found.", false, InputResultCode.FAIL_INVALID_PLACE, playerData.mana, inputRequestDto.getId(), -1);
         }
+        double castRange = castRange(gameContext, magic);
         Vector3 castPosition = clampToRange(
                 castOrigin,
                 clampToMapBounds(inputRequestDto.getPosition()),
-                castRange(gameContext, magic)
+                castRange
         );
+
+        // 자리가 막혔으면 가까운 빈자리로 옮기고, 빈자리가 없을 때만 카드와 마나를 쓰기 전에 거절한다.
+        Vector3 freeSpot = CastPlacement.resolveSpot(
+                gameContext, magic, castPosition, castOrigin, castRange).orElse(null);
+        if (freeSpot == null) {
+            log.trace("{}: magic {} is not valid : no free spot to place", master, magicId);
+            inputEventPublisher.publish(InputHandleEvent.fail(master, InputResultCode.FAIL_INVALID_PLACE));
+            return new InputResponseDto("Cannot place here.", false, InputResultCode.FAIL_INVALID_PLACE, playerData.mana, inputRequestDto.getId(), -1);
+        }
+        castPosition = freeSpot;
 
         boolean valid = playerData.useCard(magicId, manaCost(gameContext, magic));
 
@@ -94,6 +108,9 @@ public class MagicInputHandler {
     // the game action queue, so the cast itself lands here between frames.
     public InputResponseDto handleBotPlayerInput(GameContext gameContext, Master master, InputRequestDto inputRequestDto) {
         PlayerData playerData = gameContext.getGameSessionData().getPlayerData(master);
+        if (gameContext.getResultChecker().checkResult()) {
+            return rejectAfterGameEnd(master, playerData, inputRequestDto.getId());
+        }
 
         long magicId = inputRequestDto.getMagicId();
         if (!playerData.cards.contains(magicId)) {
@@ -119,11 +136,21 @@ public class MagicInputHandler {
             inputEventPublisher.publish(InputHandleEvent.fail(master, InputResultCode.FAIL_INVALID_PLACE));
             return new InputResponseDto("Caster is not found.", false, InputResultCode.FAIL_INVALID_PLACE, playerData.mana, inputRequestDto.getId(), -1);
         }
+        double castRange = castRange(gameContext, magic);
         Vector3 castPosition = clampToRange(
                 castOrigin,
                 clampToMapBounds(inputRequestDto.getPosition()),
-                castRange(gameContext, magic)
+                castRange
         );
+
+        Vector3 freeSpot = CastPlacement.resolveSpot(
+                gameContext, magic, castPosition, castOrigin, castRange).orElse(null);
+        if (freeSpot == null) {
+            log.trace("{}: magic {} is not valid : no free spot to place", master, magicId);
+            inputEventPublisher.publish(InputHandleEvent.fail(master, InputResultCode.FAIL_INVALID_PLACE));
+            return new InputResponseDto("Cannot place here.", false, InputResultCode.FAIL_INVALID_PLACE, playerData.mana, inputRequestDto.getId(), -1);
+        }
+        castPosition = freeSpot;
 
         boolean valid = playerData.useCard(magicId, manaCost(gameContext, magic));
 
@@ -153,6 +180,9 @@ public class MagicInputHandler {
                                                 Vector3 position,
                                                 Vector3 castOrigin) {
         PlayerData playerData = gameContext.getGameSessionData().getPlayerData(master);
+        if (gameContext.getResultChecker().checkResult()) {
+            return rejectAfterGameEnd(master, playerData, -1);
+        }
 
         if (magic == null) {
             inputEventPublisher.publish(InputHandleEvent.fail(master, InputResultCode.FAIL_INVALID_MAGIC));
@@ -184,6 +214,12 @@ public class MagicInputHandler {
         return new InputResponseDto(true, InputResultCode.SUCCESS, playerData.mana, -1, magic.id);
     }
 
+    private InputResponseDto rejectAfterGameEnd(Master master, PlayerData playerData, int requestId) {
+        inputEventPublisher.publish(InputHandleEvent.fail(master, InputResultCode.FAIL_GAME_ENDED));
+        return new InputResponseDto("Game has ended.", false, InputResultCode.FAIL_GAME_ENDED,
+                playerData.mana, requestId, -1);
+    }
+
     private void discardCard(GameContext gameContext, Master master, PlayerData playerData, long magicId) {
         playerData.cards.remove(Long.valueOf(magicId));
         gameContext.getGameSessionData().getCardDeck(master).returnCard(magicId);
@@ -212,10 +248,10 @@ public class MagicInputHandler {
         return origin.plus(position.subtract(origin).normalize().multiply((float) range));
     }
 
-    private static final float MAP_MIN_X = 0f;
-    private static final float MAP_MAX_X = 18f;
-    private static final float MAP_MIN_Z = 0f;
-    private static final float MAP_MAX_Z = 10f;
+    static final float MAP_MIN_X = 0f;
+    static final float MAP_MAX_X = 18f;
+    static final float MAP_MIN_Z = 0f;
+    static final float MAP_MAX_Z = 10f;
 
     private Vector3 clampToMapBounds(Vector3 position) {
         return new Vector3(

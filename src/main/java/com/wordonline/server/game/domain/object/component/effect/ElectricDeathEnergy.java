@@ -8,7 +8,6 @@ import com.wordonline.server.game.domain.object.component.Component;
 import com.wordonline.server.game.domain.object.component.Damageable;
 import com.wordonline.server.game.domain.object.component.effect.statuseffect.OverchargeStatusEffect;
 import com.wordonline.server.game.domain.object.component.mob.Mob;
-import com.wordonline.server.game.domain.object.prefab.PrefabType;
 import com.wordonline.server.game.domain.parameter.GameObjectKey;
 import com.wordonline.server.game.domain.parameter.ParameterKey;
 import com.wordonline.server.game.dto.frame.projectile.PositionProjectileTarget;
@@ -34,7 +33,7 @@ public class ElectricDeathEnergy extends Component implements CombatDeathListene
         consumed = true;
 
         Vector3 deathPosition = new Vector3(gameObject.getPosition());
-        new GameObject(gameObject.getMaster(), PrefabType.ElectricField, deathPosition, getGameContext());
+        // 전기 필드 자체는 Mob 이 죽을 때 DeathField 가 원소에 따라 깐다.
 
         var fieldParameters = getGameContext().getParameters().object(GameObjectKey.ELECTRIC_FIELD);
         float radius = fieldParameters.floatValue(ParameterKey.RADIUS);

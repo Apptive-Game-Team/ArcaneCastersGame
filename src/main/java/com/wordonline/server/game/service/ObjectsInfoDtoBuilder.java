@@ -10,6 +10,7 @@ import com.wordonline.server.game.dto.frame.projectile.ProjectileDto;
 import com.wordonline.server.game.dto.frame.projectile.ProjectileTarget;
 import com.wordonline.server.game.dto.frame.projectile.ReferenceProjectileTarget;
 
+import com.wordonline.server.game.dto.Status;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
@@ -94,7 +95,16 @@ public class ObjectsInfoDtoBuilder {
 
     public void createGameObject(GameObject gameObject) {
         gameContext.addGameObject(gameObject);
-        gameObject.start();
+        try {
+            gameObject.start();
+        } catch (RuntimeException e) {
+            // One object that cannot initialize (a missing parameter row, a bad prefab) must not
+            // end the whole match: drop that object, tell the client nothing about it, and go on.
+            log.error("[GameObject] start failed, object dropped; id: {}, type: {}, master: {}",
+                    gameObject.getId(), gameObject.getType(), gameObject.getMaster(), e);
+            gameObject.setStatus(Status.Destroyed);
+            return;
+        }
         CreatedObjectDto createdObjectDto = new CreatedObjectDto(
                 gameObject.getId(),
                 gameObject.getType(),

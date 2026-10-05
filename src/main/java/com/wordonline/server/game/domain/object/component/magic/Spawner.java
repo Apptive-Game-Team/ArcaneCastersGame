@@ -6,10 +6,13 @@ import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.Vector3;
 import com.wordonline.server.game.domain.object.prefab.PrefabType;
 import com.wordonline.server.game.domain.object.component.mob.Mob;
+import com.wordonline.server.game.dto.frame.GaugeCategory;
+import com.wordonline.server.game.dto.frame.GaugeDto;
 
 public class Spawner extends Mob {
     public static final float DEFAULT_SPAWN_INTERVAL_SEC = 2f;
-    private static final float DEFAULT_BURST_SPACING = 0.5f;
+    // Shared with PveScriptSystem's SpawnWave action, which spreads its wave the same way.
+    public static final float DEFAULT_BURST_SPACING = 0.5f;
 
     private float counter = 0;
     private boolean isRunning = false;
@@ -64,6 +67,17 @@ public class Spawner extends Mob {
         isRunning = true;
         this.maxHp = maxHp;
         this.hp = maxHp;
+    }
+
+    // A spawner that cannot be damaged has no hp worth showing. Reporting its 0/0 gauge would
+    // replace the hp gauge of the mob it rides on (a PVE boss): GaugeExtractor keeps the last
+    // gauge per category, and a negative max makes it skip this one.
+    @Override
+    public GaugeDto getGauge() {
+        if (!destructible) {
+            return new GaugeDto(0, -1, GaugeCategory.HP);
+        }
+        return super.getGauge();
     }
 
     @Override

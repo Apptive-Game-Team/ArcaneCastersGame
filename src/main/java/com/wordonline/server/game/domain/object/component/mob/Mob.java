@@ -8,6 +8,7 @@ import com.wordonline.server.game.domain.Stat;
 import com.wordonline.server.game.domain.magic.ElementalChart;
 import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.component.Damageable;
+import com.wordonline.server.game.domain.object.component.DamageImmunity;
 import com.wordonline.server.game.domain.object.component.DamageInterceptor;
 import com.wordonline.server.game.domain.object.component.CombatDeathListener;
 import com.wordonline.server.game.domain.object.component.Component;
@@ -43,6 +44,11 @@ public abstract class Mob extends Component implements Damageable, GaugeComponen
         if (gameObject.isDying()) {
             return;
         }
+        // Checked before the interceptors so an immune hit does not spend a Bubble or apply
+        // element reactions.
+        if (isImmune(attackInfo)) {
+            return;
+        }
 
         for (DamageInterceptor interceptor : gameObject.getComponents(DamageInterceptor.class)) {
             if (interceptor.beforeDamage(attackInfo)) {
@@ -74,6 +80,18 @@ public abstract class Mob extends Component implements Damageable, GaugeComponen
         }
     }
 
+    // Overrides both max hp and current hp after the mob is already constructed, and tells the
+    // client the new gauge right away. A PVE scenario installer uses this to give the same boss
+    // prefab a different hp per stage without touching the prefab's own parameter hp.
+    public void overrideMaxHp(int newMaxHp) {
+        if (newMaxHp <= 0) {
+            return;
+        }
+        this.maxHp = newMaxHp;
+        this.hp = newMaxHp;
+        gameObject.applyUpdate();
+    }
+
     public int drainHpAboveFraction(float floorFraction) {
         int floorHp = (int) Math.ceil(maxHp * Math.clamp(floorFraction, 0f, 1f));
         int drainedHp = Math.max(0, hp - floorHp);
@@ -86,8 +104,19 @@ public abstract class Mob extends Component implements Damageable, GaugeComponen
         return drainedHp;
     }
 
+    // applyDamage is also called directly (DOT and Snared ticks, falls, totems), so immunity is
+    // checked here as well as in onDamaged.
+    private boolean isImmune(AttackInfo attackInfo) {
+        for (DamageImmunity immunity : gameObject.getComponents(DamageImmunity.class)) {
+            if (immunity.isImmuneTo(attackInfo)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public void applyDamage(AttackInfo attackInfo) {
-        if (gameObject.isDying()) {
+        if (gameObject.isDying() || isImmune(attackInfo)) {
             return;
         }
 
@@ -115,10 +144,18 @@ public abstract class Mob extends Component implements Damageable, GaugeComponen
         return true;
     }
 
+    // A mob that must not leave an element field where it dies (a PVE gate keeper) overrides this.
+    protected boolean leavesDeathField() {
+        return true;
+    }
+
     // notifies the combat death listeners and runs the concrete death behavior
     void completeDeath() {
         gameObject.getComponents(CombatDeathListener.class)
                 .forEach(CombatDeathListener::onCombatDeath);
+        if (leavesDeathField()) {
+            DeathField.spawn(gameObject);
+        }
         onDeath();
     }
 

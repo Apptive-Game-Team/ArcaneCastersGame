@@ -21,11 +21,13 @@ import lombok.RequiredArgsConstructor;
 public class ManaCharger {
     public final static float MANA_CHARGE_INTERVAL = 0.25f;
     public final static int DEFAULT_MANA_CHARGE_VALUE = 1;
+    private static final double MANA_EPSILON = 1e-6;
     public static int MAX_MANA;
 
     private final Parameters parameters;
 
     private final Stat manaChangeValue = new Stat(DEFAULT_MANA_CHARGE_VALUE);
+    private double pendingMana;
 
     @PostConstruct
     public void initMaxMana() {
@@ -39,9 +41,35 @@ public class ManaCharger {
 
     // this method is called every frame to charge mana
     public void chargeMana(PlayerData player, FrameInfoDto frameInfoDto, int frameNum) {
-        if (frameNum % ((int) (GameLoop.FPS * MANA_CHARGE_INTERVAL)) == 0)
-            player.addMana((int) manaChangeValue.total(), MAX_MANA);
+        if (frameNum % ((int) (GameLoop.FPS * MANA_CHARGE_INTERVAL)) == 0) {
+            chargeAvailableMana(player);
+        }
 
         frameInfoDto.setUpdatedMana(player.mana);
+    }
+
+    private void chargeAvailableMana(PlayerData player) {
+        if (player.mana >= MAX_MANA) {
+            pendingMana = 0;
+            return;
+        }
+
+        pendingMana += manaChangeValue.total();
+        int manaToAdd = (int) Math.floor(pendingMana + MANA_EPSILON);
+        int availableCapacity = MAX_MANA - player.mana;
+
+        if (manaToAdd >= availableCapacity) {
+            player.addMana(availableCapacity, MAX_MANA);
+            pendingMana = 0;
+            return;
+        }
+
+        if (manaToAdd > 0) {
+            player.addMana(manaToAdd, MAX_MANA);
+            pendingMana -= manaToAdd;
+            if (pendingMana < MANA_EPSILON) {
+                pendingMana = 0;
+            }
+        }
     }
 }

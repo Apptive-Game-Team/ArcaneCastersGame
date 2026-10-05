@@ -110,6 +110,10 @@ public enum PrefabType {
     PveWaterSlimeNest("pve_water_slime_nest_prefab"),
     PveVineColony("pve_vine_colony_prefab"),
     PveVineWitch("pve_vine_witch_prefab"),
+    PveDimensionToad("pve_dimension_toad_prefab"),
+    PveFireTadpole("pve_fire_tadpole_prefab"),
+    PveLightningTadpole("pve_lightning_tadpole_prefab"),
+    PveEvilEnt("pve_evil_ent_prefab"),
 
     // New 2 card Magic
     EmberSpirit("fire_slime_prefab"),
@@ -122,6 +126,8 @@ public enum PrefabType {
     BombSpriteExplosion("bomb_sprite_explosion_prefab"),
     MiniRock("mini_rock_prefab"),
     RockRemnant("rock_remnant_prefab"),
+    MediumRockRemnant("medium_rock_remnant_prefab"),
+    EarthCall("earth_call_prefab"),
 
     LifeTree("life_tree_prefab"),
     RockTurret("rock_turret_prefab"),
