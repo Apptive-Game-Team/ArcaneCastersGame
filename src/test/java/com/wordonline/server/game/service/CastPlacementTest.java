@@ -14,6 +14,7 @@ import com.wordonline.server.game.domain.object.prefab.PrefabType;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -23,13 +24,14 @@ import static org.mockito.Mockito.withSettings;
 class CastPlacementTest {
 
     @Test
-    void groundSummonOverlappingAGroundBodyIsBlocked() {
+    void overlapThresholdIsTheRadiusSumTimesTheOverlapRatio() {
         GameContext gameContext = context(List.of(body(new Vector3(5f, 0f, 5f), 0.5f)));
         Magic tower = summoning(false);
+        float sum = 1.5f; // 타워 반경 1 + 몸 반경 0.5
 
-        // 타워 반경 1 + 유닛 반경 0.5 = 1.5 보다 가까우면 겹친다
-        assertThat(CastPlacement.isBlocked(gameContext, tower, new Vector3(6.4f, 0f, 5f))).isTrue();
-        assertThat(CastPlacement.isBlocked(gameContext, tower, new Vector3(6.6f, 0f, 5f))).isFalse();
+        assertThat(CastPlacement.PLACEMENT_OVERLAP_RATIO).isEqualTo(0.6f);
+        assertThat(CastPlacement.isBlocked(gameContext, tower, new Vector3(5f + 0.7f * sum, 0f, 5f))).isFalse();
+        assertThat(CastPlacement.isBlocked(gameContext, tower, new Vector3(5f + 0.5f * sum, 0f, 5f))).isTrue();
     }
 
     @Test
@@ -50,15 +52,59 @@ class CastPlacementTest {
     }
 
     @Test
-    void botIsNudgedToTheNearestFreeSpotInRange() {
+    void freeAimPointIsReturnedUnchanged() {
+        GameContext gameContext = context(List.of(body(new Vector3(5f, 0f, 5f), 0.5f)));
+        Vector3 aim = new Vector3(9f, 0f, 5f);
+
+        Optional<Vector3> spot = CastPlacement.resolveSpot(
+                gameContext, summoning(false), aim, new Vector3(1f, 0f, 5f), 20);
+
+        assertThat(spot).containsSame(aim);
+    }
+
+    @Test
+    void blockedAimSnapsToTheFirstFreeDirectionOfTheInnermostFreeRing() {
+        GameContext gameContext = context(List.of(body(new Vector3(5f, 0f, 5f), 0.5f)));
+
+        Optional<Vector3> spot = CastPlacement.resolveSpot(
+                gameContext, summoning(false), new Vector3(5f, 0f, 5f), new Vector3(1f, 0f, 5f), 9);
+
+        // 임계값 0.9 이므로 링 1~3 (0.25~0.75)은 막히고, 링 4 (1.0)의 각도 0 (+x)이 처음 빈자리다
+        assertThat(spot).isPresent();
+        assertThat(spot.get().getX()).isCloseTo(6f, within(1e-4f));
+        assertThat(spot.get().getZ()).isCloseTo(5f, within(1e-4f));
+    }
+
+    @Test
+    void directionsAreTriedInOrderSkippingCandidatesOutsideTheMap() {
+        GameContext gameContext = context(List.of(body(new Vector3(18f, 0f, 5f), 0.5f)));
+
+        Optional<Vector3> spot = CastPlacement.resolveSpot(
+                gameContext, summoning(false), new Vector3(18f, 0f, 5f), new Vector3(15f, 0f, 5f), 9);
+
+        // 링 4 에서 각도 0~3 은 x > 18 이라 맵 밖이고, 각도 90도 (+z)가 처음 맵 안의 빈자리다
+        assertThat(spot).isPresent();
+        assertThat(spot.get().getX()).isCloseTo(18f, within(1e-4f));
+        assertThat(spot.get().getZ()).isCloseTo(6f, within(1e-4f));
+    }
+
+    @Test
+    void candidatesBeyondTheRangeAreSkipped() {
         GameContext gameContext = context(List.of(body(new Vector3(5f, 0f, 5f), 0.5f)));
         Magic tower = summoning(false);
+        Vector3 aim = new Vector3(5f, 0f, 5f);
 
-        Optional<Vector3> spot = CastPlacement.findFreeSpotForBot(
-                gameContext, tower, new Vector3(5f, 0f, 5f), new Vector3(1f, 0f, 5f), 9);
+        assertThat(CastPlacement.resolveSpot(gameContext, tower, aim, aim, 0.9)).isEmpty();
+        assertThat(CastPlacement.resolveSpot(gameContext, tower, aim, aim, 1.05)).isPresent();
+    }
 
-        assertThat(spot).isPresent();
-        assertThat(CastPlacement.isBlocked(gameContext, tower, spot.get())).isFalse();
+    @Test
+    void emptyWhenEverythingWithinRangeIsBlocked() {
+        GameContext gameContext = context(List.of(body(new Vector3(5f, 0f, 5f), 5f)));
+        Vector3 aim = new Vector3(5f, 0f, 5f);
+
+        // 임계값 (5 + 1) * 0.6 = 3.6 이 탐색 반경 최대 3.0 보다 크다
+        assertThat(CastPlacement.resolveSpot(gameContext, summoning(false), aim, aim, 3)).isEmpty();
     }
 
     private Magic summoning(boolean airborne) {
