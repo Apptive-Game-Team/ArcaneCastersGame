@@ -45,6 +45,7 @@ public class GameContext {
     private CardSelectVisualizer cardSelectVisualizer;
     private final List<GameEventDto> events = new ArrayList<>();
     private final GameActionQueue actionQueue = new GameActionQueue();
+    private java.util.function.Consumer<GameObject> objectInitializer = object -> {};
 
     private WordOnlineLoop gameLoop;
 
@@ -92,6 +93,10 @@ public class GameContext {
 
     public void createGameObject(GameObject gameObject) {
         objectsInfoDtoBuilder.createGameObject(gameObject);
+    }
+
+    public void initializeCreatedObject(GameObject gameObject) {
+        objectInitializer.accept(gameObject);
     }
 
     public void addGameObject(GameObject gameObject) {

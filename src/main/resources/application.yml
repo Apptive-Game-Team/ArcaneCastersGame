@@ -104,3 +104,7 @@ alert:
 watchdog:
   check-interval-ms: ${WATCHDOG_CHECK_INTERVAL_MS:5000}
   stuck-threshold: ${WATCHDOG_STUCK_THRESHOLD:10s}
+
+# Explicit development opt-in; never enabled by ordinary match creation.
+playground:
+  enabled: ${PLAYGROUND_ENABLED:false}
