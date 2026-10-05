@@ -22,9 +22,12 @@ public final class CastPlacement {
     private static final String RADIUS_PARAMETER = "radius";
     private static final float DEFAULT_BODY_RADIUS = 0.3f;
 
-    // 봇이 고른 자리가 막혔을 때 조금씩 비켜 볼 거리와 방향 수
-    private static final float[] BOT_NUDGE_DISTANCES = {0.5f, 1f, 1.5f, 2f};
-    private static final int BOT_NUDGE_DIRECTIONS = 8;
+    // 두 몸의 반경 합에 이 비율을 곱한 거리보다 가까워야 겹친 것으로 본다. Unity client 가 같은 값을 쓴다.
+    public static final float PLACEMENT_OVERLAP_RATIO = 0.6f;
+    // 막힌 자리 둘레를 SNAP_RING_STEP 간격으로 SNAP_RING_COUNT 겹, 겹마다 SNAP_DIRECTIONS 방향을 본다.
+    public static final float SNAP_RING_STEP = 0.25f;
+    public static final int SNAP_RING_COUNT = 12;
+    public static final int SNAP_DIRECTIONS = 16;
 
     private CastPlacement() {
     }
@@ -45,19 +48,20 @@ public final class CastPlacement {
     }
 
     /**
-     * 봇이 고른 자리가 막혔으면 사거리 안에서 가까운 빈자리를 찾는다. 사람은 자리를 다시 고르면 되지만,
-     * 봇은 같은 자리를 계속 골라 카드를 못 쓰게 된다.
+     * 겨눈 자리가 막혔으면 사거리와 맵 안에서 가장 가까운 빈자리를 찾는다. 링은 안쪽부터, 각 링은 +x 방향
+     * (각도 0)에서 시작해 반시계로 돌며, 처음 찾은 빈자리를 돌려준다. 없으면 비어 있다.
      */
-    public static Optional<Vector3> findFreeSpotForBot(
-            GameContext gameContext, Magic magic, Vector3 position, Vector3 origin, double range) {
-        if (!isBlocked(gameContext, magic, position)) {
-            return Optional.of(position);
+    public static Optional<Vector3> resolveSpot(
+            GameContext gameContext, Magic magic, Vector3 aim, Vector3 origin, double range) {
+        if (!isBlocked(gameContext, magic, aim)) {
+            return Optional.of(aim);
         }
 
-        for (float distance : BOT_NUDGE_DISTANCES) {
-            for (int i = 0; i < BOT_NUDGE_DIRECTIONS; i++) {
-                double angle = Math.PI * 2 * i / BOT_NUDGE_DIRECTIONS;
-                Vector3 candidate = position.plus(
+        for (int ring = 1; ring <= SNAP_RING_COUNT; ring++) {
+            float distance = ring * SNAP_RING_STEP;
+            for (int i = 0; i < SNAP_DIRECTIONS; i++) {
+                double angle = Math.PI * 2 * i / SNAP_DIRECTIONS;
+                Vector3 candidate = aim.plus(
                         (float) (Math.cos(angle) * distance), 0, (float) (Math.sin(angle) * distance));
                 if (!insideMap(candidate) || origin.distance(candidate) > range) {
                     continue;
@@ -87,7 +91,7 @@ public final class CastPlacement {
         }
 
         double distance = other.getPosition().grounded().distance(ground);
-        return distance < body.get().getRadius() + radius;
+        return distance < (body.get().getRadius() + radius) * PLACEMENT_OVERLAP_RATIO;
     }
 
     private static float bodyRadius(GameContext gameContext, PrefabType prefabType) {

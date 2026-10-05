@@ -72,18 +72,22 @@ public class MagicInputHandler {
             inputEventPublisher.publish(InputHandleEvent.fail(master, InputResultCode.FAIL_INVALID_PLACE));
             return new InputResponseDto("Caster is not found.", false, InputResultCode.FAIL_INVALID_PLACE, playerData.mana, inputRequestDto.getId(), -1);
         }
+        double castRange = castRange(gameContext, magic);
         Vector3 castPosition = clampToRange(
                 castOrigin,
                 clampToMapBounds(inputRequestDto.getPosition()),
-                castRange(gameContext, magic)
+                castRange
         );
 
-        // 자리가 막혔으면 카드와 마나를 쓰기 전에 거절한다.
-        if (CastPlacement.isBlocked(gameContext, magic, castPosition)) {
-            log.trace("{}: magic {} is not valid : placement overlaps a body", master, magicId);
+        // 자리가 막혔으면 가까운 빈자리로 옮기고, 빈자리가 없을 때만 카드와 마나를 쓰기 전에 거절한다.
+        Vector3 freeSpot = CastPlacement.resolveSpot(
+                gameContext, magic, castPosition, castOrigin, castRange).orElse(null);
+        if (freeSpot == null) {
+            log.trace("{}: magic {} is not valid : no free spot to place", master, magicId);
             inputEventPublisher.publish(InputHandleEvent.fail(master, InputResultCode.FAIL_INVALID_PLACE));
             return new InputResponseDto("Cannot place here.", false, InputResultCode.FAIL_INVALID_PLACE, playerData.mana, inputRequestDto.getId(), -1);
         }
+        castPosition = freeSpot;
 
         boolean valid = playerData.useCard(magicId, manaCost(gameContext, magic));
 
@@ -132,14 +136,15 @@ public class MagicInputHandler {
             inputEventPublisher.publish(InputHandleEvent.fail(master, InputResultCode.FAIL_INVALID_PLACE));
             return new InputResponseDto("Caster is not found.", false, InputResultCode.FAIL_INVALID_PLACE, playerData.mana, inputRequestDto.getId(), -1);
         }
+        double castRange = castRange(gameContext, magic);
         Vector3 castPosition = clampToRange(
                 castOrigin,
                 clampToMapBounds(inputRequestDto.getPosition()),
-                castRange(gameContext, magic)
+                castRange
         );
 
-        Vector3 freeSpot = CastPlacement.findFreeSpotForBot(
-                gameContext, magic, castPosition, castOrigin, castRange(gameContext, magic)).orElse(null);
+        Vector3 freeSpot = CastPlacement.resolveSpot(
+                gameContext, magic, castPosition, castOrigin, castRange).orElse(null);
         if (freeSpot == null) {
             log.trace("{}: magic {} is not valid : no free spot to place", master, magicId);
             inputEventPublisher.publish(InputHandleEvent.fail(master, InputResultCode.FAIL_INVALID_PLACE));
