@@ -8,6 +8,7 @@ import com.wordonline.server.game.domain.Stat;
 import com.wordonline.server.game.domain.magic.ElementalChart;
 import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.component.Damageable;
+import com.wordonline.server.game.domain.object.component.DamageImmunity;
 import com.wordonline.server.game.domain.object.component.DamageInterceptor;
 import com.wordonline.server.game.domain.object.component.CombatDeathListener;
 import com.wordonline.server.game.domain.object.component.Component;
@@ -41,6 +42,11 @@ public abstract class Mob extends Component implements Damageable, GaugeComponen
     @Override
     public void onDamaged(AttackInfo attackInfo) {
         if (gameObject.isDying()) {
+            return;
+        }
+        // Checked before the interceptors so an immune hit does not spend a Bubble or apply
+        // element reactions.
+        if (isImmune(attackInfo)) {
             return;
         }
 
@@ -98,8 +104,19 @@ public abstract class Mob extends Component implements Damageable, GaugeComponen
         return drainedHp;
     }
 
+    // applyDamage is also called directly (DOT and Snared ticks, falls, totems), so immunity is
+    // checked here as well as in onDamaged.
+    private boolean isImmune(AttackInfo attackInfo) {
+        for (DamageImmunity immunity : gameObject.getComponents(DamageImmunity.class)) {
+            if (immunity.isImmuneTo(attackInfo)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public void applyDamage(AttackInfo attackInfo) {
-        if (gameObject.isDying()) {
+        if (gameObject.isDying() || isImmune(attackInfo)) {
             return;
         }
 
@@ -127,11 +144,18 @@ public abstract class Mob extends Component implements Damageable, GaugeComponen
         return true;
     }
 
+    // A mob that must not leave an element field where it dies (a PVE gate keeper) overrides this.
+    protected boolean leavesDeathField() {
+        return true;
+    }
+
     // notifies the combat death listeners and runs the concrete death behavior
     void completeDeath() {
         gameObject.getComponents(CombatDeathListener.class)
                 .forEach(CombatDeathListener::onCombatDeath);
-        DeathField.spawn(gameObject);
+        if (leavesDeathField()) {
+            DeathField.spawn(gameObject);
+        }
         onDeath();
     }
 

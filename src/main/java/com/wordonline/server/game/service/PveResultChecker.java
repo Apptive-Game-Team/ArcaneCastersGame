@@ -23,6 +23,7 @@ public class PveResultChecker extends ResultChecker {
 
     private PveWinCondition winCondition = PveWinCondition.DestroyObjectives;
     private int surviveFrameThreshold = Integer.MAX_VALUE;
+    private int surviveSeconds = 0;
 
     public PveResultChecker(SessionObject sessionObject) {
         super(sessionObject);
@@ -44,9 +45,10 @@ public class PveResultChecker extends ResultChecker {
         PveScenarioRules effective = rules == null ? PveScenarioRules.defaultRules() : rules;
         this.winCondition = effective.winCondition();
         if (winCondition == PveWinCondition.Survive) {
-            int surviveSeconds = effective.surviveSeconds() == null ? 0 : effective.surviveSeconds();
+            this.surviveSeconds = effective.surviveSeconds() == null ? 0 : effective.surviveSeconds();
             this.surviveFrameThreshold = surviveSeconds * GameLoop.FPS;
         } else {
+            this.surviveSeconds = 0;
             this.surviveFrameThreshold = Integer.MAX_VALUE;
         }
     }
@@ -91,18 +93,31 @@ public class PveResultChecker extends ResultChecker {
         }
     }
 
-    private boolean areAllObjectivesTerminal() {
-        if (objectiveInstallerIds.isEmpty() || runtime == null) {
-            return false;
-        }
+    public PveWinCondition getWinCondition() {
+        return winCondition;
+    }
 
-        boolean allTerminal = true;
+    public int getSurviveSeconds() {
+        return surviveSeconds;
+    }
+
+    public int getSurviveFrameThreshold() {
+        return surviveFrameThreshold;
+    }
+
+    public int getObjectivesTotal() {
+        return objectiveInstallerIds.size();
+    }
+
+    // Objectives that are not terminal yet, counting one that is not installed yet.
+    public int countObjectivesRemaining() {
+        int remaining = 0;
 
         for (String installerId : objectiveInstallerIds) {
-            GameObject objective = runtime.getInstalledGameObject(installerId);
+            GameObject objective = runtime == null ? null : runtime.getInstalledGameObject(installerId);
             if (objective == null) {
                 // Not installed yet: this objective blocks the win.
-                allTerminal = false;
+                remaining++;
                 continue;
             }
             if (seenObjectives.contains(objective.getId())) {
@@ -113,9 +128,17 @@ public class PveResultChecker extends ResultChecker {
                 continue;
             }
 
-            allTerminal = false;
+            remaining++;
         }
 
-        return allTerminal;
+        return remaining;
+    }
+
+    private boolean areAllObjectivesTerminal() {
+        if (objectiveInstallerIds.isEmpty() || runtime == null) {
+            return false;
+        }
+
+        return countObjectivesRemaining() == 0;
     }
 }

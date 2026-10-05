@@ -9,6 +9,7 @@ import com.wordonline.server.game.domain.pve.PveScenarioAction;
 import com.wordonline.server.game.domain.pve.PveScenarioEvent;
 import com.wordonline.server.game.domain.pve.PveScenarioRules;
 import com.wordonline.server.game.domain.pve.PveSetSpawnerAction;
+import com.wordonline.server.game.domain.pve.PveShield;
 import com.wordonline.server.game.domain.pve.PveSpawnWaveAction;
 import com.wordonline.server.game.domain.pve.PveTriggerType;
 import com.wordonline.server.game.domain.pve.PveWinCondition;
@@ -69,6 +70,13 @@ public class PveScenarioRepository {
             WHERE scenario_id = :scenarioId
             """;
 
+    private static final String FIND_SHIELDS = """
+            SELECT installer_id, source_installer_id
+            FROM pve_scenario_shields
+            WHERE scenario_id = :scenarioId
+            ORDER BY installer_id, source_installer_id
+            """;
+
     private final JdbcClient jdbcClient;
 
     public Optional<PveScenario> findById(Long scenarioId) {
@@ -80,7 +88,8 @@ public class PveScenarioRepository {
                         findObjectives(scenarioId),
                         installers,
                         findEvents(scenarioId),
-                        findRules(scenarioId)
+                        findRules(scenarioId),
+                        findShields(scenarioId)
                 ));
     }
 
@@ -186,6 +195,16 @@ public class PveScenarioRepository {
             );
             default -> throw new IllegalArgumentException("Unknown action_type: " + row.actionType());
         };
+    }
+
+    private List<PveShield> findShields(Long scenarioId) {
+        return jdbcClient.sql(FIND_SHIELDS)
+                .param("scenarioId", scenarioId)
+                .query((rs, rowNum) -> new PveShield(
+                        rs.getString("installer_id"),
+                        rs.getString("source_installer_id")
+                ))
+                .list();
     }
 
     private PveScenarioRules findRules(Long scenarioId) {

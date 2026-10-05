@@ -13,6 +13,7 @@ import com.wordonline.server.game.dto.input.MagicUseRequestDto;
 import com.wordonline.server.game.domain.bot.BotAgent;
 import com.wordonline.server.game.domain.bot.BotSideUtil;
 import com.wordonline.server.game.service.GameContext;
+import com.wordonline.server.game.service.PveLoop;
 import com.wordonline.server.game.service.WordOnlineLoop;
 import com.wordonline.server.service.LocalizationService;
 import lombok.extern.slf4j.Slf4j;
@@ -100,6 +101,17 @@ public class InputController {
                 log.trace("unselectCard arrived {}", userId);
                 long magicId = inputRequestDto.toCardAim().magicId();
                 gameContext.submitAction("unselectCard", () -> gameContext.unselectCard(userId, magicId));
+            }
+            case "pveSync" -> {
+                log.trace("pveSync arrived {}", userId);
+                int lastEventSeq = inputRequestDto.toPveSync().lastEventSeq();
+                gameContext.submitAction("pveSync", () -> {
+                    if (gameContext.getGameLoop() instanceof PveLoop pveLoop) {
+                        pveLoop.sendPveStateTo(userId, lastEventSeq);
+                    } else {
+                        log.trace("pveSync ignored, not a PVE session {}", sessionId);
+                    }
+                });
             }
             case null, default -> log.warn("Unknown input type: {}", inputRequestDto.getType());
         }

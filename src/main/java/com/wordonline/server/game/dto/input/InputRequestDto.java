@@ -16,6 +16,8 @@ public class InputRequestDto {
     private Vector3 position;
     // The raw emote name; com.wordonline.server.game.dto.Emote validates it.
     private String emote;
+    // pveSync: the highest script event seq the client has received, 0 when none.
+    private int lastEventSeq;
 
     public MagicUseRequestDto toMagicUse() {
         if (!type.equals("useMagic")) {
@@ -39,5 +41,13 @@ public class InputRequestDto {
         }
 
         return new EmoteRequestDto(type, emote);
+    }
+
+    public PveSyncRequestDto toPveSync() {
+        if (!type.equals("pveSync")) {
+            throw new IllegalArgumentException("InputRequestDto type is not 'pveSync'");
+        }
+
+        return new PveSyncRequestDto(type, lastEventSeq);
     }
 }
