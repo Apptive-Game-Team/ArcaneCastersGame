@@ -25,7 +25,7 @@ import com.wordonline.server.game.domain.magic.parser.DatabaseMagicParser;
 
 @Service
 @Scope("prototype")
-@ConditionalOnProperty(name = "playground.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "playground.enabled", havingValue = "true", matchIfMissing = true)
 public class PlaygroundLoop extends WordOnlineLoop {
     public static final int PLAYER_HP = 99_999_999;
     public static final Duration LIFETIME = Duration.ofSeconds(300);

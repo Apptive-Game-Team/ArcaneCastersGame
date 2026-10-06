@@ -105,6 +105,6 @@ watchdog:
   check-interval-ms: ${WATCHDOG_CHECK_INTERVAL_MS:5000}
   stuck-threshold: ${WATCHDOG_STUCK_THRESHOLD:10s}
 
-# Explicit development opt-in; never enabled by ordinary match creation.
+# Administrator playground enabled by default; false disables its routes and simulation beans.
 playground:
-  enabled: ${PLAYGROUND_ENABLED:false}
+  enabled: ${PLAYGROUND_ENABLED:true}

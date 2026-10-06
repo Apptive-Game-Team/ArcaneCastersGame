@@ -6,7 +6,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@ConditionalOnProperty(name = "playground.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "playground.enabled", havingValue = "true", matchIfMissing = true)
 public class PlaygroundConfiguration {
     @Bean("playgroundClock")
     public Clock playgroundClock() {

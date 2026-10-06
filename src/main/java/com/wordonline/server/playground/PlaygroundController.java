@@ -13,7 +13,7 @@ import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequiredArgsConstructor
-@ConditionalOnProperty(name = "playground.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "playground.enabled", havingValue = "true", matchIfMissing = true)
 @PreAuthorize("hasAnyAuthority('SUPER_ADMIN', 'WORDONLINE_ADMIN')")
 @RequestMapping("/api/dev/playgrounds")
 public class PlaygroundController {

@@ -1,8 +1,10 @@
 # Developer magic playground
 
-Set PLAYGROUND_ENABLED=true (or playground.enabled=true) only on development game
-and lobby servers. The default is disabled. The client entry point exists only in
-the Unity Editor. No database migration is required.
+The administrator playground is enabled by default on game and lobby servers.
+Set PLAYGROUND_ENABLED=false (or playground.enabled=false) to disable it on either
+server. Sessions are created only on request; administrator and owner checks still
+apply. The client entry point exists only in the Unity Editor. No database migration
+is required.
 
 Lobby administrators create a session through POST /api/dev/playgrounds. Lobby's
 service token calls POST /api/server/playgrounds with ownerId. Game returns
@@ -34,3 +36,8 @@ Keep the subscription guard's SessionService dependency lazy through ObjectProvi
 SessionService depends on STOMP infrastructure, which constructs this guard; eager
 constructor injection causes a circular dependency and prevents real server startup.
 Verify an enabled server's actual startup in addition to isolated session tests.
+
+In activation context tests, register dependency mocks through the context bean
+factory's registerSingleton. ApplicationContextRunner.withBean still processes
+private PostConstruct methods and Value fields on Mockito mocks: a mocked parser
+fails on its null repository, and a mocked URL provider requires deployment settings.

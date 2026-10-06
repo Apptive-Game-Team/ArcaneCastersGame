@@ -3,6 +3,8 @@ package com.wordonline.server.playground;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Configuration;
 import com.wordonline.server.game.domain.SessionObject;
 import com.wordonline.server.game.domain.SessionType;
 import com.wordonline.server.game.domain.magic.Magic;
@@ -23,16 +25,40 @@ class PlaygroundServiceTest {
     private final PlaygroundService service = new PlaygroundService(sessions, parser,
             mock(ServerUrlProvider.class), mock(ServerStatusService.class), mock(MagicRepository.class));
 
-    @Test void featureIsAbsentByDefaultAndWhenExplicitlyDisabled() {
-        var runner = new ApplicationContextRunner().withUserConfiguration(
+    private ApplicationContextRunner featureRunner() {
+        return new ApplicationContextRunner().withInitializer(context -> {
+            var factory = context.getBeanFactory();
+            factory.registerSingleton("sessions", sessions);
+            factory.registerSingleton("parser", parser);
+            factory.registerSingleton("urls", mock(ServerUrlProvider.class));
+            factory.registerSingleton("status", mock(ServerStatusService.class));
+            factory.registerSingleton("catalog", mock(MagicRepository.class));
+        }).withUserConfiguration(
                 PlaygroundConfiguration.class, PlaygroundLoop.class, PlaygroundService.class,
-                PlaygroundController.class, PlaygroundServerController.class);
-        runner.run(context -> {
-            assertThat(context).hasNotFailed().doesNotHaveBean(PlaygroundController.class)
-                    .doesNotHaveBean(PlaygroundServerController.class).doesNotHaveBean(PlaygroundLoop.class);
+                PlaygroundController.class, PlaygroundServerController.class, PropertyBinding.class);
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    @EnableConfigurationProperties(PlaygroundProperties.class)
+    static class PropertyBinding {}
+
+    @Test void featureIsEnabledWithoutSettings() {
+        featureRunner().run(context -> {
+            assertThat(context).hasNotFailed().hasSingleBean(PlaygroundController.class)
+                    .hasSingleBean(PlaygroundServerController.class).hasSingleBean(PlaygroundService.class);
+            assertThat(context.containsBeanDefinition("playgroundLoop")).isTrue();
+            assertThat(context.getBean(PlaygroundProperties.class).enabled()).isTrue();
         });
-        runner.withPropertyValues("playground.enabled=false").run(context ->
-                assertThat(context).hasNotFailed().doesNotHaveBean(PlaygroundService.class));
+    }
+
+    @Test void explicitFalseRemovesAllPlaygroundRoutesAndSimulationBeans() {
+        featureRunner().withPropertyValues("playground.enabled=false").run(context -> {
+            assertThat(context).hasNotFailed().doesNotHaveBean(PlaygroundController.class)
+                    .doesNotHaveBean(PlaygroundServerController.class).doesNotHaveBean(PlaygroundService.class)
+                    .doesNotHaveBean(PlaygroundLoop.class);
+            assertThat(context.containsBean("playgroundClock")).isFalse();
+            assertThat(context.getBean(PlaygroundProperties.class).enabled()).isFalse();
+        });
     }
     @Test void missingWrongOwnerOrdinaryAndExpiredSessionsCannotBeControlled() {
         assertThatThrownBy(() -> service.ownedLoop("missing", 7)).hasMessageContaining("404");

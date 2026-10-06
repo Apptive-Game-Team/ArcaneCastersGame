@@ -20,7 +20,7 @@ import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
-@ConditionalOnProperty(name = "playground.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "playground.enabled", havingValue = "true", matchIfMissing = true)
 public class PlaygroundService {
     private final SessionService sessions;
     private final DatabaseMagicParser magics;
