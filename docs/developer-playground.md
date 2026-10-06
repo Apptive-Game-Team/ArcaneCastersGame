@@ -29,3 +29,8 @@ recovery path should run for this session type.
 When modifying lifecycle code, cover start failure and watchdog teardown as well
 as normal expiry: skipping only statistic builder creation still allows end
 records and user status changes.
+
+Keep the subscription guard's SessionService dependency lazy through ObjectProvider.
+SessionService depends on STOMP infrastructure, which constructs this guard; eager
+constructor injection causes a circular dependency and prevents real server startup.
+Verify an enabled server's actual startup in addition to isolated session tests.

@@ -8,6 +8,7 @@ import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.ObjectProvider;
 import com.wordonline.server.auth.domain.PrincipalDetails;
 import com.wordonline.server.session.service.SessionService;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +16,7 @@ import lombok.RequiredArgsConstructor;
 @Component
 @RequiredArgsConstructor
 public class PlaygroundSubscriptionGuard implements ChannelInterceptor {
-    private final SessionService sessions;
+    private final ObjectProvider<SessionService> sessions;
 
     @Override public Message<?> preSend(Message<?> message, MessageChannel channel) {
         var headers = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
@@ -32,7 +33,7 @@ public class PlaygroundSubscriptionGuard implements ChannelInterceptor {
                 || !parts[1].equals("game") || !parts[3].equals("frameInfos")
                 || !(headers.getUser() instanceof PrincipalDetails principal) || principal.memberId == null)
             throw new AccessDeniedException("Invalid playground subscription.");
-        var session = sessions.getSessionObject(parts[2]);
+        var session = sessions.getObject().getSessionObject(parts[2]);
         if (session == null || !(session.getGameLoop() instanceof PlaygroundLoop loop)
                 || !loop.acceptsCommands() || session.getLeftUserId() != principal.memberId
                 || !parts[4].equals(Long.toString(principal.memberId))

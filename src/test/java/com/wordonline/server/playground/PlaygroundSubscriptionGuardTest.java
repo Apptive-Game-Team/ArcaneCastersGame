@@ -2,6 +2,10 @@ package com.wordonline.server.playground;
 
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.support.DefaultListableBeanFactory;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.stomp.*;
 import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.security.access.AccessDeniedException;
@@ -14,8 +18,27 @@ import static org.mockito.Mockito.*;
 
 class PlaygroundSubscriptionGuardTest {
     private final SessionService sessions = mock(SessionService.class);
-    private final PlaygroundSubscriptionGuard guard = new PlaygroundSubscriptionGuard(sessions);
+    private final PlaygroundSubscriptionGuard guard = createGuard();
     private final String id = "playground-test";
+
+    private PlaygroundSubscriptionGuard createGuard() {
+        var factory = new DefaultListableBeanFactory();
+        factory.registerSingleton("sessions", sessions);
+        return new PlaygroundSubscriptionGuard(factory.getBeanProvider(SessionService.class));
+    }
+
+    @Test void sessionInfrastructureCanDependOnTheGuardDuringStartup() {
+        new ApplicationContextRunner()
+                .withUserConfiguration(PlaygroundSubscriptionGuard.class, SessionInfrastructure.class)
+                .run(context -> assertThat(context).hasNotFailed().hasSingleBean(SessionService.class));
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    static class SessionInfrastructure {
+        @Bean SessionService sessions(PlaygroundSubscriptionGuard guard) {
+            return mock(SessionService.class);
+        }
+    }
 
     @Test void onlyLiveOwnerAdministratorCanSubscribeToTheirDestination() {
         var session = mock(SessionObject.class);
