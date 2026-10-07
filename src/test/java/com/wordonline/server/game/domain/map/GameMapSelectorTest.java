@@ -66,7 +66,7 @@ class GameMapSelectorTest {
     }
 
     @Test
-    void pveTakesTheMapOfTheAdventureWhateverTheSelectionSays() {
+    void pveTakesTheMapOfTheStageWhateverTheSelectionSays() {
         when(random.nextBoolean()).thenReturn(true);
         when(pveScenarioRepository.findMapType(7L)).thenReturn(Optional.of(GameMap.FOREST));
 
@@ -76,7 +76,7 @@ class GameMapSelectorTest {
     }
 
     @Test
-    void pveWithoutAnAdventureOrScenarioGetsGrassland() {
+    void pveWithoutAStageOrScenarioGetsGrassland() {
         when(pveScenarioRepository.findMapType(8L)).thenReturn(Optional.empty());
 
         assertThat(selector(Selection.RIVER).choose(SessionType.PVE, 8L)).isEqualTo(GameMap.GRASSLAND);

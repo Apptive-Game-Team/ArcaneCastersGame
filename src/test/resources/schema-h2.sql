@@ -202,18 +202,18 @@ CREATE TABLE tag_counter_rules (
 );
 
 -- Mirrors the adventure, stage and scenario tables of the database repository, with
--- adventures.map_type from the migration that adds it. Only the PVE map lookup reads them.
+-- stages.map_type from the migration that adds it. Only the PVE map lookup reads them.
 CREATE TABLE adventures (
     id BIGINT PRIMARY KEY,
     name VARCHAR(31) NOT NULL,
-    access_type VARCHAR(10) NOT NULL DEFAULT 'FREE',
-    map_type VARCHAR(16) NOT NULL DEFAULT 'GRASSLAND',
-    CONSTRAINT adventures_map_type_check CHECK (map_type IN ('GRASSLAND', 'RIVER', 'FORTRESS', 'GATE', 'FOREST'))
+    access_type VARCHAR(10) NOT NULL DEFAULT 'FREE'
 );
 
 CREATE TABLE stages (
     id BIGINT PRIMARY KEY,
-    adventure_id BIGINT REFERENCES adventures(id) ON DELETE CASCADE
+    adventure_id BIGINT REFERENCES adventures(id) ON DELETE CASCADE,
+    map_type VARCHAR(16) NOT NULL DEFAULT 'GRASSLAND',
+    CONSTRAINT stages_map_type_check CHECK (map_type IN ('GRASSLAND', 'RIVER', 'FORTRESS', 'GATE', 'FOREST'))
 );
 
 CREATE TABLE scenarios (

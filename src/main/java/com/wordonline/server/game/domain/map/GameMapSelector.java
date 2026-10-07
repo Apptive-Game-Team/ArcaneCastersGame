@@ -11,8 +11,8 @@ import com.wordonline.server.game.repository.PveScenarioRepository;
 
 /**
  * Decides the map of a match, once, before the session object exists. PVE reads the map of the
- * adventure the scenario belongs to ({@code adventures.map_type}), {@link GameMap#GRASSLAND} when
- * the scenario has no adventure. Every other session type follows {@link GameMapProperties}: a
+ * stage the scenario belongs to ({@code stages.map_type}), {@link GameMap#GRASSLAND} when
+ * the scenario has no stage. Every other session type follows {@link GameMapProperties}: a
  * forced map, or a fair coin per match between {@code GRASSLAND} and {@code RIVER} when random.
  */
 @Component

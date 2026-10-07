@@ -78,19 +78,18 @@ public class PveScenarioRepository {
             ORDER BY installer_id, source_installer_id
             """;
 
-    // scenarios -> stages -> adventures. Both links are nullable in the schema, so an inner join
-    // returns no row for a scenario that belongs to no adventure.
+    // scenarios -> stages. stage_id is nullable in the schema, so an inner join returns no row
+    // for a scenario that belongs to no stage. The map follows the stage, not the adventure.
     private static final String FIND_MAP_TYPE = """
-            SELECT a.map_type
+            SELECT st.map_type
             FROM scenarios s
             JOIN stages st ON st.id = s.stage_id
-            JOIN adventures a ON a.id = st.adventure_id
             WHERE s.id = :scenarioId
             """;
 
     private final JdbcClient jdbcClient;
 
-    /** The map of the adventure the scenario belongs to; empty when it belongs to none. */
+    /** The map of the stage the scenario belongs to ({@code stages.map_type}); empty when it belongs to none. */
     public Optional<GameMap> findMapType(Long scenarioId) {
         return jdbcClient.sql(FIND_MAP_TYPE)
                 .param("scenarioId", scenarioId)

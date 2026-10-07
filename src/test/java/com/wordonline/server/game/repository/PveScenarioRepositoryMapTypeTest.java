@@ -8,7 +8,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 
 import com.wordonline.server.game.domain.map.GameMap;
 
-/** Reads adventures.map_type through scenarios and stages, against the shared H2 fixtures. */
+/** Reads stages.map_type through scenarios, against the shared H2 fixtures. */
 class PveScenarioRepositoryMapTypeTest {
 
     private PveScenarioRepository repository;
@@ -20,21 +20,31 @@ class PveScenarioRepositoryMapTypeTest {
     }
 
     @Test
-    void readsTheMapOfTheAdventureTheScenarioBelongsTo() {
+    void readsTheMapOfTheStageTheScenarioBelongsTo() {
         assertThat(repository.findMapType(1L)).contains(GameMap.FOREST);
         assertThat(repository.findMapType(2L)).contains(GameMap.FORTRESS);
         assertThat(repository.findMapType(3L)).contains(GameMap.GATE);
     }
 
     @Test
-    void anAdventureThatLeavesMapTypeOutTakesTheColumnDefault() {
+    void aStageThatLeavesMapTypeOutTakesTheColumnDefault() {
         assertThat(repository.findMapType(4L)).contains(GameMap.GRASSLAND);
     }
 
     @Test
-    void aScenarioWithoutAnAdventureOrStageHasNoMap() {
-        assertThat(repository.findMapType(5L)).isEmpty();
+    void aStageWithoutAnAdventureStillHasItsOwnMap() {
+        assertThat(repository.findMapType(5L)).contains(GameMap.GRASSLAND);
+    }
+
+    @Test
+    void aScenarioWithoutAStageOrAnUnknownScenarioHasNoMap() {
         assertThat(repository.findMapType(6L)).isEmpty();
         assertThat(repository.findMapType(999L)).isEmpty();
+    }
+
+    @Test
+    void twoStagesOfOneAdventureHaveTheirOwnMaps() {
+        assertThat(repository.findMapType(7L)).contains(GameMap.FOREST);
+        assertThat(repository.findMapType(8L)).contains(GameMap.RIVER);
     }
 }

@@ -130,12 +130,16 @@ class MapTypeConsistencyTest {
     }
 
     @Test
-    void pveResponseCarriesTheAdventureMapAndTheLoopSpawnsNoTerrain() {
+    void pveResponseCarriesTheStageMapAndTheLoopSpawnsNoTerrain() {
         assertResponseAndLoopAgree("pve-forest", SessionType.PVE, 1L, -1L, 1L, GameMap.FOREST);
         assertResponseAndLoopAgree("pve-fortress", SessionType.PVE, 1L, -1L, 2L, GameMap.FORTRESS);
         assertResponseAndLoopAgree("pve-gate", SessionType.PVE, 1L, -1L, 3L, GameMap.GATE);
         assertResponseAndLoopAgree("pve-default", SessionType.PVE, 1L, -1L, 4L, GameMap.GRASSLAND);
         assertResponseAndLoopAgree("pve-orphan", SessionType.PVE, 1L, -1L, 5L, GameMap.GRASSLAND);
+        assertResponseAndLoopAgree("pve-no-stage", SessionType.PVE, 1L, -1L, 6L, GameMap.GRASSLAND);
+        // Two stages of one adventure: the map follows the stage.
+        assertResponseAndLoopAgree("pve-twin-forest", SessionType.PVE, 1L, -1L, 7L, GameMap.FOREST);
+        assertResponseAndLoopAgree("pve-twin-river", SessionType.PVE, 1L, -1L, 8L, GameMap.RIVER);
     }
 
     private void assertResponseAndLoopAgree(String sessionId, SessionType type, long uid1, long uid2,

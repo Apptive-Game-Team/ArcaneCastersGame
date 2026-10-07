@@ -111,23 +111,27 @@ VALUES
     (31, 'thunder_spirit', 'Lightning'),
     (32, 'fire_spirit', 'Fire');
 
--- Scenario 4 belongs to an adventure that leaves map_type out, so it takes the column default.
--- Scenario 5 belongs to a stage without an adventure, scenario 6 to no stage at all.
-INSERT INTO adventures (id, name, map_type)
-VALUES
-    (1, 'forest_adventure', 'FOREST'),
-    (2, 'fortress_adventure', 'FORTRESS'),
-    (3, 'gate_adventure', 'GATE');
-
+-- Stage 4 leaves map_type out, so it takes the column default. Stage 5 has no adventure.
+-- Scenario 6 belongs to no stage. Stages 6 and 7 belong to the same adventure 5 with
+-- different map_type values, scenarios 7 and 8 prove the map follows the stage.
 INSERT INTO adventures (id, name)
 VALUES
-    (4, 'default_adventure');
+    (1, 'forest_adventure'),
+    (2, 'fortress_adventure'),
+    (3, 'gate_adventure'),
+    (4, 'default_adventure'),
+    (5, 'twin_adventure');
+
+INSERT INTO stages (id, adventure_id, map_type)
+VALUES
+    (1, 1, 'FOREST'),
+    (2, 2, 'FORTRESS'),
+    (3, 3, 'GATE'),
+    (6, 5, 'FOREST'),
+    (7, 5, 'RIVER');
 
 INSERT INTO stages (id, adventure_id)
 VALUES
-    (1, 1),
-    (2, 2),
-    (3, 3),
     (4, 4),
     (5, NULL);
 
@@ -138,4 +142,6 @@ VALUES
     (3, 3),
     (4, 4),
     (5, 5),
-    (6, NULL);
+    (6, NULL),
+    (7, 6),
+    (8, 7);
