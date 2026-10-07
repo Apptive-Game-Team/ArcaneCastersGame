@@ -48,8 +48,8 @@ public class GameContext {
     private final List<GameEventDto> events = new ArrayList<>();
     private final GameActionQueue actionQueue = new GameActionQueue();
     private final FlowFieldNavigation navigation = new FlowFieldNavigation(this::getFrameNum, this::getGameObjects, this::getTerrain);
-    // Where the water is. Set once by GameLoop.initializeLoop before the first frame; the pathfinding,
-    // the placement check and the physics step all read it from here.
+    // Where the water is. Set once by GameLoop.initializeLoop before the first frame; the pathfinding
+    // and the placement check read it from here, and the water cells build their colliders from it.
     private Terrain terrain = Terrain.NONE;
 
     private WordOnlineLoop gameLoop;

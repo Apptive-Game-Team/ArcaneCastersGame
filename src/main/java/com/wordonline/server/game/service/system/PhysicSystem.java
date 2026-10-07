@@ -1,13 +1,13 @@
 package com.wordonline.server.game.service.system;
 
 import com.wordonline.server.game.config.GameConfig;
-import com.wordonline.server.game.domain.map.Terrain;
 import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.component.Damageable;
 import com.wordonline.server.game.domain.object.Vector3;
 import com.wordonline.server.game.domain.object.prefab.PrefabType;
 import com.wordonline.server.game.domain.object.component.physic.Collider;
 import com.wordonline.server.game.domain.object.component.physic.EdgeCollider;
+import com.wordonline.server.game.domain.object.component.physic.WaterBarrier;
 import com.wordonline.server.game.domain.object.component.physic.ZPhysics;
 import com.wordonline.server.game.dto.Master;
 import com.wordonline.server.game.service.GameContext;
@@ -46,6 +46,8 @@ public class PhysicSystem implements CollisionSystem, GameSystem {
     // re-derive per-object data. PhysicSystem is prototype-scoped and only ever touched by
     // its own single-threaded game loop, same as collidedPairs above.
     private final List<GameObject> collisionCandidates = new ArrayList<>();
+    // The river cells found by the same broad phase, kept apart from the candidates: see calculateWaterCollisions.
+    private final List<GameObject> waterBarriers = new ArrayList<>();
 
     @Override
     public void update(GameContext gameContext) {
@@ -56,27 +58,27 @@ public class PhysicSystem implements CollisionSystem, GameSystem {
         // setPosition, can remove objects mid-frame, so the velocity pass wants the fresher
         // list rather than the one the broad phase started from
         onUpdateEnd(gameContext.getActiveGameObjects());
-        keepGroundBodiesOutOfWater(gameContext);
     }
 
-    // Knockback, pulls and collisions all end in a position, whether through RigidBody velocity or a
-    // direct setPosition, so one pass after every position has been applied covers them all. Only
-    // ground bodies are moved: anything with hp (Damageable) that is below the aerial height and
-    // still alive. Flyers, projectiles, drops and explosions are skipped, as are dying objects that
-    // are falling to the ground. The body's center is what counts, the same rule as pathfinding.
-    private void keepGroundBodiesOutOfWater(GameContext gameContext) {
-        Terrain terrain = gameContext.getTerrain();
-        if (terrain == null || terrain.isEmpty()) {
-            return;
-        }
-        for (GameObject gameObject : gameContext.getActiveGameObjects()) {
-            if (!isGroundBody(gameObject) || !terrain.isWaterAt(gameObject.getPosition())) {
-                continue;
+    // Water is kept out of the pair loop below. A river cell is tested only against ground bodies,
+    // so the 8 cells never meet a flyer, a projectile, a drop, an explosion or a magic body, and
+    // the cell pairs with each other and with the map wall are never formed.
+    private void calculateWaterCollisions() {
+        for (int i = 0; i < waterBarriers.size(); i++) {
+            GameObject water = waterBarriers.get(i);
+            for (int j = 0; j < collisionCandidates.size(); j++) {
+                GameObject body = collisionCandidates.get(j);
+                if (isGroundBody(body) && CollisionChecker.isColliding(water, body)) {
+                    collidedPairs.add(new Pair<>(water, body));
+                }
             }
-            gameObject.setPosition(terrain.nearestLand(gameObject.getPosition()));
         }
     }
 
+    /**
+     * A body that water stops: alive, not dying, with hp, and below the aerial height. A dying body
+     * is already falling to the ground and is left alone, as it is by every other collision.
+     */
     private boolean isGroundBody(GameObject gameObject) {
         return !gameObject.isDestroyed()
                 && !gameObject.isDying()
@@ -103,6 +105,7 @@ public class PhysicSystem implements CollisionSystem, GameSystem {
                 }
             }
         }
+        calculateWaterCollisions();
     }
 
     // Both predicates are pure and nothing in the pair loop below changes an object's
@@ -111,10 +114,15 @@ public class PhysicSystem implements CollisionSystem, GameSystem {
     // still formed with the same (a, b) orientation as before.
     private void collectCollisionCandidates(List<GameObject> gameObjects) {
         collisionCandidates.clear();
+        waterBarriers.clear();
         for (int i = 0; i < gameObjects.size(); i++) {
             GameObject gameObject = gameObjects.get(i);
             if (!isCollidable(gameObject)) continue;
             if (gameObject.getComponents(Collidable.class).isEmpty()) continue;
+            if (gameObject.hasComponent(WaterBarrier.class)) {
+                waterBarriers.add(gameObject);
+                continue;
+            }
             collisionCandidates.add(gameObject);
         }
     }
@@ -124,7 +132,16 @@ public class PhysicSystem implements CollisionSystem, GameSystem {
         return !gameObject.isDestroyed() && !gameObject.isDying();
     }
 
+    // Two passes. Bodies push each other first, and the immovable edges (map wall, river banks)
+    // answer last, so an edge sees the velocity the crowd has added this frame and cancels all of
+    // the part that points into it. With one pass in the set's order, a push added after the edge
+    // had answered would leak through, and a crowd leaning on a bank could carry a body over it.
     private void applyCollisionsResponses() {
+        applyCollisionsResponses(false);
+        applyCollisionsResponses(true);
+    }
+
+    private void applyCollisionsResponses(boolean edgePass) {
         collidedPairs.forEach(
                 gameObjectPair -> {
                     GameObject a = gameObjectPair.a();
@@ -137,6 +154,10 @@ public class PhysicSystem implements CollisionSystem, GameSystem {
                             colliderA -> {
                                 gameObjectPair.b().getColliders().stream().filter(Collider::isNotTrigger).forEach(
                                     colliderB -> {
+
+                                        if ((colliderA instanceof EdgeCollider || colliderB instanceof EdgeCollider) != edgePass) {
+                                            return;
+                                        }
 
                                         if (!colliderA.isCollidingWish(colliderB)) {
                                             return;
@@ -209,6 +230,11 @@ public class PhysicSystem implements CollisionSystem, GameSystem {
                     GameObject b = gameObjectPair.b();
 
                     if (a.isDestroyed() || b.isDestroyed()) {
+                        return;
+                    }
+
+                    // Water only pushes. Neither side hears about it, so no handler can react to a bank.
+                    if (a.hasComponent(WaterBarrier.class) || b.hasComponent(WaterBarrier.class)) {
                         return;
                     }
 

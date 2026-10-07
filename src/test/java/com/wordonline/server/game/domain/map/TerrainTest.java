@@ -3,7 +3,9 @@ package com.wordonline.server.game.domain.map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import org.junit.jupiter.api.Test;
@@ -98,43 +100,38 @@ class TerrainTest {
     }
 
     @Test
-    void aPositionOnLandIsNotMoved() {
-        Vector3 onBridge = new Vector3(8.5f, 0f, 2.5f);
-
-        assertThat(RIVER.nearestLand(onBridge)).isSameAs(onBridge);
+    void aWaterCellHasSidesOnlyTowardLandAndBridges() {
+        // 행 0 의 왼쪽 칸: 동쪽은 물, 남쪽은 맵 경계, 서쪽은 땅, 북쪽은 다리
+        assertThat(RIVER.exposedSides(new Terrain.Cell(8, 0))).containsExactlyInAnyOrder(
+                new Terrain.Side(new Vector3(-0.5f, 0f, 0.5f), new Vector3(-0.5f, 0f, -0.5f)),
+                new Terrain.Side(new Vector3(0.5f, 0f, 0.5f), new Vector3(-0.5f, 0f, 0.5f)));
+        // 행 4 와 5 사이는 물끼리 맞닿아 변이 없다
+        assertThat(RIVER.exposedSides(new Terrain.Cell(8, 4))).hasSize(2);
+        assertThat(RIVER.exposedSides(new Terrain.Cell(9, 5))).hasSize(2);
+        assertThat(RIVER.exposedSides(new Terrain.Cell(8, 2))).isEmpty();
+        assertThat(RIVER.exposedSides(new Terrain.Cell(3, 3))).isEmpty();
+        assertThat(Terrain.NONE.exposedSides(new Terrain.Cell(8, 0))).isEmpty();
     }
 
     @Test
-    void aPositionInTheWaterLeavesByTheNearestBank() {
-        Vector3 nearTheLeftBank = RIVER.nearestLand(new Vector3(8.2f, 0f, 5.5f));
-        Vector3 nearTheRightBank = RIVER.nearestLand(new Vector3(9.8f, 1f, 5.5f));
-
-        assertThat(nearTheLeftBank.getX()).isCloseTo(8f - Terrain.LAND_MARGIN, within(1e-5f));
-        assertThat(nearTheLeftBank.getZ()).isEqualTo(5.5f);
-        assertThat(nearTheRightBank.getX()).isCloseTo(10f + Terrain.LAND_MARGIN, within(1e-5f));
-        assertThat(nearTheRightBank.getY()).isEqualTo(1f);
-        assertThat(RIVER.isWaterAt(nearTheLeftBank)).isFalse();
-        assertThat(RIVER.isWaterAt(nearTheRightBank)).isFalse();
-    }
-
-    @Test
-    void aPositionInTheWaterBesideABridgeCanLeaveOntoTheBridge() {
-        // 행 4 의 물 칸 위쪽 가장자리 (z = 4.05)는 은행보다 다리(행 3)가 훨씬 가깝다
-        Vector3 moved = RIVER.nearestLand(new Vector3(8.6f, 0f, 4.05f));
-
-        assertThat(moved.getZ()).isCloseTo(4f - Terrain.LAND_MARGIN, within(1e-5f));
-        assertThat(moved.getX()).isEqualTo(8.6f);
-        assertThat(RIVER.isWaterAt(moved)).isFalse();
-    }
-
-    @Test
-    void everyWaterCellOffersALandPositionOutside() {
+    void theSidesAreSixteenSegmentsAndEveryEndIsSharedOrOnTheArenaBoundary() {
+        List<float[]> ends = new ArrayList<>();
+        int sides = 0;
         for (Terrain.Cell cell : RIVER.waterCells()) {
-            Vector3 moved = RIVER.nearestLand(cell.center());
+            for (Terrain.Side side : RIVER.exposedSides(cell)) {
+                sides++;
+                Vector3 center = cell.center();
+                ends.add(new float[] {center.getX() + side.start().getX(), center.getZ() + side.start().getZ()});
+                ends.add(new float[] {center.getX() + side.end().getX(), center.getZ() + side.end().getZ()});
+            }
+        }
 
-            assertThat(RIVER.isWaterAt(moved)).as("%s", cell).isFalse();
-            assertThat(moved.getX()).isBetween(0f, (float) GameConfig.WIDTH);
-            assertThat(moved.getZ()).isBetween(0f, (float) GameConfig.HEIGHT);
+        assertThat(sides).isEqualTo(16);
+        for (float[] end : ends) {
+            boolean onBoundary = end[0] == 0f || end[0] == GameConfig.WIDTH || end[1] == 0f || end[1] == GameConfig.HEIGHT;
+            long sharing = ends.stream().filter(other -> other[0] == end[0] && other[1] == end[1]).count();
+            // a free end would be a gap a ground body could walk through
+            assertThat(onBoundary || sharing == 2).as("end (%s, %s)", end[0], end[1]).isTrue();
         }
     }
 

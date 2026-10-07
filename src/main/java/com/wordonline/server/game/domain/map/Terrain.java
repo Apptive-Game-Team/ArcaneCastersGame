@@ -8,11 +8,12 @@ import com.wordonline.server.game.domain.object.Vector3;
 
 /**
  * Which cells of the arena are water. A cell is a square of side 1: column is floor(x), row is
- * floor(z). Pathfinding, the summon placement check and the physics step all ask this one object,
- * so the three can never disagree about where the water is.
+ * floor(z). Pathfinding, the summon placement check and the water colliders all ask this one
+ * object, so the three can never disagree about where the water is.
  * <p>
- * Water blocks ground bodies only. Bridge cells are ordinary land that exist to be drawn: they
- * are kept here so the loop can spawn them and the tests can pin the layout.
+ * Water blocks ground bodies only. {@link #exposedSides} gives the cell sides that become
+ * colliders. Bridge cells are ordinary land that exist to be drawn: they are kept here so the
+ * loop can spawn them and the tests can pin the layout.
  */
 public final class Terrain {
 
@@ -32,12 +33,6 @@ public final class Terrain {
      * 12 bridge cells, mirrored about x = 9.
      */
     public static final Terrain RIVER = river();
-
-    // How far inside the land cell a body is put when it is moved out of the water, so that the
-    // position is unambiguously in the land cell and not on the shared edge.
-    static final float LAND_MARGIN = 0.01f;
-
-    private static final int[][] DIRECTIONS = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
 
     private final List<Cell> waterCells;
     private final List<Cell> bridgeCells;
@@ -114,49 +109,40 @@ public final class Terrain {
         return nearest;
     }
 
+    /** A segment from {@code start} to {@code end}, relative to the center of the cell it belongs to. */
+    public record Side(Vector3 start, Vector3 end) {
+    }
+
     /**
-     * The position itself when it is on land; otherwise the closest position on land, found by
-     * leaving the water straight along one of the four axes and keeping the shortest way out.
-     * Only the x and z change. A position with no way out (surrounded by water up to the arena
-     * edge) is returned unchanged.
+     * The sides of a water cell that face something that is not water: land beyond the river or a
+     * bridge cell. A side shared with another water cell is left out, and so is a side on the arena
+     * boundary, which the map wall already covers. The sides are given relative to the cell center
+     * (the position of the object that carries them), counter-clockwise from the east side, and the
+     * four sides of one cell meet at its corners, so two neighbouring cells leave no gap between
+     * their sides. A cell that is not water has no sides.
      */
-    public Vector3 nearestLand(Vector3 position) {
-        int column = (int) Math.floor(position.getX());
-        int row = (int) Math.floor(position.getZ());
-        if (!isWater(column, row)) {
-            return position;
+    public List<Side> exposedSides(Cell cell) {
+        List<Side> sides = new ArrayList<>();
+        if (!isWater(cell.column(), cell.row())) {
+            return sides;
         }
-
-        Vector3 best = null;
-        float bestDistance = Float.POSITIVE_INFINITY;
-        for (int[] direction : DIRECTIONS) {
-            int landColumn = column;
-            int landRow = row;
-            while (isWater(landColumn, landRow)) {
-                landColumn += direction[0];
-                landRow += direction[1];
-            }
-            if (landColumn < 0 || landColumn >= GameConfig.WIDTH || landRow < 0 || landRow >= GameConfig.HEIGHT) {
-                continue;
-            }
-
-            float x = position.getX();
-            float z = position.getZ();
-            if (direction[0] > 0) {
-                x = landColumn + LAND_MARGIN;
-            } else if (direction[0] < 0) {
-                x = landColumn + 1 - LAND_MARGIN;
-            } else if (direction[1] > 0) {
-                z = landRow + LAND_MARGIN;
-            } else {
-                z = landRow + 1 - LAND_MARGIN;
-            }
-            float distance = Math.abs(x - position.getX()) + Math.abs(z - position.getZ());
-            if (distance < bestDistance) {
-                bestDistance = distance;
-                best = new Vector3(x, position.getY(), z);
+        float half = 0.5f;
+        // east, north (+z), west, south (-z)
+        int[][] neighbours = {{1, 0}, {0, 1}, {-1, 0}, {0, -1}};
+        Vector3[][] ends = {
+                {new Vector3(half, 0f, -half), new Vector3(half, 0f, half)},
+                {new Vector3(half, 0f, half), new Vector3(-half, 0f, half)},
+                {new Vector3(-half, 0f, half), new Vector3(-half, 0f, -half)},
+                {new Vector3(-half, 0f, -half), new Vector3(half, 0f, -half)},
+        };
+        for (int i = 0; i < neighbours.length; i++) {
+            int column = cell.column() + neighbours[i][0];
+            int row = cell.row() + neighbours[i][1];
+            boolean insideArena = column >= 0 && column < GameConfig.WIDTH && row >= 0 && row < GameConfig.HEIGHT;
+            if (insideArena && !isWater(column, row)) {
+                sides.add(new Side(ends[i][0], ends[i][1]));
             }
         }
-        return best == null ? position : best;
+        return sides;
     }
 }
