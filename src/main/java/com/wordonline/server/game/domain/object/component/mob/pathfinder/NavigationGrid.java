@@ -3,6 +3,7 @@ package com.wordonline.server.game.domain.object.component.mob.pathfinder;
 import java.util.Arrays;
 import java.util.List;
 
+import com.wordonline.server.game.domain.map.Terrain;
 import com.wordonline.server.game.domain.object.Vector3;
 
 /**
@@ -29,11 +30,24 @@ public final class NavigationGrid {
      *                  radius, steering along cell centers, does not scrape the obstacle
      */
     public NavigationGrid(int columns, int rows, List<Obstacle> obstacles, float clearance) {
+        this(columns, rows, obstacles, clearance, Terrain.NONE);
+    }
+
+    /**
+     * Water cells of the terrain are blocked outright, with no clearance: a cell is water when its
+     * center is in a water cell, so ground walkers only ever steer through land cell centers.
+     */
+    public NavigationGrid(int columns, int rows, List<Obstacle> obstacles, float clearance, Terrain terrain) {
         this.columns = columns;
         this.rows = rows;
         this.blocked = new boolean[columns * rows];
         for (Obstacle obstacle : obstacles) {
             block(obstacle, clearance);
+        }
+        for (int cell = 0; cell < blocked.length; cell++) {
+            if (terrain.isWater(column(cell), row(cell))) {
+                blocked[cell] = true;
+            }
         }
     }
 

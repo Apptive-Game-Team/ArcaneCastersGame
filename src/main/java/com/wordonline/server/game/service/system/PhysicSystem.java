@@ -1,6 +1,9 @@
 package com.wordonline.server.game.service.system;
 
+import com.wordonline.server.game.config.GameConfig;
+import com.wordonline.server.game.domain.map.Terrain;
 import com.wordonline.server.game.domain.object.GameObject;
+import com.wordonline.server.game.domain.object.component.Damageable;
 import com.wordonline.server.game.domain.object.Vector3;
 import com.wordonline.server.game.domain.object.prefab.PrefabType;
 import com.wordonline.server.game.domain.object.component.physic.Collider;
@@ -53,6 +56,32 @@ public class PhysicSystem implements CollisionSystem, GameSystem {
         // setPosition, can remove objects mid-frame, so the velocity pass wants the fresher
         // list rather than the one the broad phase started from
         onUpdateEnd(gameContext.getActiveGameObjects());
+        keepGroundBodiesOutOfWater(gameContext);
+    }
+
+    // Knockback, pulls and collisions all end in a position, whether through RigidBody velocity or a
+    // direct setPosition, so one pass after every position has been applied covers them all. Only
+    // ground bodies are moved: anything with hp (Damageable) that is below the aerial height and
+    // still alive. Flyers, projectiles, drops and explosions are skipped, as are dying objects that
+    // are falling to the ground. The body's center is what counts, the same rule as pathfinding.
+    private void keepGroundBodiesOutOfWater(GameContext gameContext) {
+        Terrain terrain = gameContext.getTerrain();
+        if (terrain == null || terrain.isEmpty()) {
+            return;
+        }
+        for (GameObject gameObject : gameContext.getActiveGameObjects()) {
+            if (!isGroundBody(gameObject) || !terrain.isWaterAt(gameObject.getPosition())) {
+                continue;
+            }
+            gameObject.setPosition(terrain.nearestLand(gameObject.getPosition()));
+        }
+    }
+
+    private boolean isGroundBody(GameObject gameObject) {
+        return !gameObject.isDestroyed()
+                && !gameObject.isDying()
+                && gameObject.getPosition().getY() < GameConfig.AERIAL_STANDARD_HEIGHT
+                && gameObject.hasComponent(Damageable.class);
     }
 
     private void handleCollisions(List<GameObject> gameObjects) {

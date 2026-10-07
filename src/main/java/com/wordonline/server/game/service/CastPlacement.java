@@ -5,6 +5,7 @@ import java.util.Optional;
 import com.wordonline.server.game.config.GameConfig;
 import com.wordonline.server.game.domain.magic.Magic;
 import com.wordonline.server.game.domain.magic.ObjectSummoningMagic;
+import com.wordonline.server.game.domain.map.Terrain;
 import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.Vector3;
 import com.wordonline.server.game.domain.object.component.Damageable;
@@ -12,7 +13,7 @@ import com.wordonline.server.game.domain.object.component.physic.CircleCollider;
 import com.wordonline.server.game.domain.object.prefab.PrefabType;
 
 /**
- * 유닛과 건물을 놓을 자리가 이미 땅 위의 다른 몸과 겹치는지 본다. 공중에 나타나는 소환은 무엇과도
+ * 유닛과 건물을 놓을 자리가 이미 땅 위의 다른 몸과 겹치거나 물 위인지 본다. 공중에 나타나는 소환은 무엇과도
  * 겹쳐 놓을 수 있고, 공중에 떠 있는 몸도 장애물로 치지 않는다. 쏘기·떨구기·폭발처럼 몸을 남기지
  * 않는 마법은 검사하지 않는다.
  */
@@ -39,6 +40,9 @@ public final class CastPlacement {
 
         float radius = bodyRadius(gameContext, summoning.summonedPrefab());
         Vector3 ground = position.grounded();
+        if (touchesWater(gameContext.getTerrain(), ground, radius)) {
+            return true;
+        }
         for (GameObject other : gameContext.getActiveGameObjects()) {
             if (overlapsGroundBody(other, ground, radius)) {
                 return true;
@@ -72,6 +76,15 @@ public final class CastPlacement {
             }
         }
         return Optional.empty();
+    }
+
+    // 겨눈 자리에서 물 칸의 1 x 1 사각형까지 가장 가까운 점의 거리가 소환 반경 * 비율보다 작으면 막힌다.
+    // 사각형 안을 겨누면 거리가 0 이라 막힌다. 다리 칸은 물이 아니므로 막지 않는다. Unity client 가 같은 식을 쓴다.
+    private static boolean touchesWater(Terrain terrain, Vector3 ground, float radius) {
+        if (terrain == null || terrain.isEmpty()) {
+            return false;
+        }
+        return terrain.distanceToWater(ground) < radius * PLACEMENT_OVERLAP_RATIO;
     }
 
     private static boolean overlapsGroundBody(GameObject other, Vector3 ground, float radius) {

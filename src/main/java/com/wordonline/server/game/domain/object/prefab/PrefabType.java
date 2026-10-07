@@ -164,6 +164,8 @@ public enum PrefabType {
     LightningTadpole("lightning_tadpole_prefab"),
 
     Wall("wall_prefab"),
+    RiverWater("river_water_prefab"),
+    RiverBridge("river_bridge_prefab"),
 
     Player("player_prefab");
 
