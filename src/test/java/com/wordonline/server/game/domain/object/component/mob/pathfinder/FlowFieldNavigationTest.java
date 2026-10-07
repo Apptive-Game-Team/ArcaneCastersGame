@@ -126,6 +126,42 @@ class FlowFieldNavigationTest {
         assertThat(navigation.findPath(START, END)).containsExactly(START, END);
     }
 
+    @Test
+    void theGridIsNotRebuiltOnFramesWhereNoObstacleChanged() {
+        gameObjects.add(obstacleAt(9f, 5f, 1f));
+
+        navigation.findPath(START, END);
+        for (int i = 0; i < 5; i++) {
+            frame++;
+            navigation.findPath(START, END);
+        }
+
+        assertThat(navigation.gridBuilds()).isEqualTo(1);
+    }
+
+    @Test
+    void anArenaWithoutObstaclesNeverBuildsAGrid() {
+        for (int i = 0; i < 5; i++) {
+            frame++;
+            navigation.findPath(START, END);
+        }
+
+        assertThat(navigation.gridBuilds()).isZero();
+    }
+
+    @Test
+    void anObstacleThatMovesIsNoticedEvenThoughTheObjectHandsOutTheSamePositionInstance() {
+        Vector3 position = new Vector3(9f, 0f, 5f);
+        gameObjects.add(obstacleAtPosition(position, 1f));
+        assertThat(navigation.findPath(START, END)).hasSizeGreaterThan(2);
+
+        position.setZ(8f);
+        frame++;
+
+        assertThat(navigation.findPath(START, END)).containsExactly(START, END);
+        assertThat(navigation.gridBuilds()).isEqualTo(2);
+    }
+
     private static boolean everySegmentAvoids(List<Vector3> path, NavigationGrid.Obstacle obstacle) {
         NavigationGrid grid = new NavigationGrid(GameConfig.WIDTH, GameConfig.HEIGHT, List.of(obstacle),
                 FlowFieldNavigation.OBSTACLE_CLEARANCE);
@@ -138,10 +174,15 @@ class FlowFieldNavigationTest {
     }
 
     private static GameObject obstacleAt(float x, float z, float radius) {
+        return obstacleAtPosition(new Vector3(x, 0f, z), radius);
+    }
+
+    /** The mock returns this very instance on every call, as a real GameObject does. */
+    private static GameObject obstacleAtPosition(Vector3 position, float radius) {
         GameObject obstacle = mock(GameObject.class);
         when(obstacle.isActive()).thenReturn(true);
         when(obstacle.hasComponent(StaticObstacle.class)).thenReturn(true);
-        when(obstacle.getPosition()).thenReturn(new Vector3(x, 0f, z));
+        when(obstacle.getPosition()).thenReturn(position);
         when(obstacle.getFirstCircleCollider(false))
                 .thenReturn(Optional.of(new CircleCollider(obstacle, radius, false)));
         return obstacle;

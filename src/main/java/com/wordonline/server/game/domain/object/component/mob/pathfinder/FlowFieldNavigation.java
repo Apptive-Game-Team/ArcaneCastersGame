@@ -16,7 +16,8 @@ import com.wordonline.server.game.domain.object.component.physic.StaticObstacle;
 /**
  * Finds ground paths around {@link StaticObstacle} objects, one per game session.
  * <p>
- * The grid is rebuilt from the live objects at most once per frame, and a field is computed per
+ * The live objects are scanned for obstacles at most once per frame and the grid is rebuilt only when
+ * that list differs from the last one, and a field is computed per
  * goal cell the first time a walker asks for it. Mobs chase different targets but the arena has
  * only {@code columns * rows} cells, so the cache is bounded by that and cleared whenever the set
  * of blocked cells changes.
@@ -35,7 +36,9 @@ public class FlowFieldNavigation implements PathFinder {
     private final Map<Integer, FlowField> fieldsByGoalCell = new HashMap<>();
 
     private NavigationGrid grid = new NavigationGrid(GameConfig.WIDTH, GameConfig.HEIGHT, List.of(), OBSTACLE_CLEARANCE);
+    private List<NavigationGrid.Obstacle> obstacles = List.of();
     private int lastRefreshedFrame = -1;
+    private int gridBuilds = 0;
 
     public FlowFieldNavigation(IntSupplier frameNumber, Supplier<List<GameObject>> gameObjects) {
         this.frameNumber = frameNumber;
@@ -119,7 +122,15 @@ public class FlowFieldNavigation implements PathFinder {
         }
         lastRefreshedFrame = frame;
 
-        NavigationGrid latest = new NavigationGrid(GameConfig.WIDTH, GameConfig.HEIGHT, collectObstacles(), OBSTACLE_CLEARANCE);
+        List<NavigationGrid.Obstacle> latestObstacles = collectObstacles();
+        // The scan above is all a frame costs while nothing changed; the grid is the expensive part.
+        if (latestObstacles.equals(obstacles)) {
+            return;
+        }
+        obstacles = latestObstacles;
+
+        NavigationGrid latest = new NavigationGrid(GameConfig.WIDTH, GameConfig.HEIGHT, latestObstacles, OBSTACLE_CLEARANCE);
+        gridBuilds++;
         if (!latest.hasSameBlockingAs(grid)) {
             grid = latest;
             fieldsByGoalCell.clear();
@@ -127,15 +138,22 @@ public class FlowFieldNavigation implements PathFinder {
     }
 
     private List<NavigationGrid.Obstacle> collectObstacles() {
-        List<NavigationGrid.Obstacle> obstacles = new ArrayList<>();
+        List<NavigationGrid.Obstacle> found = new ArrayList<>();
         for (GameObject gameObject : gameObjects.get()) {
             if (!gameObject.isActive() || !gameObject.hasComponent(StaticObstacle.class)) {
                 continue;
             }
+            // The position is copied: the object keeps the Vector3 it returns, so comparing against
+            // that same instance later would call a moved obstacle unchanged.
             gameObject.getFirstCircleCollider(false)
                     .map(CircleCollider::getRadius)
-                    .ifPresent(radius -> obstacles.add(new NavigationGrid.Obstacle(gameObject.getPosition(), radius)));
+                    .ifPresent(radius -> found.add(new NavigationGrid.Obstacle(new Vector3(gameObject.getPosition()), radius)));
         }
-        return obstacles;
+        return found;
+    }
+
+    /** How many times the grid was built from the live objects; the tests use it to see a skipped rebuild. */
+    int gridBuilds() {
+        return gridBuilds;
     }
 }

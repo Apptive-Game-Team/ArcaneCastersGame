@@ -39,8 +39,13 @@ public final class NavigationGrid {
 
     private void block(Obstacle obstacle, float clearance) {
         float reach = obstacle.radius() + clearance;
+        float reachSquared = reach * reach;
         for (int cell = 0; cell < blocked.length; cell++) {
-            if (centerOf(cell).grounded().distance(obstacle.center().grounded()) <= reach) {
+            // Plain arithmetic: a grid is rebuilt whenever the obstacle set changes, and building a
+            // Vector3 per cell per obstacle dominated that cost.
+            float offsetX = (column(cell) + 0.5f) * CELL_SIZE - obstacle.center().getX();
+            float offsetZ = (row(cell) + 0.5f) * CELL_SIZE - obstacle.center().getZ();
+            if (offsetX * offsetX + offsetZ * offsetZ <= reachSquared) {
                 blocked[cell] = true;
             }
         }
