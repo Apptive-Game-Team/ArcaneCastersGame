@@ -125,10 +125,16 @@ class PhysicSystemRiverColliderTest {
             world.tick();
         }
 
-        // the bank only cancels the x part, so z keeps its 2 * 0.05 * 15 = 1.5 (a little more: the
-        // pocket corner at (8, 4) deflects the first touch), and the body stays on the bank, z < 6
+        // The bank only cancels the x part, so z keeps its 2 * 0.05 * 15 = 1.5. The pocket corner at
+        // (8, 4) deflects the first touch, and by how much depends on which of the two water cells'
+        // edges the physics system resolves first. That order follows the objects' identity hash codes
+        // (Pair orders its two bodies by hashCode, and the pairs sit in a HashSet), so it changes from
+        // run to run: over 1500 fresh worlds the slide came out as 1.43 about half of the time and as
+        // 1.55 the other half, nothing in between. A single exact range therefore flickered. What this
+        // test guards is that the body slides along the bank (most of the 1.5, not stuck on the corner)
+        // without overshooting, and stays on the land side.
         assertThat(body.getPosition().getX()).isLessThan(8f - 0.5f + 0.15f);
-        assertThat(body.getPosition().getZ()).isBetween(4.2f + 1.5f - 0.02f, 4.2f + 1.5f + 0.15f);
+        assertThat(body.getPosition().getZ() - 4.2f).isBetween(1.3f, 1.7f);
         assertThat(Terrain.RIVER.isWaterAt(body.getPosition())).isFalse();
     }
 
