@@ -13,6 +13,7 @@ import com.wordonline.server.game.domain.Parameters;
 import com.wordonline.server.game.domain.SessionObject;
 import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.Vector3;
+import com.wordonline.server.game.domain.object.component.mob.pathfinder.FlowFieldNavigation;
 import com.wordonline.server.game.domain.object.prefab.PrefabType;
 import com.wordonline.server.game.dto.Master;
 import com.wordonline.server.game.dto.frame.GameEventDto;
@@ -45,6 +46,7 @@ public class GameContext {
     private CardSelectVisualizer cardSelectVisualizer;
     private final List<GameEventDto> events = new ArrayList<>();
     private final GameActionQueue actionQueue = new GameActionQueue();
+    private final FlowFieldNavigation navigation = new FlowFieldNavigation(this::getFrameNum, this::getGameObjects);
 
     private WordOnlineLoop gameLoop;
 
