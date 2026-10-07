@@ -89,8 +89,8 @@ class PhysicSystemRiverColliderTest {
     }
 
     @Test
-    void aBodyIsStoppedAtEverySpeedTheGameHasUpToTwelveUnitsPerSecond() {
-        // 12 는 한 frame 에 0.6 이라 반경 0.5 보다 크지만, 걸리는 거리가 0.5 에서 시작하므로 가장자리 안에서 잡힌다
+    void aBodyIsStoppedAtSpeedsUpToTwelveUnitsPerSecondFromTheStartUsed() {
+        // 게임의 가장 빠른 값은 8 이다. 10 보다 빠른 속도는 변 앞 0.5 를 건너뛸 수 있어 출발 위치에 따라 달라진다
         for (float speed : new float[] {1f, 3f, 4f, 6f, 8f, 10f, 12f}) {
             GameObject body = world.body(Master.LeftPlayer, new Vector3(5.2f, 0f, 5f));
 
