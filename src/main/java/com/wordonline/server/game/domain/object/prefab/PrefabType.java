@@ -164,6 +164,7 @@ public enum PrefabType {
     LightningTadpole("lightning_tadpole_prefab"),
 
     Wall("wall_prefab"),
+    RockObstacle("rock_obstacle_prefab"),
 
     Player("player_prefab");
 

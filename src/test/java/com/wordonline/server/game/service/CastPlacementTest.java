@@ -10,6 +10,7 @@ import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.Vector3;
 import com.wordonline.server.game.domain.object.component.Damageable;
 import com.wordonline.server.game.domain.object.component.physic.CircleCollider;
+import com.wordonline.server.game.domain.object.component.physic.StaticObstacle;
 import com.wordonline.server.game.domain.object.prefab.PrefabType;
 import org.junit.jupiter.api.Test;
 
@@ -105,6 +106,58 @@ class CastPlacementTest {
 
         // 임계값 (5 + 1) * 0.6 = 3.6 이 탐색 반경 최대 3.0 보다 크다
         assertThat(CastPlacement.resolveSpot(gameContext, summoning(false), aim, aim, 3)).isEmpty();
+    }
+
+    @Test
+    void summonAimedAtARockIsBlockedByTheRockRadius() {
+        GameContext gameContext = context(List.of(rock(new Vector3(5f, 0f, 5f), 0.6f)));
+        Magic tower = summoning(false);
+        float sum = 1.6f; // 타워 반경 1 + 바위 반경 0.6
+
+        assertThat(CastPlacement.isBlocked(gameContext, tower, new Vector3(5f, 0f, 5f))).isTrue();
+        assertThat(CastPlacement.isBlocked(gameContext, tower, new Vector3(5f + 0.5f * sum, 0f, 5f))).isTrue();
+        assertThat(CastPlacement.isBlocked(gameContext, tower, new Vector3(5f + 0.7f * sum, 0f, 5f))).isFalse();
+    }
+
+    @Test
+    void blockedByARockSnapsToAFreeSpotBesideIt() {
+        GameContext gameContext = context(List.of(rock(new Vector3(5f, 0f, 5f), 0.6f)));
+        Magic tower = summoning(false);
+
+        Optional<Vector3> spot = CastPlacement.resolveSpot(
+                gameContext, tower, new Vector3(5f, 0f, 5f), new Vector3(1f, 0f, 5f), 9);
+
+        // 임계값 (1 + 0.6) * 0.6 = 0.96 이므로 링 4 (1.0)의 각도 0 (+x)이 처음 빈자리다
+        assertThat(spot).isPresent();
+        assertThat(spot.get().getX()).isCloseTo(6f, within(1e-4f));
+        assertThat(spot.get().getZ()).isCloseTo(5f, within(1e-4f));
+        assertThat(CastPlacement.isBlocked(gameContext, tower, spot.get())).isFalse();
+    }
+
+    @Test
+    void rocksDoNotBlockAirborneSummonsOrMagicsThatLeaveNoBody() {
+        GameContext gameContext = context(List.of(rock(new Vector3(5f, 0f, 5f), 0.6f)));
+
+        assertThat(CastPlacement.isBlocked(gameContext, summoning(true), new Vector3(5f, 0f, 5f))).isFalse();
+        assertThat(CastPlacement.isBlocked(gameContext, mock(Magic.class), new Vector3(5f, 0f, 5f))).isFalse();
+    }
+
+    @Test
+    void damageableBodyStillBlocksAndABodyWithNeitherDoesNot() {
+        GameContext withDamageable = context(List.of(body(new Vector3(5f, 0f, 5f), 0.5f)));
+        assertThat(CastPlacement.isBlocked(withDamageable, summoning(false), new Vector3(5f, 0f, 5f))).isTrue();
+
+        GameObject neither = body(new Vector3(5f, 0f, 5f), 0.5f);
+        when(neither.getComponents(Damageable.class)).thenReturn(List.of());
+        assertThat(CastPlacement.isBlocked(context(List.of(neither)), summoning(false), new Vector3(5f, 0f, 5f)))
+                .isFalse();
+    }
+
+    private GameObject rock(Vector3 position, float radius) {
+        GameObject rock = body(position, radius);
+        when(rock.getComponents(Damageable.class)).thenReturn(List.of());
+        when(rock.hasComponent(StaticObstacle.class)).thenReturn(true);
+        return rock;
     }
 
     private Magic summoning(boolean airborne) {

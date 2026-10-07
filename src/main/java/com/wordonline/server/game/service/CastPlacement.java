@@ -9,10 +9,12 @@ import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.Vector3;
 import com.wordonline.server.game.domain.object.component.Damageable;
 import com.wordonline.server.game.domain.object.component.physic.CircleCollider;
+import com.wordonline.server.game.domain.object.component.physic.StaticObstacle;
 import com.wordonline.server.game.domain.object.prefab.PrefabType;
 
 /**
- * 유닛과 건물을 놓을 자리가 이미 땅 위의 다른 몸과 겹치는지 본다. 공중에 나타나는 소환은 무엇과도
+ * 유닛과 건물을 놓을 자리가 이미 땅 위의 다른 몸과 겹치는지 본다. 맞을 수 있는 몸(Damageable)과
+ * 고정 장애물(StaticObstacle, 바위 장애물 등)이 모두 몸으로 친다. 공중에 나타나는 소환은 무엇과도
  * 겹쳐 놓을 수 있고, 공중에 떠 있는 몸도 장애물로 치지 않는다. 쏘기·떨구기·폭발처럼 몸을 남기지
  * 않는 마법은 검사하지 않는다.
  */
@@ -81,7 +83,7 @@ public final class CastPlacement {
         if (other.getPosition().getY() >= GameConfig.AERIAL_STANDARD_HEIGHT) {
             return false;
         }
-        if (other.getComponents(Damageable.class).isEmpty()) {
+        if (other.getComponents(Damageable.class).isEmpty() && !other.hasComponent(StaticObstacle.class)) {
             return false;
         }
 

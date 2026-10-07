@@ -112,6 +112,9 @@ public abstract class GameLoop implements Runnable {
             new GameObject(Master.RightPlayer, PrefabType.Player, GameConfig.RIGHT_PLAYER_POSITION, gameContext);
         }
         new GameObject(Master.None, PrefabType.Wall, Vector3.ZERO, gameContext);
+        for (Vector3 rockPosition : GameConfig.ROCK_OBSTACLE_POSITIONS) {
+            new GameObject(Master.None, PrefabType.RockObstacle, new Vector3(rockPosition), gameContext);
+        }
     }
 
     public boolean is_running() {
