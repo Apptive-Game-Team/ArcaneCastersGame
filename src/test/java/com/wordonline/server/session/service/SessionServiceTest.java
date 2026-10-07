@@ -200,6 +200,38 @@ class SessionServiceTest {
                 .containsExactly(now, now.plusSeconds(60));
     }
 
+    // Spectators pick a room from this list, so it must say which map the room runs.
+    @Test
+    void roomListCarriesTheMapTypeOfEachSession() {
+        when(sessionObject.getCreatedAt()).thenReturn(Instant.parse("2026-08-16T00:00:00Z"));
+        when(sessionObject.getMap()).thenReturn(com.wordonline.server.game.domain.map.GameMap.RIVER);
+        sessionService.createSession(sessionDto);
+
+        assertThat(sessionService.getAllActiveSessionsInfo("http://game"))
+                .extracting(RoomInfoDto::mapType)
+                .containsExactly(com.wordonline.server.game.domain.map.GameMap.RIVER);
+    }
+
+    @Test
+    void createSessionReturnsTheSessionWithItsMap() {
+        when(sessionObject.getMap()).thenReturn(com.wordonline.server.game.domain.map.GameMap.GATE);
+
+        SessionObject created = sessionService.createSession(sessionDto);
+
+        assertThat(created).isSameAs(sessionObject);
+    }
+
+    @Test
+    void attemptResultCarriesTheMapAndARepeatedAttemptKeepsIt() {
+        when(sessionObject.getMap()).thenReturn(com.wordonline.server.game.domain.map.GameMap.FOREST);
+
+        SessionCreationResult first = sessionService.createSession("attempt-1", sessionDto);
+        SessionCreationResult repeated = sessionService.createSession("attempt-1", sessionDto);
+
+        assertThat(first.mapType()).isEqualTo(com.wordonline.server.game.domain.map.GameMap.FOREST);
+        assertThat(repeated.mapType()).isEqualTo(com.wordonline.server.game.domain.map.GameMap.FOREST);
+    }
+
     @Test
     void missingSessionIsInactive() {
         assertFalse(sessionService.isSessionActive("missing"));

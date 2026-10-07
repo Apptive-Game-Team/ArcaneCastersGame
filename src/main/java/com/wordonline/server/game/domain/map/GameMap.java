@@ -1,13 +1,18 @@
 package com.wordonline.server.game.domain.map;
 
 /**
- * The arena layout of one match. {@code DEFAULT} is the open arena; {@code RIVER} adds a river
- * across the middle with two bridges. Which one a match gets is decided once, by
- * {@link GameMapSelector}, when the loop is initialized.
+ * The map kind of one match, sent to the client as {@code mapType}. Only {@code RIVER} has
+ * terrain (a river across the middle with two bridges); the other four have none and only name
+ * the look the client draws. PVP, practice and bot matches get {@code GRASSLAND} or {@code RIVER};
+ * {@code FORTRESS}, {@code GATE} and {@code FOREST} come only from {@code adventures.map_type} for
+ * PVE. {@link GameMapSelector} decides it once, before the session is created.
  */
 public enum GameMap {
-    DEFAULT,
-    RIVER;
+    GRASSLAND,
+    RIVER,
+    FORTRESS,
+    GATE,
+    FOREST;
 
     public Terrain terrain() {
         return this == RIVER ? Terrain.RIVER : Terrain.NONE;

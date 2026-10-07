@@ -110,3 +110,32 @@ VALUES
     (30, 'storm_rider', 'Wind'),
     (31, 'thunder_spirit', 'Lightning'),
     (32, 'fire_spirit', 'Fire');
+
+-- Scenario 4 belongs to an adventure that leaves map_type out, so it takes the column default.
+-- Scenario 5 belongs to a stage without an adventure, scenario 6 to no stage at all.
+INSERT INTO adventures (id, name, map_type)
+VALUES
+    (1, 'forest_adventure', 'FOREST'),
+    (2, 'fortress_adventure', 'FORTRESS'),
+    (3, 'gate_adventure', 'GATE');
+
+INSERT INTO adventures (id, name)
+VALUES
+    (4, 'default_adventure');
+
+INSERT INTO stages (id, adventure_id)
+VALUES
+    (1, 1),
+    (2, 2),
+    (3, 3),
+    (4, 4),
+    (5, NULL);
+
+INSERT INTO scenarios (id, stage_id)
+VALUES
+    (1, 1),
+    (2, 2),
+    (3, 3),
+    (4, 4),
+    (5, 5),
+    (6, NULL);

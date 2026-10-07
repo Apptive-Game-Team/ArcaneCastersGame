@@ -1,10 +1,8 @@
 package com.wordonline.server.game.service;
 
 import com.wordonline.server.game.config.GameConfig;
-import com.wordonline.server.game.config.GameMapProperties;
 import com.wordonline.server.game.domain.*;
 import com.wordonline.server.game.domain.map.GameMap;
-import com.wordonline.server.game.domain.map.GameMapSelector;
 import com.wordonline.server.game.domain.map.Terrain;
 import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.Vector3;
@@ -75,11 +73,6 @@ public abstract class GameLoop implements Runnable {
     private SpectatorSubscriptionRegistry spectatorSubscriptionRegistry;
     private Runnable onTerminated;
 
-    // Setter injection for the same reason as the registry above. Until Spring sets it the loop
-    // keeps the open arena, so a loop built by hand in a test never rolls a river.
-    private GameMapSelector gameMapSelector =
-            new GameMapSelector(new GameMapProperties(GameMapProperties.Selection.DEFAULT));
-
     private final MmrService mmrService;
     private final UserService userService;
 
@@ -109,11 +102,6 @@ public abstract class GameLoop implements Runnable {
         this.spectatorSubscriptionRegistry = spectatorSubscriptionRegistry;
     }
 
-    @Autowired
-    public void setGameMapSelector(GameMapSelector gameMapSelector) {
-        this.gameMapSelector = gameMapSelector;
-    }
-
     protected final void initializeLoop(SessionObject sessionObject, Runnable onTerminated, boolean createRightPlayer) {
         this.sessionObject = sessionObject;
         this.onTerminated = onTerminated;
@@ -127,9 +115,10 @@ public abstract class GameLoop implements Runnable {
         }
         new GameObject(Master.None, PrefabType.Wall, Vector3.ZERO, gameContext);
 
-        // Chosen here because every loop passes through this method. The terrain is set before the
-        // cells are spawned so that nothing asks for it while it is still empty.
-        GameMap map = gameMapSelector.choose(sessionObject.getSessionType());
+        // The loop does not choose the map: the session already holds the one the creation response
+        // told the client. The terrain is set before the cells are spawned so that nothing asks
+        // for it while it is still empty.
+        GameMap map = sessionObject.getMap();
         gameContext.setTerrain(map.terrain());
         spawnTerrain(map.terrain());
         log.info("[Map] session={} type={} map={}", sessionObject.getSessionId(), sessionObject.getSessionType(), map);

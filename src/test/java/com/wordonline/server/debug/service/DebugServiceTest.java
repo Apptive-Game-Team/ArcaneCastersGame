@@ -6,7 +6,11 @@ import com.wordonline.server.bot.domain.BotTier;
 import com.wordonline.server.bot.service.BotPersonaService;
 import com.wordonline.server.debug.dto.DebugGameRequestDto;
 import com.wordonline.server.deck.service.DeckService;
+import com.wordonline.server.game.domain.SessionObject;
 import com.wordonline.server.game.domain.SessionType;
+import com.wordonline.server.game.domain.map.GameMap;
+import com.wordonline.server.debug.dto.DebugGameResponseDto;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import com.wordonline.server.game.domain.magic.parser.DatabaseMagicParser;
 import com.wordonline.server.game.dto.Master;
 import com.wordonline.server.game.repository.MagicRepository;
@@ -19,10 +23,14 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -40,6 +48,48 @@ class DebugServiceTest {
     @BeforeEach
     void setUp() {
         debugService = new DebugService(sessionService, deckService, magicParser, magicRepository, botPersonaService);
+        stubCreatedSessionWithMap(GameMap.GRASSLAND);
+    }
+
+    // SessionService hands back the session it created; its map is what the response must carry.
+    private void stubCreatedSessionWithMap(GameMap map) {
+        lenient().when(sessionService.createSession(any(SessionDto.class))).thenAnswer(invocation -> {
+            SessionDto dto = invocation.getArgument(0);
+            return new SessionObject(dto.sessionId(), dto.uid1(), dto.uid2(), mock(SimpMessagingTemplate.class),
+                    List.of(), List.of(), dto.sessionType(), dto.scenarioId(), map);
+        });
+    }
+
+    @Test
+    void pveResponseCarriesTheMapOfTheCreatedSession() {
+        stubCreatedSessionWithMap(GameMap.FOREST);
+
+        DebugGameResponseDto response =
+                debugService.enterPveSession(new DebugGameRequestDto(Master.LeftPlayer, 31, 9L));
+
+        assertThat(response.mapType()).isEqualTo(GameMap.FOREST);
+        assertThat(response.sessionId()).startsWith("debug-pve-");
+    }
+
+    @Test
+    void practiceResponseCarriesTheMapOfTheCreatedSession() {
+        stubCreatedSessionWithMap(GameMap.RIVER);
+        when(botPersonaService.findRandomEnabled()).thenReturn(Optional.of(persona(-12)));
+
+        DebugGameResponseDto response =
+                debugService.enterPracticeSession(new DebugGameRequestDto(Master.LeftPlayer, 31, null));
+
+        assertThat(response.mapType()).isEqualTo(GameMap.RIVER);
+    }
+
+    @Test
+    void testSessionResponseCarriesTheMapOfTheSharedDebugSession() {
+        stubCreatedSessionWithMap(GameMap.RIVER);
+
+        DebugGameResponseDto first =
+                debugService.enterTestSession(new DebugGameRequestDto(null, 31, null));
+
+        assertThat(first.mapType()).isEqualTo(GameMap.RIVER);
     }
 
     @Test

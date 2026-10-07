@@ -72,8 +72,8 @@ public class SessionService {
         onSessionNumChange.subscribe(subscriber);
     }
 
-    public void createSession(SessionDto sessionDto) {
-        createSessionObject(sessionDto);
+    public SessionObject createSession(SessionDto sessionDto) {
+        return createSessionObject(sessionDto);
     }
 
     public synchronized SessionCreationResult createSession(String attemptId, SessionDto sessionDto) {
@@ -86,7 +86,9 @@ public class SessionService {
             if (!existingSessionId.equals(sessionDto.sessionId())) {
                 throw new IllegalArgumentException("attemptId is already associated with another session");
             }
-            return new SessionCreationResult(attemptId, existingSessionId, isSessionActive(existingSessionId));
+            SessionObject existing = sessions.get(existingSessionId);
+            return new SessionCreationResult(attemptId, existingSessionId, isSessionActive(existingSessionId),
+                    existing == null ? null : existing.getMap());
         }
 
         SessionObject existingSession = sessions.get(sessionDto.sessionId());
@@ -94,9 +96,10 @@ public class SessionService {
             throw new IllegalArgumentException("sessionId already exists");
         }
 
-        createSessionObject(sessionDto);
+        SessionObject created = createSessionObject(sessionDto);
         sessionIdsByAttemptId.put(attemptId, sessionDto.sessionId());
-        return new SessionCreationResult(attemptId, sessionDto.sessionId(), awaitSessionReady(sessionDto.sessionId()));
+        return new SessionCreationResult(attemptId, sessionDto.sessionId(),
+                awaitSessionReady(sessionDto.sessionId()), created.getMap());
     }
 
     // isSessionActive() is only true once the loop thread is ticking, so the lobby would otherwise
@@ -116,7 +119,7 @@ public class SessionService {
         return started;
     }
 
-    private void createSessionObject(SessionDto sessionDto) {
+    private SessionObject createSessionObject(SessionDto sessionDto) {
         SessionObject sessionObject = sessionObjectFactory.createSessionObject(sessionDto);
         GameLoop loop = gameLoopFactory.create(sessionObject.getSessionType());
 
@@ -139,7 +142,9 @@ public class SessionService {
             throw exception;
         }
         submitSessionNumChange();
-        log.info("[Session] Session created; sessionId: {}", sessionObject.getSessionId());
+        log.info("[Session] Session created; sessionId: {}, map: {}", sessionObject.getSessionId(),
+                sessionObject.getMap());
+        return sessionObject;
     }
 
     public boolean isSessionActive(String sessionId) {
@@ -335,7 +340,8 @@ public class SessionService {
                         Long.valueOf(s.getLeftUserId()),
                         Long.valueOf(s.getRightUserId()),
                         baseUrl,
-                        s.getCreatedAt()))
+                        s.getCreatedAt(),
+                        s.getMap()))
                 .toList();
     }
 }

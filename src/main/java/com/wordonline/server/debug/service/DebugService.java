@@ -52,9 +52,8 @@ public class DebugService {
     public DebugGameResponseDto enterPracticeSession(DebugGameRequestDto debugGameRequestDto) {
         BotPersona opponent = botPersonaService.findRandomEnabled()
                 .orElseThrow(() -> new IllegalStateException("No enabled bot persona is available."));
-        DebugGameResponseDto dto = new DebugGameResponseDto(
-                createPracticeDebugSession(debugGameRequestDto.userId(), opponent.userId())
-        );
+        SessionObject created = createPracticeDebugSession(debugGameRequestDto.userId(), opponent.userId());
+        DebugGameResponseDto dto = new DebugGameResponseDto(created.getSessionId(), created.getMap());
         log.info(
                 "Entering practice session userId: {}, botUserId: {}, botName: {}",
                 debugGameRequestDto.userId(),
@@ -65,16 +64,17 @@ public class DebugService {
     }
 
     public DebugGameResponseDto enterPveSession(DebugGameRequestDto debugGameRequestDto) {
-        DebugGameResponseDto dto = new DebugGameResponseDto(
-                createPveDebugSession(debugGameRequestDto.userId(), -1, debugGameRequestDto.scenarioId())
-        );
+        SessionObject created =
+                createPveDebugSession(debugGameRequestDto.userId(), -1, debugGameRequestDto.scenarioId());
+        DebugGameResponseDto dto = new DebugGameResponseDto(created.getSessionId(), created.getMap());
         log.info("Entering PVE debug session userId: {}, scenarioId: {}",
                 debugGameRequestDto.userId(), debugGameRequestDto.scenarioId());
         return dto;
     }
 
     public DebugGameResponseDto enterTestSession(DebugGameRequestDto debugGameRequestDto) {
-        DebugGameResponseDto dto = new DebugGameResponseDto(getSessionId());
+        SessionObject session = getDebugSession();
+        DebugGameResponseDto dto = new DebugGameResponseDto(session.getSessionId(), session.getMap());
         log.info("Entering test session userId: {}, side: {}", debugGameRequestDto.userId(), debugGameRequestDto.side());
         long userId = debugGameRequestDto.userId();
         if (debugGameRequestDto.side() == Master.LeftPlayer) {
@@ -93,31 +93,31 @@ public class DebugService {
         return dto;
     }
 
-    private String getSessionId() {
+    private SessionObject getDebugSession() {
         if (isActive(debugSession)) {
-            return debugSession.getSessionId();
+            return debugSession;
         }
 
         return createDebugSession();
     }
 
-    private String createDebugSession() {
+    private SessionObject createDebugSession() {
         return createDebugSession(0, 0);
     }
 
-    private String createDebugSession(long uid1, long uid2) {
+    private SessionObject createDebugSession(long uid1, long uid2) {
         return createDebugSession(DEBUG_SESSION_PREFIX, uid1, uid2, SessionType.PVP, null);
     }
 
-    private String createPveDebugSession(long uid1, long uid2, Long scenarioId) {
+    private SessionObject createPveDebugSession(long uid1, long uid2, Long scenarioId) {
         return createDebugSession(DEBUG_PVE_SESSION_PREFIX, uid1, uid2, SessionType.PVE, scenarioId);
     }
 
-    private String createPracticeDebugSession(long uid1, long uid2) {
+    private SessionObject createPracticeDebugSession(long uid1, long uid2) {
         return createDebugSession(DEBUG_PRACTICE_SESSION_PREFIX, uid1, uid2, SessionType.Practice, null);
     }
 
-    private String createDebugSession(String sessionPrefix, long uid1, long uid2, SessionType sessionType, Long scenarioId) {
+    private SessionObject createDebugSession(String sessionPrefix, long uid1, long uid2, SessionType sessionType, Long scenarioId) {
         SessionDto sessionDto = new SessionDto(
                 sessionPrefix + sessionIdCounter.getAndIncrement(),
                 uid1,
@@ -125,9 +125,9 @@ public class DebugService {
                 sessionType,
                 scenarioId
         );
-        sessionService.createSession(sessionDto);
-        debugSession = sessionService.getSessionObject(sessionDto.sessionId());
-        return sessionDto.sessionId();
+        SessionObject created = sessionService.createSession(sessionDto);
+        debugSession = created;
+        return created;
     }
 
     private boolean isActive(SessionObject debugSession) {

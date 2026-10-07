@@ -15,7 +15,10 @@ Session creation, `POST /api/server/game-sessions` (lobby calls this server):
   that owns the session; the fixture value is a placeholder, and at runtime it is a fresh
   UUID per process. The lobby stores it on the ticket and compares it with the id on the
   `servers` row, because a restarted server answers on the same domain and port and passes
-  health checks while holding none of the previous sessions.
+  health checks while holding none of the previous sessions. Its `mapType` is the map of the
+  session, one of `GRASSLAND`, `RIVER`, `FORTRESS`, `GATE` or `FOREST`, decided by the game
+  server before the response is built; the fixture value is a placeholder. It is `null` only
+  when no session was created.
 
 Session end, `POST /api/internal/game-sessions/{sessionId}/ended` (this server calls the
 lobby, authenticated with a pre-issued service token read from `LOBBY_SERVICE_TOKEN_PATH`):
