@@ -48,7 +48,7 @@ public class FlowFieldNavigation implements PathFinder {
         this(frameNumber, gameObjects, () -> Terrain.NONE);
     }
 
-    /** The terrain is read every frame, so it may be set after construction; its water cells are blocked like obstacles. */
+    /** The terrain is read every frame, so it may be set after construction; its water cells are blocked, with the obstacle clearance, like obstacles. */
     public FlowFieldNavigation(IntSupplier frameNumber, Supplier<List<GameObject>> gameObjects,
                                Supplier<Terrain> terrainSource) {
         this.frameNumber = frameNumber;

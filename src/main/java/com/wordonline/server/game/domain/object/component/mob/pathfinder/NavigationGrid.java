@@ -34,8 +34,11 @@ public final class NavigationGrid {
     }
 
     /**
-     * Water cells of the terrain are blocked outright, with no clearance: a cell is water when its
-     * center is in a water cell, so ground walkers only ever steer through land cell centers.
+     * Water gets the same clearance as an obstacle: a cell is blocked when its center lies within
+     * {@code clearance} of a water cell's square (the square itself included), so ground walkers
+     * steer along cell centers that keep a body of that radius off the bank instead of against it.
+     * On the river map that blocks the land column next to the water, and of the three bridge rows
+     * between two water rows it leaves only the middle one open.
      */
     public NavigationGrid(int columns, int rows, List<Obstacle> obstacles, float clearance, Terrain terrain) {
         this.columns = columns;
@@ -44,8 +47,11 @@ public final class NavigationGrid {
         for (Obstacle obstacle : obstacles) {
             block(obstacle, clearance);
         }
+        if (terrain.isEmpty()) {
+            return;
+        }
         for (int cell = 0; cell < blocked.length; cell++) {
-            if (terrain.isWater(column(cell), row(cell))) {
+            if (terrain.distanceToWater(centerOf(cell)) <= clearance) {
                 blocked[cell] = true;
             }
         }
