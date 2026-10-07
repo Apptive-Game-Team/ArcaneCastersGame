@@ -129,6 +129,11 @@ This repository keeps its own skills under `.agents/skills/`. Read the one that 
 
 ## Architecture & Game Engine Reference
 
+Before modifying session creation, failure or teardown, read
+[developer-playground.md](docs/developer-playground.md). Playground sessions use
+the normal simulation but must never enter match statistics, MMR, user-status or
+quest paths; skipping only recordStart does not prevent recordEnd side effects.
+
 Before extending offline magic recordings, read `docs/fire-shot-preview.md`.
 It records queued-create Vector3 aliasing and collision first-contact ties that
 can make a staged fixture nondeterministic even when sorted DTOs look stable.

@@ -139,6 +139,8 @@ public class DebugService {
 
     public DebugActionResponseDto summonMagic(DebugSummonMagicRequestDto requestDto) {
         SessionObject session = sessionService.getSessionObject(requestDto.sessionId());
+        if (session != null && session.getSessionType() == SessionType.Playground)
+            return new DebugActionResponseDto(false, "Use the owner-only playground API.");
         if (session == null || !session.getGameLoop().is_running()) {
             log.warn("summonMagic: session not found or not running: {}", requestDto.sessionId());
             return new DebugActionResponseDto(false, "Session not found or not running.");
@@ -167,6 +169,8 @@ public class DebugService {
 
     public DebugActionResponseDto spawnPrefab(DebugSpawnPrefabRequestDto requestDto) {
         SessionObject session = sessionService.getSessionObject(requestDto.sessionId());
+        if (session != null && session.getSessionType() == SessionType.Playground)
+            return new DebugActionResponseDto(false, "Use the owner-only playground API.");
         if (session == null || !session.getGameLoop().is_running()) {
             log.warn("spawnPrefab: session not found or not running: {}", requestDto.sessionId());
             return new DebugActionResponseDto(false, "Session not found or not running.");

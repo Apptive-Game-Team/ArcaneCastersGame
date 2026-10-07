@@ -97,6 +97,7 @@ public class ObjectsInfoDtoBuilder {
         gameContext.addGameObject(gameObject);
         try {
             gameObject.start();
+            gameContext.initializeCreatedObject(gameObject);
         } catch (RuntimeException e) {
             // One object that cannot initialize (a missing parameter row, a bad prefab) must not
             // end the whole match: drop that object, tell the client nothing about it, and go on.
