@@ -123,7 +123,7 @@ public class SessionService {
         sessionObject.setGameLoop(loop);
         loop.init(sessionObject, () -> onLoopTerminated(sessionObject));
 
-        if (!sessionObject.getSessionId().contains("debug")) {
+        if (sessionObject.getSessionType() != SessionType.Playground && !sessionObject.getSessionId().contains("debug")) {
             statisticService.createBuilder(loop.getGameContext());
             gameSessionRecordService.recordStart(sessionObject);
         }
@@ -134,8 +134,11 @@ public class SessionService {
             thread.start();
         } catch (RuntimeException | Error exception) {
             sessions.remove(sessionObject.getSessionId(), sessionObject);
-            gameSessionRecordService.recordEnd(sessionObject.getSessionId(),
-                    GameSessionStatus.ABANDONED, "START_FAILED", null, null);
+            sessionObject.getPingChecker().close();
+            if (sessionObject.getSessionType() != SessionType.Playground) {
+                gameSessionRecordService.recordEnd(sessionObject.getSessionId(),
+                        GameSessionStatus.ABANDONED, "START_FAILED", null, null);
+            }
             throw exception;
         }
         submitSessionNumChange();
@@ -162,6 +165,10 @@ public class SessionService {
         submitSessionNumChange();
 
         GameContext gameContext = sessionObject.getGameContext();
+        if (sessionObject.getSessionType() == SessionType.Playground) {
+            sessionIdsByAttemptId.values().removeIf(sessionObject.getSessionId()::equals);
+            return;
+        }
         ResultChecker resultChecker = gameContext.getResultChecker();
         Master loser = resultChecker.getLoser();
 
@@ -212,6 +219,13 @@ public class SessionService {
         }
         sessionObject.getPingChecker().close();
         submitSessionNumChange();
+
+        if (sessionObject.getSessionType() == SessionType.Playground) {
+            var loop = sessionObject.getGameLoop();
+            loop.close();
+            loop.interruptLoopThread();
+            return true;
+        }
 
         Long statisticGameId = null;
         try {
