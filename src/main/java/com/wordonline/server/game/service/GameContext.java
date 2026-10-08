@@ -51,6 +51,7 @@ public class GameContext {
     // Where the water is. Set once by GameLoop.initializeLoop before the first frame; the pathfinding
     // and the placement check read it from here, and the water cells build their colliders from it.
     private Terrain terrain = Terrain.NONE;
+    private java.util.function.Consumer<GameObject> objectInitializer = object -> {};
 
     private WordOnlineLoop gameLoop;
 
@@ -98,6 +99,10 @@ public class GameContext {
 
     public void createGameObject(GameObject gameObject) {
         objectsInfoDtoBuilder.createGameObject(gameObject);
+    }
+
+    public void initializeCreatedObject(GameObject gameObject) {
+        objectInitializer.accept(gameObject);
     }
 
     public void addGameObject(GameObject gameObject) {

@@ -17,6 +17,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final JwtProvider jwtProvider;
     private final LocalizationService localizationService;
+    private final com.wordonline.server.playground.PlaygroundSubscriptionGuard playgroundGuard;
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry config) {
@@ -26,7 +27,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void configureClientInboundChannel(ChannelRegistration registration) {
-        registration.interceptors(new JwtChannelInterceptor(jwtProvider, localizationService));
+        registration.interceptors(new JwtChannelInterceptor(jwtProvider, localizationService), playgroundGuard);
     }
 
     @Override
