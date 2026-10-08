@@ -104,6 +104,7 @@ public class ObjectsInfoDtoBuilder {
             log.error("[GameObject] start failed, object dropped; id: {}, type: {}, master: {}",
                     gameObject.getId(), gameObject.getType(), gameObject.getMaster(), e);
             gameObject.setStatus(Status.Destroyed);
+            gameContext.onObjectInitializationFailed(gameObject, e);
             return;
         }
         CreatedObjectDto createdObjectDto = new CreatedObjectDto(

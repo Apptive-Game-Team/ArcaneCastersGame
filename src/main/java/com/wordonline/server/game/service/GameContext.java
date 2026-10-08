@@ -49,6 +49,19 @@ public class GameContext {
 
     private WordOnlineLoop gameLoop;
 
+    /** True only when a context supplied its own initialization. Ordinary sessions use the provider. */
+    public boolean initializePrefab(GameObject object) {
+        return false;
+    }
+
+    public boolean suppressesDeathFields() {
+        return false;
+    }
+
+    public void onObjectInitializationFailed(GameObject object, RuntimeException error) {
+        // Ordinary matches isolate one failed object. Offline captures reject the incomplete recording.
+    }
+
     public void init(SessionObject sessionObject, WordOnlineLoop gameLoop) {
         this.sessionObject = sessionObject;
         this.cardSelectVisualizer = new CardSelectVisualizer(magicParser);
