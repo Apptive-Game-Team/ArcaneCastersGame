@@ -363,6 +363,32 @@ class SessionServiceTest {
         return resultChecker;
     }
 
+    @Test
+    void playgroundStartAndNormalEndDoNotWriteOrdinaryMatchState() {
+        when(sessionObject.getSessionType()).thenReturn(SessionType.Playground);
+        when(gameLoopFactory.create(SessionType.Playground)).thenReturn(gameLoop);
+        stubTeardownCollaborators();
+        var terminated = ArgumentCaptor.forClass(Runnable.class);
+        sessionService.createSession(sessionDto);
+        verify(gameLoop).init(eq(sessionObject), terminated.capture());
+        terminated.getValue().run();
+        org.mockito.Mockito.verifyNoInteractions(statisticService, gameSessionRecordService,
+                userService, lobbySessionClient);
+    }
+
+    @Test
+    void playgroundWatchdogTeardownDoesNotWriteOrdinaryMatchState() {
+        when(sessionObject.getSessionType()).thenReturn(SessionType.Playground);
+        when(gameLoopFactory.create(SessionType.Playground)).thenReturn(gameLoop);
+        stubTeardownCollaborators();
+        sessionService.createSession(sessionDto);
+        assertTrue(sessionService.reapStuckSession(sessionObject, "stuck"));
+        org.mockito.Mockito.verifyNoInteractions(statisticService, gameSessionRecordService,
+                userService, lobbySessionClient);
+        verify(gameLoop).close();
+        verify(gameLoop).interruptLoopThread();
+    }
+
     private Flow.Subscriber<Integer> recordingSubscriber(List<Integer> sink) {
         return new Flow.Subscriber<>() {
             @Override

@@ -37,6 +37,9 @@ public class SessionServerController {
 
     @PostMapping("/game-sessions")
     public ResponseEntity<SessionReadyResponse> createGameSession(@RequestBody CreateSessionRequest request) {
+        if (request.toSessionDto().sessionType() == com.wordonline.server.game.domain.SessionType.Playground) {
+            return ResponseEntity.badRequest().body(toResponse(request.attemptId(), request.sessionId(), false, null));
+        }
 
         if (!serverStatusService.getCurrentState().equals(ServerState.ACTIVE)) {
             return ResponseEntity.badRequest().body(toResponse(request.attemptId(), request.sessionId(), false, null));

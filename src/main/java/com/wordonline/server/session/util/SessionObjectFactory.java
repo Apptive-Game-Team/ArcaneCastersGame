@@ -38,6 +38,12 @@ public class SessionObjectFactory {
 
         return switch (sessionType) {
             case PVE -> createPveSessionObject(sessionId, uid1, sessionDto.scenarioId(), map);
+            case Playground -> {
+                if (!sessionId.startsWith("playground-") || uid1 <= 0 || uid2 != -1)
+                    throw new IllegalArgumentException("Invalid playground participants.");
+                yield new SessionObject(sessionId, uid1, -1, simpMessagingTemplate,
+                        List.of(), List.of(), SessionType.Playground, null, map);
+            }
             case Practice -> createPracticeSessionObject(sessionId, uid1, uid2, map);
             case PVP -> createPvpSessionObject(sessionId, uid1, uid2,
                     sessionDto.leftDeckCardIds(), sessionDto.rightDeckCardIds(), map);

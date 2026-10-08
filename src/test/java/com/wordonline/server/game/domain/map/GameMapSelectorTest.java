@@ -66,6 +66,16 @@ class GameMapSelectorTest {
     }
 
     @Test
+    void theDeveloperPlaygroundIsAlwaysGrassland() {
+        // It clears everything but the players and the wall on reset, which would remove river objects
+        // while the river terrain stayed, so no selection may give it a river.
+        for (Selection selection : Selection.values()) {
+            assertThat(selector(selection).choose(SessionType.Playground, null))
+                    .as("selection=%s", selection).isEqualTo(GameMap.GRASSLAND);
+        }
+    }
+
+    @Test
     void pveTakesTheMapOfTheStageWhateverTheSelectionSays() {
         when(random.nextBoolean()).thenReturn(true);
         when(pveScenarioRepository.findMapType(7L)).thenReturn(Optional.of(GameMap.FOREST));

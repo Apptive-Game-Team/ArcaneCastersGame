@@ -41,6 +41,11 @@ public class GameMapSelector {
                     ? GameMap.GRASSLAND
                     : pveScenarioRepository.findMapType(scenarioId).orElse(GameMap.GRASSLAND);
         }
+        if (sessionType == SessionType.Playground) {
+            // The developer playground clears everything but the players and the wall when it resets, so
+            // river objects would vanish while the river terrain stayed. It is a test bench, not a match.
+            return GameMap.GRASSLAND;
+        }
         return switch (properties.selection()) {
             case GRASSLAND -> GameMap.GRASSLAND;
             case RIVER -> GameMap.RIVER;
