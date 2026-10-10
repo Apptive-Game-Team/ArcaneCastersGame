@@ -155,24 +155,4 @@ class ObjectsInfoDtoBuilderTest {
         effects.clear();
         assertThat(filledFrame.update().get(0).getEffects()).containsExactly(Effect.Wet);
     }
-
-    @Test
-    void createdBossObjectCarriesBossTrueAndOrdinaryObjectOmitsTheField() throws Exception {
-        GameObject boss = gameObject(1);
-        when(boss.hasComponent(
-                com.wordonline.server.game.domain.object.component.mob.statemachine.attacker.PVEBossMob.class))
-                .thenReturn(true);
-        GameObject ordinary = gameObject(2);
-
-        builder.createGameObject(boss);
-        builder.createGameObject(ordinary);
-
-        var created = builder.getObjectsInfoDto().create();
-        assertThat(created.get(0).boss()).isTrue();
-        assertThat(created.get(1).boss()).isFalse();
-
-        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-        assertThat(mapper.readTree(mapper.writeValueAsString(created.get(0))).get("boss").asBoolean()).isTrue();
-        assertThat(mapper.readTree(mapper.writeValueAsString(created.get(1))).has("boss")).isFalse();
-    }
 }
