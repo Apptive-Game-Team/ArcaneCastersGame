@@ -25,7 +25,7 @@ class FrameRateAlerterTest {
 
     private final DiscordNotifier discordNotifier = mock(DiscordNotifier.class);
     private final AlertProperties alertProperties =
-            new AlertProperties(true, "https://discord.example/webhook", 15.0, Duration.ofMinutes(5));
+            new AlertProperties(true, "https://discord.example/webhook", 0.75, Duration.ofMinutes(5));
 
     private Instant now = START;
     private final Clock clock = new Clock() {
@@ -56,27 +56,38 @@ class FrameRateAlerterTest {
     void alertsWhenASessionFallsBelowTheThreshold() {
         enabled();
 
-        alerter.report(List.of(new SessionFrameRate("session-1", 9.5),
-                new SessionFrameRate("session-2", 20.0)));
+        alerter.report(List.of(new SessionFrameRate("session-1", 9.5, 20),
+                new SessionFrameRate("session-2", 20.0, 20)));
 
         verify(discordNotifier).send(contains("1 of 2 session(s)"));
-        verify(discordNotifier).send(contains("session-1 9.5 fps"));
+        verify(discordNotifier).send(contains("session-1 9.5/20 fps"));
     }
 
     @Test
     void staysQuietWhileEverySessionKeepsUp() {
         enabled();
 
-        alerter.report(List.of(new SessionFrameRate("session-1", 19.9)));
+        alerter.report(List.of(new SessionFrameRate("session-1", 19.9, 20)));
 
         verify(discordNotifier, never()).send(anyString());
+    }
+
+    @Test
+    void measuresEachSessionAgainstItsOwnTickRate() {
+        enabled();
+
+        alerter.report(List.of(new SessionFrameRate("fast-but-slow", 44.0, 60),
+                new SessionFrameRate("slow-but-fine", 16.0, 20)));
+
+        verify(discordNotifier).send(contains("1 of 2 session(s)"));
+        verify(discordNotifier).send(contains("fast-but-slow 44.0/60 fps"));
     }
 
     @Test
     void sendsNothingWhenNoWebhookIsConfigured() {
         when(discordNotifier.isEnabled()).thenReturn(false);
 
-        alerter.report(List.of(new SessionFrameRate("session-1", 1.0)));
+        alerter.report(List.of(new SessionFrameRate("session-1", 1.0, 20)));
 
         verify(discordNotifier, never()).send(anyString());
     }
@@ -84,7 +95,7 @@ class FrameRateAlerterTest {
     @Test
     void repeatsOnlyAfterTheCooldownHasPassed() {
         enabled();
-        List<SessionFrameRate> slow = List.of(new SessionFrameRate("session-1", 4.0));
+        List<SessionFrameRate> slow = List.of(new SessionFrameRate("session-1", 4.0, 20));
 
         alerter.report(slow);
         now = START.plusSeconds(60);
@@ -103,10 +114,10 @@ class FrameRateAlerterTest {
     @Test
     void reportsRecoveryOnceTheSessionsCatchUp() {
         enabled();
-        alerter.report(List.of(new SessionFrameRate("session-1", 4.0)));
+        alerter.report(List.of(new SessionFrameRate("session-1", 4.0, 20)));
 
-        alerter.report(List.of(new SessionFrameRate("session-1", 20.0)));
-        alerter.report(List.of(new SessionFrameRate("session-1", 20.0)));
+        alerter.report(List.of(new SessionFrameRate("session-1", 20.0, 20)));
+        alerter.report(List.of(new SessionFrameRate("session-1", 20.0, 20)));
 
         verify(discordNotifier).send(contains("recovered"));
     }
@@ -116,12 +127,12 @@ class FrameRateAlerterTest {
         enabled();
 
         alerter.report(List.of(
-                new SessionFrameRate("session-1", 3.0),
-                new SessionFrameRate("session-2", 2.0),
-                new SessionFrameRate("session-3", 1.0),
-                new SessionFrameRate("session-4", 4.0)));
+                new SessionFrameRate("session-1", 3.0, 20),
+                new SessionFrameRate("session-2", 2.0, 20),
+                new SessionFrameRate("session-3", 1.0, 20),
+                new SessionFrameRate("session-4", 4.0, 20)));
 
-        verify(discordNotifier).send(contains("session-3 1.0 fps, session-2 2.0 fps, session-1 3.0 fps, ..."));
+        verify(discordNotifier).send(contains("session-3 1.0/20 fps, session-2 2.0/20 fps, session-1 3.0/20 fps, ..."));
     }
 
     @Test
