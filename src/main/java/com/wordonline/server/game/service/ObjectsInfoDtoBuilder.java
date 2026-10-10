@@ -2,6 +2,7 @@ package com.wordonline.server.game.service;
 
 import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.Vector3;
+import com.wordonline.server.game.domain.object.component.mob.statemachine.attacker.PVEBossMob;
 import com.wordonline.server.game.dto.*;
 import com.wordonline.server.game.dto.frame.CreatedObjectDto;
 import com.wordonline.server.game.dto.frame.ObjectsInfoDto;
@@ -112,7 +113,8 @@ public class ObjectsInfoDtoBuilder {
                 gameObject.getType(),
                 gameObject.getPosition(),
                 gameObject.getMaster(),
-                copyOrEmpty(gameObject.getGizmos())
+                copyOrEmpty(gameObject.getGizmos()),
+                gameObject.hasComponent(PVEBossMob.class)
         );
         createdObjectDtos.add(createdObjectDto);
         log.trace("CreatedObjectDto: {}", createdObjectDto);
