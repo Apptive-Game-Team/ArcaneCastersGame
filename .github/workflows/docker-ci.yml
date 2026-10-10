@@ -54,6 +54,28 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Tests run on a full JDK; the image runs on a JRE with fewer modules. Boot the image
+      # itself before pushing it, so code that only starts on a JDK never reaches a server.
+      - name: Build amd64 image for the boot check
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          tags: ac-game:boot-check
+          cache-from: type=gha
+
+      - name: Checkout database migrations
+        uses: actions/checkout@v4
+        with:
+          repository: Apptive-Game-Team/ArcaneCastersDatabase
+          ref: dev
+          path: .boot-check/database
+          sparse-checkout: migration
+
+      - name: Boot the image against a migrated database
+        run: scripts/ci/boot-check.sh ac-game:boot-check .boot-check/database/migration
+
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v5
