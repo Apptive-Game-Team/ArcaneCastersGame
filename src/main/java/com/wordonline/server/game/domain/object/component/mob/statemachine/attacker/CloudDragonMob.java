@@ -5,6 +5,7 @@ import com.wordonline.server.game.domain.object.Vector3;
 import com.wordonline.server.game.domain.object.component.magic.Shot;
 import com.wordonline.server.game.domain.object.prefab.PrefabType;
 import com.wordonline.server.game.dto.Status;
+import com.wordonline.server.game.util.IntervalTimer;
 
 public class CloudDragonMob extends ProjectileRangeAttackMob {
 
@@ -36,15 +37,16 @@ public class CloudDragonMob extends ProjectileRangeAttackMob {
     public void update() {
         super.update();
 
+        float deltaTime = getGameContext().getDeltaTime();
         chainLightningTimer = Math.min(
-                chainLightningCooldown,
-                chainLightningTimer + getGameContext().getDeltaTime());
+                chainLightningCooldown + deltaTime,
+                chainLightningTimer + deltaTime);
         if (chainLightningTimer < chainLightningCooldown || !isValidTarget(target)) {
             return;
         }
 
         fireChainLightning(target);
-        chainLightningTimer = 0f;
+        chainLightningTimer = IntervalTimer.carryOver(chainLightningTimer, chainLightningCooldown, deltaTime);
     }
 
     protected void fireChainLightning(GameObject target) {

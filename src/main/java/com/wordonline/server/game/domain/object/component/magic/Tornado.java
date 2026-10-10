@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import com.wordonline.server.game.util.IntervalTimer;
 
 public class Tornado extends MagicComponent implements Collidable {
 
@@ -95,11 +96,12 @@ public class Tornado extends MagicComponent implements Collidable {
         }
 
         // apply damage
-        timer += getGameContext().getDeltaTime();
+        float deltaTime = getGameContext().getDeltaTime();
+        timer += deltaTime;
 
         if (timer >= attackInterval) {
             applyDamage();
-            timer = 0f;
+            timer = IntervalTimer.carryOver(timer, attackInterval, deltaTime);
         }
     }
 

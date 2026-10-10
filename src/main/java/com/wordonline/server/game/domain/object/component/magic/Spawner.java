@@ -7,6 +7,7 @@ import com.wordonline.server.game.domain.object.prefab.PrefabType;
 import com.wordonline.server.game.domain.object.component.mob.Mob;
 import com.wordonline.server.game.dto.frame.GaugeCategory;
 import com.wordonline.server.game.dto.frame.GaugeDto;
+import com.wordonline.server.game.util.IntervalTimer;
 
 public class Spawner extends Mob {
     public static final float DEFAULT_SPAWN_INTERVAL_SEC = 2f;
@@ -32,10 +33,10 @@ public class Spawner extends Mob {
             return;
         }
 
-        if (counter < spawnIntervalSec) {
-            counter += getGameContext().getDeltaTime();
-        } else {
-            counter = 0;
+        float deltaTime = getGameContext().getDeltaTime();
+        counter += deltaTime;
+        if (counter >= spawnIntervalSec) {
+            counter = IntervalTimer.carryOver(counter, spawnIntervalSec, deltaTime);
             spawnPrefabs();
         }
     }
