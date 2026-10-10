@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import com.wordonline.server.game.domain.GameSessionData;
 import com.wordonline.server.game.domain.Parameters;
 import com.wordonline.server.game.domain.SessionObject;
+import com.wordonline.server.game.domain.map.Terrain;
 import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.Vector3;
 import com.wordonline.server.game.domain.object.component.mob.pathfinder.FlowFieldNavigation;
@@ -46,7 +47,10 @@ public class GameContext {
     private CardSelectVisualizer cardSelectVisualizer;
     private final List<GameEventDto> events = new ArrayList<>();
     private final GameActionQueue actionQueue = new GameActionQueue();
-    private final FlowFieldNavigation navigation = new FlowFieldNavigation(this::getFrameNum, this::getGameObjects);
+    private final FlowFieldNavigation navigation = new FlowFieldNavigation(this::getFrameNum, this::getGameObjects, this::getTerrain);
+    // Where the water is. Set once by GameLoop.initializeLoop before the first frame; the pathfinding
+    // and the placement check read it from here, and the water cells build their colliders from it.
+    private Terrain terrain = Terrain.NONE;
     private java.util.function.Consumer<GameObject> objectInitializer = object -> {};
 
     private WordOnlineLoop gameLoop;

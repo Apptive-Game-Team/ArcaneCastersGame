@@ -8,6 +8,7 @@ import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 
 import com.wordonline.server.game.config.GameConfig;
+import com.wordonline.server.game.domain.map.Terrain;
 import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.Vector3;
 import com.wordonline.server.game.domain.object.component.physic.CircleCollider;
@@ -35,14 +36,24 @@ public class FlowFieldNavigation implements PathFinder {
     private final SimplePathFinder straightLine = new SimplePathFinder();
     private final Map<Integer, FlowField> fieldsByGoalCell = new HashMap<>();
 
+    private final Supplier<Terrain> terrainSource;
+
+    private Terrain terrain = Terrain.NONE;
     private NavigationGrid grid = new NavigationGrid(GameConfig.WIDTH, GameConfig.HEIGHT, List.of(), OBSTACLE_CLEARANCE);
     private List<NavigationGrid.Obstacle> obstacles = List.of();
     private int lastRefreshedFrame = -1;
     private int gridBuilds = 0;
 
     public FlowFieldNavigation(IntSupplier frameNumber, Supplier<List<GameObject>> gameObjects) {
+        this(frameNumber, gameObjects, () -> Terrain.NONE);
+    }
+
+    /** The terrain is read every frame, so it may be set after construction; its water cells are blocked, with the obstacle clearance, like obstacles. */
+    public FlowFieldNavigation(IntSupplier frameNumber, Supplier<List<GameObject>> gameObjects,
+                               Supplier<Terrain> terrainSource) {
         this.frameNumber = frameNumber;
         this.gameObjects = gameObjects;
+        this.terrainSource = terrainSource;
     }
 
     @Override
@@ -122,14 +133,17 @@ public class FlowFieldNavigation implements PathFinder {
         }
         lastRefreshedFrame = frame;
 
+        Terrain latestTerrain = terrainSource.get();
         List<NavigationGrid.Obstacle> latestObstacles = collectObstacles();
         // The scan above is all a frame costs while nothing changed; the grid is the expensive part.
-        if (latestObstacles.equals(obstacles)) {
+        if (latestTerrain == terrain && latestObstacles.equals(obstacles)) {
             return;
         }
+        terrain = latestTerrain;
         obstacles = latestObstacles;
 
-        NavigationGrid latest = new NavigationGrid(GameConfig.WIDTH, GameConfig.HEIGHT, latestObstacles, OBSTACLE_CLEARANCE);
+        NavigationGrid latest = new NavigationGrid(
+                GameConfig.WIDTH, GameConfig.HEIGHT, latestObstacles, OBSTACLE_CLEARANCE, terrain);
         gridBuilds++;
         if (!latest.hasSameBlockingAs(grid)) {
             grid = latest;

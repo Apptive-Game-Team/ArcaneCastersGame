@@ -1,7 +1,11 @@
 package com.wordonline.server.game.service;
 
 import com.wordonline.server.game.config.GameConfig;
+import com.wordonline.server.game.config.GameMapProperties;
 import com.wordonline.server.game.domain.*;
+import com.wordonline.server.game.domain.map.GameMap;
+import com.wordonline.server.game.domain.map.GameMapSelector;
+import com.wordonline.server.game.domain.map.Terrain;
 import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.Vector3;
 import com.wordonline.server.game.domain.object.prefab.PrefabType;
@@ -71,6 +75,11 @@ public abstract class GameLoop implements Runnable {
     private SpectatorSubscriptionRegistry spectatorSubscriptionRegistry;
     private Runnable onTerminated;
 
+    // Setter injection for the same reason as the registry above. Until Spring sets it the loop
+    // keeps the open arena, so a loop built by hand in a test never rolls a river.
+    private GameMapSelector gameMapSelector =
+            new GameMapSelector(new GameMapProperties(GameMapProperties.Selection.DEFAULT));
+
     private final MmrService mmrService;
     private final UserService userService;
 
@@ -100,6 +109,11 @@ public abstract class GameLoop implements Runnable {
         this.spectatorSubscriptionRegistry = spectatorSubscriptionRegistry;
     }
 
+    @Autowired
+    public void setGameMapSelector(GameMapSelector gameMapSelector) {
+        this.gameMapSelector = gameMapSelector;
+    }
+
     protected final void initializeLoop(SessionObject sessionObject, Runnable onTerminated, boolean createRightPlayer) {
         this.sessionObject = sessionObject;
         this.onTerminated = onTerminated;
@@ -112,6 +126,23 @@ public abstract class GameLoop implements Runnable {
             new GameObject(Master.RightPlayer, PrefabType.Player, GameConfig.RIGHT_PLAYER_POSITION, gameContext);
         }
         new GameObject(Master.None, PrefabType.Wall, Vector3.ZERO, gameContext);
+
+        // Chosen here because every loop passes through this method. The terrain is set before the
+        // cells are spawned so that nothing asks for it while it is still empty.
+        GameMap map = gameMapSelector.choose(sessionObject.getSessionType());
+        gameContext.setTerrain(map.terrain());
+        spawnTerrain(map.terrain());
+        log.info("[Map] session={} type={} map={}", sessionObject.getSessionId(), sessionObject.getSessionType(), map);
+    }
+
+    // The client draws what it is told, so the map reaches it as one object per cell.
+    private void spawnTerrain(Terrain terrain) {
+        for (Terrain.Cell cell : terrain.waterCells()) {
+            new GameObject(Master.None, PrefabType.RiverWater, cell.center(), gameContext);
+        }
+        for (Terrain.Cell cell : terrain.bridgeCells()) {
+            new GameObject(Master.None, PrefabType.RiverBridge, cell.center(), gameContext);
+        }
     }
 
     public boolean is_running() {

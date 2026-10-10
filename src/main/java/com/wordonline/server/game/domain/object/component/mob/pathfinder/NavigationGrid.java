@@ -3,6 +3,7 @@ package com.wordonline.server.game.domain.object.component.mob.pathfinder;
 import java.util.Arrays;
 import java.util.List;
 
+import com.wordonline.server.game.domain.map.Terrain;
 import com.wordonline.server.game.domain.object.Vector3;
 
 /**
@@ -29,11 +30,30 @@ public final class NavigationGrid {
      *                  radius, steering along cell centers, does not scrape the obstacle
      */
     public NavigationGrid(int columns, int rows, List<Obstacle> obstacles, float clearance) {
+        this(columns, rows, obstacles, clearance, Terrain.NONE);
+    }
+
+    /**
+     * Water gets the same clearance as an obstacle: a cell is blocked when its center lies within
+     * {@code clearance} of a water cell's square (the square itself included), so ground walkers
+     * steer along cell centers that keep a body of that radius off the bank instead of against it.
+     * On the river map that blocks the land column next to the water, and of the three bridge rows
+     * between two water rows it leaves only the middle one open.
+     */
+    public NavigationGrid(int columns, int rows, List<Obstacle> obstacles, float clearance, Terrain terrain) {
         this.columns = columns;
         this.rows = rows;
         this.blocked = new boolean[columns * rows];
         for (Obstacle obstacle : obstacles) {
             block(obstacle, clearance);
+        }
+        if (terrain.isEmpty()) {
+            return;
+        }
+        for (int cell = 0; cell < blocked.length; cell++) {
+            if (terrain.distanceToWater(centerOf(cell)) <= clearance) {
+                blocked[cell] = true;
+            }
         }
     }
 
