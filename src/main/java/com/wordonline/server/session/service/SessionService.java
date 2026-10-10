@@ -129,6 +129,10 @@ public class SessionService {
         }
 
         sessions.put(sessionObject.getSessionId(), sessionObject);
+        // A platform thread on purpose, not a virtual one. Virtual threads are not preempted and share
+        // a carrier pool with the virtual Tomcat request threads, so under HTTP load a loop waits for a
+        // carrier after every sleep: measured with 100 bot sessions, 56-71% of frames came in over 60ms
+        // (p99 interval 212-986ms) against 0.07% on platform threads.
         Thread thread = new Thread(loop);
         try {
             thread.start();

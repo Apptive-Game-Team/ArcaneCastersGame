@@ -34,9 +34,16 @@ spring:
     url: ${DATABASE_URL}
     username: ${DATABASE_USER}
     password: ${DATABASE_PW}
+  # Tomcat request threads, @Scheduled and @Async run on virtual threads. The game loops and the
+  # bot executor create their own platform threads and are not affected: they are CPU-bound and
+  # rely on their own thread for tick pacing.
+  threads:
+    virtual:
+      enabled: ${VIRTUAL_THREADS_ENABLED:true}
   # The loop watchdog, the server heartbeat and the bot scheduler are all @Scheduled. Spring's
   # default pool of one thread makes the watchdog wait behind whichever of the others is busy
-  # creating sessions, which is exactly when a stuck loop needs reaping.
+  # creating sessions, which is exactly when a stuck loop needs reaping. Only used when virtual
+  # threads are disabled; with them on, every scheduled run gets its own virtual thread.
   task:
     scheduling:
       pool:
