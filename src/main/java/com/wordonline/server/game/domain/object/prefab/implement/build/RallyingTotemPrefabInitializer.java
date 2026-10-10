@@ -33,6 +33,6 @@ public class RallyingTotemPrefabInitializer extends PrefabInitializer {
                 rallyingTotemParameters.floatValue(ParameterKey.DURATION),
                 rallyingTotemParameters.floatValue(ParameterKey.RADIUS),
                 rallyingTotemParameters.floatValue(ParameterKey.BUFF_DURATION),
-                rallyingTotemParameters.floatValue(ParameterKey.RANGE)));
+                rallyingTotemParameters.floatValue(ParameterKey.EFFECT_RADIUS)));
     }
 }

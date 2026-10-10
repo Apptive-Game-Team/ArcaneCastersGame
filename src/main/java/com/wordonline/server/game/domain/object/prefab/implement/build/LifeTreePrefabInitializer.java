@@ -37,7 +37,7 @@ public class LifeTreePrefabInitializer extends PrefabInitializer {
                 lifeTreeParameters.intValue(ParameterKey.HP),
                 lifeTreeParameters.intValue(ParameterKey.DAMAGE),
                 lifeTreeParameters.floatValue(ParameterKey.ATTACK_INTERVAL),
-                lifeTreeParameters.floatValue(ParameterKey.RANGE),
+                lifeTreeParameters.floatValue(ParameterKey.EFFECT_RADIUS),
                 TargetMask.GROUND.bit));
         gameObject.setElement(EnumSet.of(ElementType.NATURE));
         gameObject.getComponents().add(new TimedSelfDestroyer(gameObject, lifeTreeParameters.intValue(ParameterKey.DURATION)));
