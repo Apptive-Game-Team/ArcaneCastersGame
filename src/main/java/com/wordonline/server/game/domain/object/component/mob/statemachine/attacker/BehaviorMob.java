@@ -71,7 +71,8 @@ public class BehaviorMob extends StateMachineMob implements IntervalAttacker {
 
     public BehaviorMob(GameObject gameObject, int maxHp, float speed, int targetMask, float attackInterval, float attackRange, Predicate<GameObject> behavior, boolean verticalRangeIgnored) {
         super(gameObject, maxHp, speed);
-        this.pathFinder = new SimplePathFinder();
+        // Aerial mobs fly over obstacles, so only ground mobs path around them.
+        this.pathFinder = verticalRangeIgnored ? new SimplePathFinder() : getGameContext().getNavigation();
         this.detector = new ClosestEnemyDetector(getGameContext(), targetMask);
         this.targetMask = targetMask;
         this.attackInterval = new Stat(attackInterval);
