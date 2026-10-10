@@ -37,7 +37,7 @@ public class HealingTotemPrefabInitializer extends PrefabInitializer {
                 healingTotemParameters.intValue(ParameterKey.HP),
                 healingTotemParameters.intValue(ParameterKey.DAMAGE),
                 healingTotemParameters.floatValue(ParameterKey.ATTACK_INTERVAL),
-                healingTotemParameters.floatValue(ParameterKey.RANGE),
+                healingTotemParameters.floatValue(ParameterKey.EFFECT_RADIUS),
                 TargetMask.GROUND.bit));
         gameObject.addComponent(new Item(gameObject));
         gameObject.setElement(EnumSet.of(ElementType.NATURE,ElementType.WATER));

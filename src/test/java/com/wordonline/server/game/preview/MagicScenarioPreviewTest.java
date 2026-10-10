@@ -426,7 +426,8 @@ class MagicScenarioPreviewTest {
             Map<String, Double> common = Map.ofEntries(
                     Map.entry("hp", 1000d), Map.entry("mass", 10d), Map.entry("radius", 0.6d),
                     Map.entry("speed", 2d), Map.entry("damage", 100d), Map.entry("attack_interval", 0.8d),
-                    Map.entry("attack_range", 3d), Map.entry("range", 3d), Map.entry("duration", 3d),
+                    Map.entry("attack_range", 3d), Map.entry("range", 3d), Map.entry("effect_radius", 3d),
+                    Map.entry("duration", 3d),
                     Map.entry("sub_speed", 1.5d), Map.entry("sub_damage", 80d), Map.entry("sub_attack_range", 0.5d),
                     Map.entry("buff_duration", 2d), Map.entry("z_force", 5d));
             Map<String, Double> status = Map.ofEntries(
