@@ -39,6 +39,8 @@ class PlaygroundLoopTest {
         when(context.getGameSessionData()).thenReturn(data);
         when(context.getGameTimer()).thenReturn(mock(GameTimer.class));
         when(session.getLeftUserId()).thenReturn(123L);
+        // A real SessionObject always carries a map; the mock has to say which one the playground gets.
+        when(session.getMap()).thenReturn(com.wordonline.server.game.domain.map.GameMap.GRASSLAND);
         when(session.getPingChecker()).thenReturn(mock(PingChecker.class));
         doAnswer(call -> { initializer.set(call.getArgument(0)); return null; }).when(context).setObjectInitializer(any());
         doAnswer(call -> { results.set(call.getArgument(0)); return null; }).when(context).setResultChecker(any());

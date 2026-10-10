@@ -11,26 +11,24 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 
-import com.wordonline.server.game.config.GameMapProperties;
-import com.wordonline.server.game.config.GameMapProperties.Selection;
 import com.wordonline.server.game.domain.Parameters;
 import com.wordonline.server.game.domain.SessionObject;
 import com.wordonline.server.game.domain.SessionType;
-import com.wordonline.server.game.domain.map.GameMapSelector;
+import com.wordonline.server.game.domain.map.GameMap;
 import com.wordonline.server.game.domain.map.Terrain;
 import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.Vector3;
 import com.wordonline.server.game.domain.object.prefab.PrefabType;
 import com.wordonline.server.game.dto.Master;
 
-/** initializeLoop is where the map is chosen and its cells are spawned, for every loop. */
+/** initializeLoop spawns the cells of the map stored on the session, for every loop. */
 class GameLoopMapTest {
 
     private final GameContext gameContext = mock(GameContext.class);
 
     @Test
     void aRiverMatchSpawnsEightWaterAndTwelveBridgeObjectsAtTheCellCenters() {
-        List<GameObject> spawned = start(Selection.RIVER, SessionType.PVP);
+        List<GameObject> spawned = start(GameMap.RIVER, SessionType.PVP);
 
         List<GameObject> water = ofType(spawned, PrefabType.RiverWater);
         List<GameObject> bridges = ofType(spawned, PrefabType.RiverBridge);
@@ -50,8 +48,8 @@ class GameLoopMapTest {
     }
 
     @Test
-    void aDefaultMatchSpawnsNoTerrainObjects() {
-        List<GameObject> spawned = start(Selection.DEFAULT, SessionType.PVP);
+    void aGrasslandMatchSpawnsNoTerrainObjects() {
+        List<GameObject> spawned = start(GameMap.GRASSLAND, SessionType.PVP);
 
         assertThat(ofType(spawned, PrefabType.RiverWater)).isEmpty();
         assertThat(ofType(spawned, PrefabType.RiverBridge)).isEmpty();
@@ -60,30 +58,38 @@ class GameLoopMapTest {
     }
 
     @Test
-    void aPveMatchKeepsTheDefaultMapEvenWhenTheRiverIsForced() {
-        List<GameObject> spawned = start(Selection.RIVER, SessionType.PVE);
+    void everyPveMapKindSpawnsNoTerrainObjects() {
+        for (GameMap map : new GameMap[] {GameMap.GRASSLAND, GameMap.FORTRESS, GameMap.GATE, GameMap.FOREST}) {
+            GameContext context = mock(GameContext.class);
+            List<GameObject> spawned = start(context, map, SessionType.PVE);
 
-        assertThat(ofType(spawned, PrefabType.RiverWater)).isEmpty();
-        verify(gameContext).setTerrain(Terrain.NONE);
+            assertThat(ofType(spawned, PrefabType.RiverWater)).as(map.name()).isEmpty();
+            assertThat(ofType(spawned, PrefabType.RiverBridge)).as(map.name()).isEmpty();
+            verify(context).setTerrain(Terrain.NONE);
+        }
     }
 
     @Test
-    void aLoopNobodyConfiguredKeepsTheDefaultMap() {
-        SessionObject sessionObject = sessionObject(SessionType.PVP);
-        loop().init(sessionObject, () -> {
-        });
+    void theLoopUsesTheMapStoredOnTheSessionInsteadOfChoosingOne() {
+        // The creation response already told the client this map. A PVE session that carries the
+        // river still gets the river, so nothing in the loop re-rolls or overrides the stored value.
+        List<GameObject> spawned = start(GameMap.RIVER, SessionType.PVE);
 
-        verify(gameContext).setTerrain(Terrain.NONE);
+        assertThat(ofType(spawned, PrefabType.RiverWater)).hasSize(8);
+        verify(gameContext).setTerrain(Terrain.RIVER);
     }
 
-    private List<GameObject> start(Selection selection, SessionType sessionType) {
-        GameLoop loop = loop();
-        loop.setGameMapSelector(new GameMapSelector(new GameMapProperties(selection)));
-        loop.init(sessionObject(sessionType), () -> {
+    private List<GameObject> start(GameMap map, SessionType sessionType) {
+        return start(gameContext, map, sessionType);
+    }
+
+    private List<GameObject> start(GameContext context, GameMap map, SessionType sessionType) {
+        GameLoop loop = loop(context);
+        loop.init(sessionObject(sessionType, map), () -> {
         });
 
         ArgumentCaptor<GameObject> captor = ArgumentCaptor.forClass(GameObject.class);
-        verify(gameContext, org.mockito.Mockito.atLeastOnce()).createGameObject(captor.capture());
+        verify(context, org.mockito.Mockito.atLeastOnce()).createGameObject(captor.capture());
         return captor.getAllValues();
     }
 
@@ -91,14 +97,14 @@ class GameLoopMapTest {
         return objects.stream().filter(object -> object.getType() == type).toList();
     }
 
-    private SessionObject sessionObject(SessionType sessionType) {
+    private SessionObject sessionObject(SessionType sessionType, GameMap map) {
         return new SessionObject("session-1", 11L, 22L, mock(SimpMessagingTemplate.class), List.of(), List.of(),
-                sessionType);
+                sessionType, null, map);
     }
 
-    private GameLoop loop() {
-        when(gameContext.getParameters()).thenReturn(mock(Parameters.class));
-        return new GameLoop(mock(MmrService.class), mock(UserService.class), gameContext, mock(Parameters.class)) {
+    private GameLoop loop(GameContext context) {
+        when(context.getParameters()).thenReturn(mock(Parameters.class));
+        return new GameLoop(mock(MmrService.class), mock(UserService.class), context, mock(Parameters.class)) {
             @Override
             void update() {
             }

@@ -1,6 +1,7 @@
 package com.wordonline.server.session.controller;
 
 import com.wordonline.server.game.domain.SessionType;
+import com.wordonline.server.game.domain.map.GameMap;
 import com.wordonline.server.server.entity.ServerState;
 import com.wordonline.server.server.service.ServerInstanceIdProvider;
 import com.wordonline.server.server.service.ServerStatusService;
@@ -34,7 +35,7 @@ class SessionServerControllerTest {
         when(serverStatusService.getCurrentState()).thenReturn(ServerState.ACTIVE);
         when(serverUrlProvider.getServerUrl()).thenReturn("https://game.example.com");
         when(sessionService.createSession("attempt-1", request.toSessionDto()))
-                .thenReturn(new SessionCreationResult("attempt-1", "session-1", true));
+                .thenReturn(new SessionCreationResult("attempt-1", "session-1", true, GameMap.GRASSLAND));
 
         ResponseEntity<SessionReadyResponse> response = controller.createGameSession(request);
 
@@ -43,6 +44,19 @@ class SessionServerControllerTest {
         assertEquals("https://game.example.com", response.getBody().serverUrl());
         assertEquals("https://game.example.com/ws", response.getBody().webSocketUrl());
         assertEquals(serverInstanceIdProvider.getInstanceId(), response.getBody().instanceId());
+    }
+
+    @Test
+    void theResponseCarriesTheMapTypeOfTheCreatedSession() {
+        CreateSessionRequest request = new CreateSessionRequest(
+                "attempt-1", "pve-1", 1L, -1L, SessionType.PVE, 3L);
+
+        when(serverStatusService.getCurrentState()).thenReturn(ServerState.ACTIVE);
+        when(serverUrlProvider.getServerUrl()).thenReturn("https://game.example.com");
+        when(sessionService.createSession("attempt-1", request.toSessionDto()))
+                .thenReturn(new SessionCreationResult("attempt-1", "pve-1", true, GameMap.FORTRESS));
+
+        assertEquals(GameMap.FORTRESS, controller.createGameSession(request).getBody().mapType());
     }
 
     @Test
@@ -58,9 +72,9 @@ class SessionServerControllerTest {
         when(serverStatusService.getCurrentState()).thenReturn(ServerState.ACTIVE);
         when(serverUrlProvider.getServerUrl()).thenReturn("https://game.example.com");
         when(sessionService.createSession("attempt-1", first.toSessionDto()))
-                .thenReturn(new SessionCreationResult("attempt-1", "session-1", true));
+                .thenReturn(new SessionCreationResult("attempt-1", "session-1", true, GameMap.GRASSLAND));
         when(sessionService.createSession("attempt-2", second.toSessionDto()))
-                .thenReturn(new SessionCreationResult("attempt-2", "session-2", true));
+                .thenReturn(new SessionCreationResult("attempt-2", "session-2", true, GameMap.GRASSLAND));
 
         String firstId = controller.createGameSession(first).getBody().instanceId();
         String secondId = controller.createGameSession(second).getBody().instanceId();

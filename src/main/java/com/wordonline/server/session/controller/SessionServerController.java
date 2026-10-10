@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.wordonline.server.game.domain.map.GameMap;
 import com.wordonline.server.server.entity.ServerState;
 import com.wordonline.server.server.service.ServerInstanceIdProvider;
 import com.wordonline.server.server.service.ServerStatusService;
@@ -37,22 +38,23 @@ public class SessionServerController {
     @PostMapping("/game-sessions")
     public ResponseEntity<SessionReadyResponse> createGameSession(@RequestBody CreateSessionRequest request) {
         if (request.toSessionDto().sessionType() == com.wordonline.server.game.domain.SessionType.Playground) {
-            return ResponseEntity.badRequest().body(toResponse(request.attemptId(), request.sessionId(), false));
+            return ResponseEntity.badRequest().body(toResponse(request.attemptId(), request.sessionId(), false, null));
         }
 
         if (!serverStatusService.getCurrentState().equals(ServerState.ACTIVE)) {
-            return ResponseEntity.badRequest().body(toResponse(request.attemptId(), request.sessionId(), false));
+            return ResponseEntity.badRequest().body(toResponse(request.attemptId(), request.sessionId(), false, null));
         }
 
         SessionCreationResult result = sessionService.createSession(request.attemptId(), request.toSessionDto());
-        return ResponseEntity.ok(toResponse(result.attemptId(), result.sessionId(), result.ready()));
+        return ResponseEntity.ok(toResponse(result.attemptId(), result.sessionId(), result.ready(), result.mapType()));
     }
 
-    private SessionReadyResponse toResponse(String attemptId, String sessionId, boolean ready) {
+    private SessionReadyResponse toResponse(String attemptId, String sessionId, boolean ready,
+                                              GameMap mapType) {
         String serverUrl = serverUrlProvider.getServerUrl();
         return new SessionReadyResponse(
                 attemptId, sessionId, ready, serverUrl, serverUrl + "/ws",
-                serverInstanceIdProvider.getInstanceId());
+                serverInstanceIdProvider.getInstanceId(), mapType);
     }
 
     @GetMapping("/game-sessions/{sessionId}/active")
