@@ -47,7 +47,6 @@ public class PveScriptSystem implements GameSystem {
 
     /** How many seconds back a {@code pveSync} request replays script events. */
     static final int REPLAY_SECONDS = 10;
-    private static final int REPLAY_FRAMES = REPLAY_SECONDS * GameLoop.FPS;
 
     private record SentEvent(PveScriptEventDto dto, int frameNum) {
     }
@@ -121,8 +120,8 @@ public class PveScriptSystem implements GameSystem {
 
     private boolean isSatisfied(PveScenarioEvent eventSpec, GameContext gameContext) {
         return switch (eventSpec.type()) {
-            case FrameNumGte -> gameContext.getFrameNum() >= eventSpec.value();
-            case SecondsGte -> gameContext.getFrameNum() >= eventSpec.value() * GameLoop.FPS;
+            case FrameNumGte -> gameContext.getFrameNum() * GameLoop.LEGACY_TICK_RATE >= eventSpec.value() * gameContext.getTickRate();
+            case SecondsGte -> gameContext.getFrameNum() >= eventSpec.value() * gameContext.getTickRate();
             case InstallerHpPercentLte -> isHpPercentLte(eventSpec, gameContext);
             case InstallerDestroyed -> isInstallerDestroyed(eventSpec, gameContext);
         };
@@ -158,7 +157,7 @@ public class PveScriptSystem implements GameSystem {
         int speakerObjectId = runtime == null ? -1 : runtime.getInstalledObjectId(eventSpec.speakerInstallerId());
         int frameNum = gameContext.getFrameNum();
         var event = new PveScriptEventDto(eventSpec.key(), speakerObjectId, eventSpec.lines(), ++lastSeq);
-        pruneSentEvents(frameNum);
+        pruneSentEvents(frameNum, gameContext.getTickRate());
         sentEvents.add(new SentEvent(event, frameNum));
         long leftId = gameContext.getSessionObject().getLeftUserId();
         long rightId = gameContext.getSessionObject().getRightUserId();
@@ -166,8 +165,8 @@ public class PveScriptSystem implements GameSystem {
         gameContext.getSessionObject().sendFrameInfo(rightId, event);
     }
 
-    private void pruneSentEvents(int frameNum) {
-        sentEvents.removeIf(sent -> frameNum - sent.frameNum() > REPLAY_FRAMES);
+    private void pruneSentEvents(int frameNum, int tickRate) {
+        sentEvents.removeIf(sent -> frameNum - sent.frameNum() > REPLAY_SECONDS * tickRate);
     }
 
     /**
@@ -176,7 +175,7 @@ public class PveScriptSystem implements GameSystem {
      */
     public void sendRecentEventsTo(GameContext gameContext, long userId, int lastEventSeq) {
         int frameNum = gameContext.getFrameNum();
-        pruneSentEvents(frameNum);
+        pruneSentEvents(frameNum, gameContext.getTickRate());
         for (SentEvent sent : sentEvents) {
             if (sent.dto().seq() > lastEventSeq) {
                 gameContext.getSessionObject().sendFrameInfo(userId, sent.dto());

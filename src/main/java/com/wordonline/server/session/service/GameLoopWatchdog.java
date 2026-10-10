@@ -56,7 +56,8 @@ public class GameLoopWatchdog {
             long stallMillis = System.currentTimeMillis() - loop.getLastFrameEndMillis();
             if (stallMillis < thresholdMillis) {
                 frameRate(loop, stallMillis)
-                        .ifPresent(fps -> frameRates.add(new SessionFrameRate(sessionObject.getSessionId(), fps)));
+                        .ifPresent(fps -> frameRates.add(new SessionFrameRate(sessionObject.getSessionId(), fps,
+                                loop.getGameContext().getTickRate())));
                 continue;
             }
 

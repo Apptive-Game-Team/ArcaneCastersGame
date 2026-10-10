@@ -37,7 +37,6 @@ class SpawnerTest {
         );
 
         spawner.update();
-        spawner.update();
 
         verify(gameContext).createGameObject(any(GameObject.class));
         assertThat(spawner.getHp()).isEqualTo(20);

@@ -8,6 +8,7 @@ import com.wordonline.server.game.domain.object.component.Damageable;
 import com.wordonline.server.game.dto.Status;
 
 import java.util.List;
+import com.wordonline.server.game.util.IntervalTimer;
 
 public class RazorGale extends MagicComponent {
 
@@ -32,12 +33,13 @@ public class RazorGale extends MagicComponent {
 
     @Override
     public void update() {
+        float deltaTime = getGameContext().getDeltaTime();
+        counter += deltaTime;
         if (counter < attackInterval) {
-            counter += getGameContext().getDeltaTime();
             return;
         }
 
-        counter = 0f;
+        counter = IntervalTimer.carryOver(counter, attackInterval, deltaTime);
         List<GameObject> targets = getGameContext().overlapSphereAll(gameObject, radius);
         targets.stream()
                 .filter(target -> target != gameObject)

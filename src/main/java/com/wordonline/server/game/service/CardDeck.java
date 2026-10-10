@@ -3,6 +3,7 @@ package com.wordonline.server.game.service;
 import com.wordonline.server.game.domain.Stat;
 import com.wordonline.server.game.domain.PlayerData;
 import com.wordonline.server.game.dto.CardInfoDto;
+import com.wordonline.server.game.util.IntervalTimer;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -19,6 +20,9 @@ public class CardDeck {
 
     private static final float CARD_DRAW_INTERVAL = 1;
     private final Stat cardDrawInterval = new Stat(CARD_DRAW_INTERVAL);
+    // Kept across fever, which shortens the interval: the time already waited counts toward the
+    // shorter interval instead of the draw phase jumping.
+    private final IntervalTimer drawTimer = new IntervalTimer();
     private final Queue<Long> cards;
 
     public CardDeck(List<Long> cards) {
@@ -36,10 +40,16 @@ public class CardDeck {
         this.cards.add(magicId);
     }
 
+    // called every frame; draws once per cardDrawInterval of game time
+    public void drawCard(PlayerData player, CardInfoDto cardInfoDto, float deltaTime) {
+        int draws = drawTimer.advance(deltaTime, cardDrawInterval.total());
+        for (int i = 0; i < draws; i++) {
+            drawOne(player, cardInfoDto);
+        }
+    }
+
     // random pick card and update to Player Data, Frame Info Dto
-    public void drawCard(PlayerData player, CardInfoDto cardInfoDto, int frameNum) {
-        if (frameNum % ((int) (GameLoop.FPS * cardDrawInterval.total())) != 0)
-            return;
+    private void drawOne(PlayerData player, CardInfoDto cardInfoDto) {
         if (cards.isEmpty() || player.cards.size() >= PlayerData.MAX_CARD_NUM)
             return;
 

@@ -4,6 +4,7 @@ import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.Vector3;
 import com.wordonline.server.game.domain.object.component.Component;
 import com.wordonline.server.game.domain.object.prefab.PrefabType;
+import com.wordonline.server.game.util.IntervalTimer;
 
 public class LimitedSequenceSpawner extends Component {
     private static final float SPAWN_OFFSET_STEP = 0.35f;
@@ -45,12 +46,13 @@ public class LimitedSequenceSpawner extends Component {
             return;
         }
 
-        elapsed += getGameContext().getDeltaTime();
+        float deltaTime = getGameContext().getDeltaTime();
+        elapsed += deltaTime;
         if (elapsed < spawnIntervalSec) {
             return;
         }
 
-        elapsed = 0f;
+        elapsed = IntervalTimer.carryOver(elapsed, spawnIntervalSec, deltaTime);
         PrefabType prefabType = prefabTypes[spawnedCount % prefabTypes.length];
         Vector3 spawnPosition = nextSpawnPosition();
         new GameObject(gameObject.getMaster(), prefabType, spawnPosition, getGameContext());

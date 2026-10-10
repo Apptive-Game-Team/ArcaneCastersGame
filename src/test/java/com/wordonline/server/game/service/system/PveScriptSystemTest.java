@@ -45,6 +45,7 @@ class PveScriptSystemTest {
         GameContext context = mock(GameContext.class);
         when(context.getSessionObject()).thenReturn(sessionObject);
         when(context.getGameObjects()).thenReturn(world);
+        when(context.getTickRate()).thenReturn(20);
         doAnswer(invocation -> {
             world.add(invocation.getArgument(0));
             return null;
@@ -135,6 +136,32 @@ class PveScriptSystemTest {
         when(context.getFrameNum()).thenReturn(5 * 20);
         system.update(context);
         verify(sessionObject, times(2)).sendFrameInfo(anyLong(), any(PveScriptEventDto.class));
+    }
+
+    // FrameNumGte values were written for 20 FPS, so 20 means one second at any tick rate.
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {20, 60})
+    void frameNumGteCountsTwentyFpsFramesAtAnyTickRate(int tickRate) {
+        GameContext context = newGameContext();
+        when(context.getTickRate()).thenReturn(tickRate);
+        PveScenarioInstaller installer = new PveScenarioInstaller();
+        installer.install(List.of(), context);
+        var scenario = new PveScenario(List.of(), List.of(), List.of(
+                event("e1", PveTriggerType.FrameNumGte, 20, null, List.of("hi"), List.of())
+        ), PveScenarioRules.defaultRules());
+        PveScriptSystem system = newSystem(scenario, installer);
+
+        int firedAtFrame = -1;
+        for (int frame = 1; frame <= 2 * tickRate && firedAtFrame < 0; frame++) {
+            when(context.getFrameNum()).thenReturn(frame);
+            system.update(context);
+            if (org.mockito.Mockito.mockingDetails(sessionObject).getInvocations().stream()
+                    .anyMatch(invocation -> invocation.getMethod().getName().equals("sendFrameInfo"))) {
+                firedAtFrame = frame;
+            }
+        }
+
+        assertThat(firedAtFrame / (double) tickRate).isEqualTo(1.0);
     }
 
     @Test
@@ -539,7 +566,7 @@ class PveScriptSystemTest {
             system.update(context);
         }
         org.mockito.Mockito.clearInvocations(sessionObject);
-        int window = PveScriptSystem.REPLAY_SECONDS * com.wordonline.server.game.service.GameLoop.FPS;
+        int window = PveScriptSystem.REPLAY_SECONDS * 20;
 
         // seq 1 was sent at frame 10, seq 2 at frame 20: only seq 2 is still inside the window.
         when(context.getFrameNum()).thenReturn(10 + window + 1);

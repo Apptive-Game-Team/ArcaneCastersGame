@@ -9,7 +9,6 @@ import com.wordonline.server.game.domain.pve.PveWinCondition;
 import com.wordonline.server.game.dto.Master;
 import com.wordonline.server.game.dto.pve.PveObjectiveDto;
 import com.wordonline.server.game.service.GameContext;
-import com.wordonline.server.game.service.GameLoop;
 import com.wordonline.server.game.service.PveResultChecker;
 import com.wordonline.server.game.service.pve.PveScenarioInstaller;
 import org.junit.jupiter.api.Test;
@@ -29,6 +28,8 @@ import static org.mockito.Mockito.when;
 
 class PveObjectiveSystemTest {
 
+    private static final int TICK_RATE = 20;
+
     private final List<GameObject> world = new ArrayList<>();
     private final GameContext gameContext = mock(GameContext.class);
     private final SessionObject sessionObject = mock(SessionObject.class);
@@ -42,6 +43,7 @@ class PveObjectiveSystemTest {
         when(sessionObject.getRightUserId()).thenReturn(-1L);
         when(gameContext.getSessionObject()).thenReturn(sessionObject);
         when(gameContext.getGameObjects()).thenReturn(world);
+        when(gameContext.getTickRate()).thenReturn(TICK_RATE);
         checker = new PveResultChecker(sessionObject);
         checker.setRuntime(runtime);
         system = new PveObjectiveSystem(checker);
@@ -94,7 +96,7 @@ class PveObjectiveSystemTest {
         updateAt(0);
         updateAt(1);
         updateAt(100);
-        updateAt(10 * GameLoop.FPS);
+        updateAt(10 * TICK_RATE);
 
         verify(sessionObject, times(2)).sendFrameInfo(anyLong(), any());
         verify(sessionObject, never()).sendFrameInfo(org.mockito.ArgumentMatchers.eq(2L), any());
@@ -161,11 +163,11 @@ class PveObjectiveSystemTest {
 
         updateAt(0);
         updateAt(1);
-        updateAt(GameLoop.FPS - 1);
-        updateAt(GameLoop.FPS);
-        updateAt(10 * GameLoop.FPS - 1);
-        updateAt(10 * GameLoop.FPS);
-        updateAt(10 * GameLoop.FPS + 50);
+        updateAt(TICK_RATE - 1);
+        updateAt(TICK_RATE);
+        updateAt(10 * TICK_RATE - 1);
+        updateAt(10 * TICK_RATE);
+        updateAt(10 * TICK_RATE + 50);
 
         List<PveObjectiveDto> sent = sentToLeft();
         assertThat(sent).extracting(PveObjectiveDto::remainingSeconds).containsExactly(10, 9, 1, 0);

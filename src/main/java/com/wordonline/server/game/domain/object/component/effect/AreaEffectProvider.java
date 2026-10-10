@@ -8,6 +8,7 @@ import com.wordonline.server.game.domain.object.Vector3;
 import com.wordonline.server.game.domain.object.component.Component;
 import com.wordonline.server.game.domain.object.component.effect.receiver.EffectReceiver;
 import com.wordonline.server.game.dto.Effect;
+import com.wordonline.server.game.util.IntervalTimer;
 
 public class AreaEffectProvider extends Component {
 
@@ -31,12 +32,13 @@ public class AreaEffectProvider extends Component {
 
     @Override
     public void update() {
+        float deltaTime = getGameContext().getDeltaTime();
+        counter += deltaTime;
         if (counter < interval) {
-            counter += getGameContext().getDeltaTime();
             return;
         }
 
-        counter = 0;
+        counter = IntervalTimer.carryOver(counter, interval, deltaTime);
         List<GameObject> gameObjects = getGameContext().overlapSphereAll(gameObject, radius);
         gameObjects.stream()
                 .filter(target -> target.getComponent(EffectReceiver.class) != null)

@@ -11,6 +11,7 @@ import com.wordonline.server.game.domain.parameter.ParameterKey;
 import com.wordonline.server.game.domain.PlayerData;
 import com.wordonline.server.game.domain.Stat;
 import com.wordonline.server.game.dto.frame.FrameInfoDto;
+import com.wordonline.server.game.util.IntervalTimer;
 
 import lombok.RequiredArgsConstructor;
 
@@ -28,6 +29,7 @@ public class ManaCharger {
 
     private final Stat manaChangeValue = new Stat(DEFAULT_MANA_CHARGE_VALUE);
     private double pendingMana;
+    private final IntervalTimer chargeTimer = new IntervalTimer();
 
     @PostConstruct
     public void initMaxMana() {
@@ -39,9 +41,10 @@ public class ManaCharger {
         manaChangeValue.addPercent(deltaValue);
     }
 
-    // this method is called every frame to charge mana
-    public void chargeMana(PlayerData player, FrameInfoDto frameInfoDto, int frameNum) {
-        if (frameNum % ((int) (GameLoop.FPS * MANA_CHARGE_INTERVAL)) == 0) {
+    // this method is called every frame to charge mana, once per MANA_CHARGE_INTERVAL of game time
+    public void chargeMana(PlayerData player, FrameInfoDto frameInfoDto, float deltaTime) {
+        int intervals = chargeTimer.advance(deltaTime, MANA_CHARGE_INTERVAL);
+        for (int i = 0; i < intervals; i++) {
             chargeAvailableMana(player);
         }
 

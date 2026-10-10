@@ -10,6 +10,7 @@ import com.wordonline.server.game.domain.object.prefab.PrefabType;
 import com.wordonline.server.game.dto.Master;
 import com.wordonline.server.game.dto.Status;
 import lombok.Getter;
+import com.wordonline.server.game.util.IntervalTimer;
 
 /**
  * Launches a {@link PrefabType#DragonFlame} straight forward every attack interval and never looks
@@ -52,12 +53,13 @@ public class FlameLauncher extends MagicComponent implements IntervalAttacker {
 
     @Override
     public void update() {
-        timer += getGameContext().getDeltaTime();
+        float deltaTime = getGameContext().getDeltaTime();
+        timer += deltaTime;
         if (timer < attackInterval.total()) {
             return;
         }
 
-        timer = 0f;
+        timer = IntervalTimer.carryOver(timer, attackInterval.total(), deltaTime);
         launchFlame();
     }
 

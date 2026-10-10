@@ -89,6 +89,7 @@ class GameLoopWatchdogTest {
     void reportsTheFrameRateOfEverySurvivingSession() {
         when(gameLoop.getLastFrameEndMillis()).thenReturn(System.currentTimeMillis());
         when(gameContext.getDeltaTime()).thenReturn(0.05f);
+        when(gameContext.getTickRate()).thenReturn(20);
 
         watchdog.reapStuckSessions();
 
@@ -97,6 +98,7 @@ class GameLoopWatchdogTest {
                 .satisfies(rate -> {
                     assertThat(rate.sessionId()).isEqualTo("session-1");
                     assertThat(rate.fps()).isCloseTo(20.0, within(0.01));
+                    assertThat(rate.targetFps()).isEqualTo(20);
                 });
     }
 

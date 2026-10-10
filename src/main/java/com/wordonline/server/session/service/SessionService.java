@@ -122,6 +122,9 @@ public class SessionService {
     private SessionObject createSessionObject(SessionDto sessionDto) {
         SessionObject sessionObject = sessionObjectFactory.createSessionObject(sessionDto);
         GameLoop loop = gameLoopFactory.create(sessionObject.getSessionType());
+        if (sessionDto.tickRate() != null) {
+            loop.getGameContext().setTickRate(sessionDto.tickRate());
+        }
 
         sessionObject.setGameLoop(loop);
         loop.init(sessionObject, () -> onLoopTerminated(sessionObject));

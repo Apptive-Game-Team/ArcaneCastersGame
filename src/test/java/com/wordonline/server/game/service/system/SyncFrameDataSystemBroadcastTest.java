@@ -16,7 +16,6 @@ import com.wordonline.server.game.dto.frame.SnapshotResponseDto;
 import com.wordonline.server.game.dto.sync.SyncInfoDto;
 import com.wordonline.server.game.service.CardDeck;
 import com.wordonline.server.game.service.GameContext;
-import com.wordonline.server.game.service.GameLoop;
 import com.wordonline.server.game.service.GameTimer;
 import com.wordonline.server.game.service.ManaCharger;
 import com.wordonline.server.game.service.WordOnlineLoop;
@@ -32,8 +31,8 @@ import static org.mockito.Mockito.when;
 
 /**
  * The spectator sync frame reuses the left player's snapshot as the canonical state, and that
- * snapshot carries myCards. Every spectator was receiving the left player's hand once every ten
- * frames; only the hand is removed, everything a player receives stays as it was.
+ * snapshot carries myCards. Every spectator was receiving the left player's hand on every sync
+ * frame; only the hand is removed, everything a player receives stays as it was.
  */
 class SyncFrameDataSystemBroadcastTest {
 
@@ -43,6 +42,9 @@ class SyncFrameDataSystemBroadcastTest {
     private static final long RIGHT_USER_ID = 22L;
     private static final List<Long> LEFT_HAND = List.of(2L, 1L);
     private static final List<Long> RIGHT_HAND = List.of(4L);
+    private static final int TICK_RATE = 20;
+    // Half a second in: a sync frame that is not the first one.
+    private static final int SYNC_FRAME = TICK_RATE / 2;
 
     private final SimpMessagingTemplate template = mock(SimpMessagingTemplate.class);
     private final SpectatorSubscriptionRegistry registry = mock(SpectatorSubscriptionRegistry.class);
@@ -65,13 +67,14 @@ class SyncFrameDataSystemBroadcastTest {
         when(gameContext.getObjectsInfoDto()).thenReturn(new ObjectsInfoDto());
         when(gameContext.getGameTimer()).thenReturn(mock(GameTimer.class));
         when(gameContext.drainEvents()).thenReturn(List.of());
-        when(gameContext.getFrameNum()).thenReturn(GameLoop.SYNC_FRAME_INTERVAL);
+        when(gameContext.getTickRate()).thenReturn(TICK_RATE);
+        when(gameContext.getFrameNum()).thenReturn(SYNC_FRAME);
         when(gameContext.getGameLoop()).thenReturn(gameLoop);
 
         when(gameLoop.getLastSnapshot(LEFT_USER_ID)).thenReturn(new SnapshotResponseDto(
-                GameLoop.SYNC_FRAME_INTERVAL, List.of(), LEFT_HAND));
+                SYNC_FRAME, List.of(), LEFT_HAND));
         when(gameLoop.getLastSnapshot(RIGHT_USER_ID)).thenReturn(new SnapshotResponseDto(
-                GameLoop.SYNC_FRAME_INTERVAL, List.of(), RIGHT_HAND));
+                SYNC_FRAME, List.of(), RIGHT_HAND));
     }
 
     @Test
@@ -83,7 +86,8 @@ class SyncFrameDataSystemBroadcastTest {
 
         assertThat(broadcast.getSnapshotResponseDto().myCards()).isEmpty();
         assertThat(broadcast.getUpdatedMana()).isZero();
-        assertThat(broadcast.getSnapshotResponseDto().frame()).isEqualTo(GameLoop.SYNC_FRAME_INTERVAL);
+        assertThat(broadcast.getSnapshotResponseDto().frame()).isEqualTo(SYNC_FRAME);
+        assertThat(broadcast.getTickRate()).isEqualTo(TICK_RATE);
     }
 
     @Test

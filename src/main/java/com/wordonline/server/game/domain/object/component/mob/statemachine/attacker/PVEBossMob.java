@@ -4,7 +4,6 @@ import com.wordonline.server.game.domain.magic.implement.spawn.AbstractSpawnMagi
 import com.wordonline.server.game.domain.magic.Magic;
 import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.pve.PveObjectiveTarget;
-import com.wordonline.server.game.service.GameLoop;
 
 import java.util.HashMap;
 import java.util.List;
@@ -12,8 +11,13 @@ import java.util.Map;
 
 public class PVEBossMob extends BehaviorMob implements PveObjectiveTarget {
 
+    // Absorbs the rounding of summing deltaTime in float, so a 2 s cooldown counted down in
+    // 1/60 s steps is ready on the 120th frame rather than the 121st.
+    private static final float COOLDOWN_EPSILON_SECONDS = 1e-4f;
+
     protected final List<Magic> magics;
-    private final Map<Long, Integer> cooldownUntilFrame = new HashMap<>();
+    // Seconds of game time before each magic may be cast again, counted down every frame.
+    private final Map<Long, Float> cooldownRemaining = new HashMap<>();
 
     public PVEBossMob(GameObject gameObject,
                       int maxHp,
@@ -25,6 +29,13 @@ public class PVEBossMob extends BehaviorMob implements PveObjectiveTarget {
         super(gameObject, maxHp, speed, targetMask, attackInterval, attackRange, null);
         this.magics = List.copyOf(magics);
         this.setBehavior(this::castMagic);
+    }
+
+    @Override
+    public void update() {
+        float deltaTime = getGameContext().getDeltaTime();
+        cooldownRemaining.replaceAll((magicId, remaining) -> Math.max(0f, remaining - deltaTime));
+        super.update();
     }
 
     protected boolean castMagic(GameObject target) {
@@ -47,8 +58,7 @@ public class PVEBossMob extends BehaviorMob implements PveObjectiveTarget {
         if (magic == null) {
             return false;
         }
-        int currentFrame = getGameContext().getFrameNum();
-        if (!isCooldownReady(magic, currentFrame)) {
+        if (!isCooldownReady(magic)) {
             return false;
         }
 
@@ -69,21 +79,20 @@ public class PVEBossMob extends BehaviorMob implements PveObjectiveTarget {
             return false;
         }
 
-        setCooldown(magic, currentFrame);
+        setCooldown(magic);
         return true;
     }
 
-    private boolean isCooldownReady(Magic magic, int currentFrame) {
-        return cooldownUntilFrame.getOrDefault(magic.id, 0) <= currentFrame;
+    private boolean isCooldownReady(Magic magic) {
+        return cooldownRemaining.getOrDefault(magic.id, 0f) <= COOLDOWN_EPSILON_SECONDS;
     }
 
-    private void setCooldown(Magic magic, int currentFrame) {
-        int cooldownFrames = (int) Math.ceil(resolveCooldownSec(magic) * GameLoop.FPS);
-        cooldownUntilFrame.put(magic.id, currentFrame + cooldownFrames);
+    private void setCooldown(Magic magic) {
+        cooldownRemaining.put(magic.id, resolveCooldownSec(magic));
     }
 
-    private static double resolveCooldownSec(Magic magic) {
-        return 2.0;
+    private static float resolveCooldownSec(Magic magic) {
+        return 2.0f;
     }
 
     @Override

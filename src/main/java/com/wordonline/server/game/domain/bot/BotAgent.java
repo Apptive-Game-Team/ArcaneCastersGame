@@ -13,6 +13,7 @@ import com.wordonline.server.game.dto.input.InputRequestDto;
 import com.wordonline.server.game.dto.Master;
 import com.wordonline.server.game.service.GameLoop;
 import com.wordonline.server.game.service.bot.BotCounterEvaluator;
+import com.wordonline.server.game.util.IntervalTimer;
 
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -40,6 +41,9 @@ public final class BotAgent {
     // stale value at worst submits a tick that returns immediately, or skips one reaction interval.
     private volatile PendingDecision pendingDecision;
     private volatile BotBrain.InputDecision lastDecision;
+
+    // Read and advanced only by the loop thread, in shouldProcess.
+    private final IntervalTimer reactionTimer = new IntervalTimer();
 
     private static final AtomicInteger NEXT_ID = new AtomicInteger(0);
     private static final long THOUGHT_INTERVAL_MILLIS = 10_000;
@@ -96,14 +100,13 @@ public final class BotAgent {
         emoteDirector.onOpponentEmote(emote, System.currentTimeMillis());
     }
 
-    public boolean shouldProcess(int currentFrame) {
+    public boolean shouldProcess(float deltaTime) {
+        // Advanced on every frame, before the checks below can short-circuit it, so the reaction
+        // cadence counts game time and not how often this happened to be asked.
+        boolean reactionDue = reactionTimer.advance(deltaTime, persona.reactionIntervalSeconds()) > 0;
         return shouldPublishPeriodicThought()
                 || hasReadyPendingDecision()
-                || (pendingDecision == null && shouldThink(currentFrame));
-    }
-
-    private boolean shouldThink(int currentFrame) {
-        return currentFrame % persona.normalizedReactionIntervalFrames() == 0;
+                || (pendingDecision == null && reactionDue);
     }
 
     // Reads the field once: the bot thread can null it between a check and a dereference.

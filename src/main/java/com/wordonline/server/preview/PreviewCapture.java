@@ -19,7 +19,8 @@ import java.util.function.IntConsumer;
 
 final class PreviewCapture implements AutoCloseable {
     private static final ObjectMapper JSON = new ObjectMapper();
-    private static final float DT = 1f / GameLoop.FPS;
+    // Recorded at the shared servers' rate; the client replays the clip by its frameDuration.
+    private static final float DT = 1f / com.wordonline.server.game.config.GameTickProperties.DEFAULT_TICK_RATE;
     final PreviewParameters parameters;
     final GameContext context;
     final Map<String, Magic> magics;
