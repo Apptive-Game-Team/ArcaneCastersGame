@@ -1,5 +1,6 @@
 package com.wordonline.server.game.domain.map;
 
+import java.util.Random;
 import java.util.random.RandomGenerator;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,9 +23,13 @@ public class GameMapSelector {
     private final RandomGenerator random;
     private final PveScenarioRepository pveScenarioRepository;
 
+    /**
+     * {@link Random} lives in {@code java.base}. {@code RandomGenerator.getDefault()} needs the
+     * {@code jdk.random} module, which the {@code eclipse-temurin:21-jre} runtime image leaves out.
+     */
     @Autowired
     public GameMapSelector(GameMapProperties properties, PveScenarioRepository pveScenarioRepository) {
-        this(properties, RandomGenerator.getDefault(), pveScenarioRepository);
+        this(properties, new Random(), pveScenarioRepository);
     }
 
     /** The random source is a parameter so that a test can fix it. */
