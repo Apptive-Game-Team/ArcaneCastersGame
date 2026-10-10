@@ -35,7 +35,8 @@ class ParameterControllerTest {
     private final MagicMetadataService magicMetadataService =
             new MagicMetadataService(tagRepository);
     private final ParameterController controller =
-            new ParameterController(parameterService, databaseMagicParser, magicMetadataService);
+            new ParameterController(parameterService, databaseMagicParser, magicMetadataService,
+                    mock(com.wordonline.server.preview.MagicPreviewService.class));
 
     @Test
     void theEndpointClearsTheParameterAndMagicRecipeCaches() {

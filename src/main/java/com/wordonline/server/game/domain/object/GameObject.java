@@ -256,7 +256,7 @@ public class GameObject {
     }
 
     public void start() {
-        PrefabProvider.get(type).initialize(this);
+        if (!gameContext.initializePrefab(this)) PrefabProvider.get(type).initialize(this);
         components.addAll(componentsToAdd);
         componentsToAdd.clear();
         for (Component component : components)

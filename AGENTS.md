@@ -137,6 +137,9 @@ quest paths; skipping only recordStart does not prevent recordEnd side effects.
 Before extending offline magic recordings, read `docs/fire-shot-preview.md`.
 It records queued-create Vector3 aliasing and collision first-contact ties that
 can make a staged fixture nondeterministic even when sorted DTOs look stable.
+Before modifying server-generated previews, read `docs/server-magic-previews.md`.
+Keep capture policies opt-in and false by default; mock GameContexts also return
+false. A true default silently disabled ordinary death-field regression tests.
 
 For in-depth explanations of the server systems, refer to the following developer documentation:
 - **System Overview & Protocols**: [system-overview.md](file:///Users/jeong-yunseong/development/word-online/dev/game-server/docs/system-overview.md)
