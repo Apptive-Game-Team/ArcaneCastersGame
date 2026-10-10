@@ -11,14 +11,17 @@ import com.wordonline.server.game.domain.pve.PveObjectiveTarget;
 import com.wordonline.server.game.domain.pve.PveScenario;
 import com.wordonline.server.game.domain.pve.PveScenarioAction;
 import com.wordonline.server.game.domain.pve.PveScenarioEvent;
+import com.wordonline.server.game.domain.pve.PveSetBgmAction;
 import com.wordonline.server.game.domain.pve.PveSetSpawnerAction;
 import com.wordonline.server.game.domain.pve.PveShield;
 import com.wordonline.server.game.domain.pve.PveSpawnWaveAction;
 import com.wordonline.server.game.dto.Master;
 import com.wordonline.server.game.dto.pve.PveScriptEventDto;
+import com.wordonline.server.game.dto.pve.PveStateDto;
 import com.wordonline.server.game.service.GameContext;
 import com.wordonline.server.game.service.GameLoop;
 import com.wordonline.server.game.service.pve.PveScenarioInstaller;
+import com.wordonline.server.game.service.pve.PveStateStore;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Scope;
@@ -54,6 +57,9 @@ public class PveScriptSystem implements GameSystem {
 
     private final List<SentEvent> sentEvents = new ArrayList<>();
     private int lastSeq;
+
+    // State channels are not replayed by age: pveSync always carries every channel set so far.
+    private final PveStateStore stateStore = new PveStateStore();
 
     private final Set<String> fired = new HashSet<>();
     private final Set<GameObject> shieldAttached = Collections.newSetFromMap(new IdentityHashMap<>());
@@ -184,6 +190,16 @@ public class PveScriptSystem implements GameSystem {
         }
     }
 
+    /**
+     * Sends one user one {@code pveState} message for every state channel set so far in this
+     * match, oldest seq first, however old the change is and whatever seq the client last saw.
+     */
+    public void sendStatesTo(GameContext gameContext, long userId) {
+        for (PveStateDto state : stateStore.snapshot()) {
+            gameContext.getSessionObject().sendFrameInfo(userId, state);
+        }
+    }
+
     private void runActions(PveScenarioEvent eventSpec, GameContext gameContext) {
         for (PveScenarioAction action : eventSpec.actions()) {
             // One broken action (a bad prefab, a missing installer) is logged and skipped; the
@@ -195,6 +211,8 @@ public class PveScriptSystem implements GameSystem {
                     runInstallObject(installObject, gameContext);
                 } else if (action instanceof PveSetSpawnerAction setSpawner) {
                     runSetSpawner(setSpawner, gameContext);
+                } else if (action instanceof PveSetBgmAction setBgm) {
+                    setState(PveStateStore.BGM, setBgm.bgmKey(), gameContext);
                 }
             } catch (RuntimeException e) {
                 log.error("[PVE] action failed, skipped; event: {}, action: {}", eventSpec.id(), action, e);
@@ -211,6 +229,15 @@ public class PveScriptSystem implements GameSystem {
             log.error("[PVE] trigger failed, event disabled; event: {}", eventSpec.id(), e);
             return false;
         }
+    }
+
+    private void setState(String channel, String value, GameContext gameContext) {
+        stateStore.set(channel, value).ifPresent(state -> {
+            long leftId = gameContext.getSessionObject().getLeftUserId();
+            long rightId = gameContext.getSessionObject().getRightUserId();
+            gameContext.getSessionObject().sendFrameInfo(leftId, state);
+            gameContext.getSessionObject().sendFrameInfo(rightId, state);
+        });
     }
 
     private void runSpawnWave(PveSpawnWaveAction action, GameContext gameContext) {

@@ -14,11 +14,13 @@ import com.wordonline.server.game.domain.pve.PveScenario;
 import com.wordonline.server.game.domain.pve.PveScenarioAction;
 import com.wordonline.server.game.domain.pve.PveScenarioEvent;
 import com.wordonline.server.game.domain.pve.PveScenarioRules;
+import com.wordonline.server.game.domain.pve.PveSetBgmAction;
 import com.wordonline.server.game.domain.pve.PveSetSpawnerAction;
 import com.wordonline.server.game.domain.pve.PveSpawnWaveAction;
 import com.wordonline.server.game.domain.pve.PveTriggerType;
 import com.wordonline.server.game.dto.Master;
 import com.wordonline.server.game.dto.pve.PveScriptEventDto;
+import com.wordonline.server.game.dto.pve.PveStateDto;
 import com.wordonline.server.game.service.GameContext;
 import com.wordonline.server.game.service.pve.PveScenarioInstaller;
 import org.junit.jupiter.api.Test;
@@ -552,5 +554,82 @@ class PveScriptSystemTest {
         when(context.getFrameNum()).thenReturn(300);
         system.update(context);
         assertThat(sentTo(1L)).extracting(PveScriptEventDto::seq).containsExactly(3);
+    }
+
+    // ---- state channels ----
+
+    private List<Object> allSentTo(long userId) {
+        var captor = org.mockito.ArgumentCaptor.forClass(Object.class);
+        verify(sessionObject, org.mockito.Mockito.atLeast(0)).sendFrameInfo(org.mockito.ArgumentMatchers.eq(userId), captor.capture());
+        return captor.getAllValues();
+    }
+
+    private PveScriptSystem systemWithBgmEvents(GameContext context) {
+        PveScenarioInstaller installer = new PveScenarioInstaller();
+        installer.install(List.of(), context);
+        var scenario = new PveScenario(List.of(), List.of(), List.of(
+                event("boss", PveTriggerType.FrameNumGte, 10, null, List.of("here I come"),
+                        List.of(new PveSetBgmAction("boss_battle"))),
+                event("again", PveTriggerType.FrameNumGte, 20, null, List.of(),
+                        List.of(new PveSetBgmAction("boss_battle"))),
+                event("calm", PveTriggerType.FrameNumGte, 30, null, List.of(),
+                        List.of(new PveSetBgmAction(null)))
+        ), PveScenarioRules.defaultRules());
+        return newSystem(scenario, installer);
+    }
+
+    @Test
+    void playBgmActionPushesTheBgmStateToBothUsersOnlyWhenTheValueChanges() {
+        GameContext context = newGameContext();
+        when(sessionObject.getLeftUserId()).thenReturn(1L);
+        when(sessionObject.getRightUserId()).thenReturn(2L);
+        PveScriptSystem system = systemWithBgmEvents(context);
+
+        for (int frame : new int[] {10, 20, 30}) {
+            when(context.getFrameNum()).thenReturn(frame);
+            system.update(context);
+        }
+
+        for (long userId : new long[] {1L, 2L}) {
+            List<PveStateDto> states = allSentTo(userId).stream()
+                    .filter(PveStateDto.class::isInstance).map(PveStateDto.class::cast).toList();
+            // "again" sets the same key, so it is not a change and sends nothing.
+            assertThat(states).containsExactly(
+                    new PveStateDto("bgm", "boss_battle", 1),
+                    new PveStateDto("bgm", null, 2));
+            assertThat(states.get(0).type()).isEqualTo("pveState");
+        }
+        // The dialogue seq is a separate counter and is unaffected by state changes.
+        assertThat(allSentTo(1L).stream().filter(PveScriptEventDto.class::isInstance)
+                .map(PveScriptEventDto.class::cast).map(PveScriptEventDto::seq).toList()).containsExactly(1);
+    }
+
+    @Test
+    void pveSyncCarriesTheCurrentBgmLongAfterTheEventLeftTheReplayWindow() {
+        GameContext context = newGameContext();
+        when(sessionObject.getLeftUserId()).thenReturn(1L);
+        when(sessionObject.getRightUserId()).thenReturn(2L);
+        PveScriptSystem system = systemWithBgmEvents(context);
+        when(context.getFrameNum()).thenReturn(10);
+        system.update(context);
+        org.mockito.Mockito.clearInvocations(sessionObject);
+
+        int window = PveScriptSystem.REPLAY_SECONDS * com.wordonline.server.game.service.GameLoop.FPS;
+        when(context.getFrameNum()).thenReturn(10 + window + 1);
+        system.sendRecentEventsTo(context, 7L, 0);
+        system.sendStatesTo(context, 7L);
+
+        // The dialogue of that event is too old to replay; the bgm state is not.
+        assertThat(allSentTo(7L)).containsExactly(new PveStateDto("bgm", "boss_battle", 1));
+    }
+
+    @Test
+    void pveSyncSendsNoStateBeforeAnyChannelIsSet() {
+        GameContext context = newGameContext();
+        PveScriptSystem system = systemWithBgmEvents(context);
+
+        system.sendStatesTo(context, 7L);
+
+        verify(sessionObject, never()).sendFrameInfo(anyLong(), any());
     }
 }
