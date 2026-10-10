@@ -23,6 +23,7 @@ class GameLoopFailureEndTest {
 
     private GameLoop loopThatThrowsAfter(Runnable beforeThrow) {
         when(gameContext.getResultChecker()).thenReturn(resultChecker);
+        when(gameContext.getTickRate()).thenReturn(20);
         when(sessionObject.getLeftUserId()).thenReturn(1L);
         when(sessionObject.getRightUserId()).thenReturn(2L);
         when(sessionObject.getSessionType()).thenReturn(SessionType.PVP);

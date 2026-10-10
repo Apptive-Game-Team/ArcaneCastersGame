@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import com.wordonline.server.game.config.GameTickProperties;
 import com.wordonline.server.game.domain.magic.parser.DatabaseMagicParser;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Service;
@@ -43,7 +44,12 @@ public class GameContext {
     private final MagicInputHandler magicInputHandler;
     private final DatabaseMagicParser magicParser;
     private ObjectsInfoDtoBuilder objectsInfoDtoBuilder;
-    private float deltaTime = 1f / GameLoop.FPS;
+    // Frames per second this session's loop runs at. GameLoopFactory sets the configured default and
+    // a session may override it before the loop starts; nothing changes it mid-match.
+    private int tickRate = GameTickProperties.DEFAULT_TICK_RATE;
+    // The measured length of the previous frame, never zero. Starts at one nominal frame so the
+    // first frame advances every timer by the same amount the following ones do.
+    private float deltaTime = 1f / GameTickProperties.DEFAULT_TICK_RATE;
     private CardSelectVisualizer cardSelectVisualizer;
     private final List<GameEventDto> events = new ArrayList<>();
     private final GameActionQueue actionQueue = new GameActionQueue();
@@ -150,6 +156,11 @@ public class GameContext {
 
     public void incrementFrameNum() {
         this.frameNum++;
+    }
+
+    public void setTickRate(int tickRate) {
+        this.tickRate = GameTickProperties.validate(tickRate);
+        this.deltaTime = 1f / this.tickRate;
     }
 
     // Threads other than the loop thread never mutate game state directly. They queue what they

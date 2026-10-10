@@ -48,10 +48,20 @@ class FrameEventPayloadTest {
     void syncFrameKeepsTheEventsOfTheFrameItReplaces() {
         FrameInfoDto frame = frameWith(List.of(GameEventDto.hit(7, 12)));
 
-        SyncInfoDto sync = frame.toSyncDto(new SnapshotResponseDto(10, List.of(), List.of()));
+        SyncInfoDto sync = frame.toSyncDto(new SnapshotResponseDto(10, List.of(), List.of()), 20);
 
         assertThat(sync.getEvents()).isEqualTo(frame.getEvents());
         assertThat(objectMapper.valueToTree(sync).get("events")).hasSize(1);
+    }
+
+    @Test
+    void syncFrameCarriesTheTickRateAsATopLevelField() {
+        SyncInfoDto sync = frameWith(List.of()).toSyncDto(new SnapshotResponseDto(1, List.of(), List.of()), 60);
+
+        JsonNode json = objectMapper.valueToTree(sync);
+
+        assertThat(json.get("type").asText()).isEqualTo("sync");
+        assertThat(json.get("tickRate").asInt()).isEqualTo(60);
     }
 
     private FrameInfoDto frameWith(List<GameEventDto> events) {

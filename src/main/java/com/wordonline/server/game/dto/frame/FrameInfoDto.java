@@ -36,8 +36,8 @@ public class FrameInfoDto {
         return dto;
     }
 
-    public SyncInfoDto toSyncDto(SnapshotResponseDto snapshotResponseDto) {
-        return new SyncInfoDto(this, snapshotResponseDto);
+    public SyncInfoDto toSyncDto(SnapshotResponseDto snapshotResponseDto, int tickRate) {
+        return new SyncInfoDto(this, snapshotResponseDto, tickRate);
     }
 }
 
