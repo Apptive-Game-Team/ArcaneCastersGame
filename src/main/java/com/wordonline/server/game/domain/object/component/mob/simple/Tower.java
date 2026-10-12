@@ -17,6 +17,7 @@ import com.wordonline.server.game.util.CombatRange;
 import lombok.Getter;
 
 import java.util.List;
+import com.wordonline.server.game.util.IntervalTimer;
 
 public class Tower extends Component implements IntervalAttacker {
 
@@ -61,13 +62,14 @@ public class Tower extends Component implements IntervalAttacker {
 
     @Override
     public void update() {
-        timer += getGameContext().getDeltaTime();
+        float deltaTime = getGameContext().getDeltaTime();
+        timer += deltaTime;
         if (timer < attackInterval.total()) {
             return;
         }
 
         if (attack()) {
-            timer = 0f;
+            timer = IntervalTimer.carryOver(timer, attackInterval.total(), deltaTime);
         }
     }
 

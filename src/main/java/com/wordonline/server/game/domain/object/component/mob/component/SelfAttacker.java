@@ -4,6 +4,7 @@ import com.wordonline.server.game.domain.AttackInfo;
 import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.component.Component;
 import com.wordonline.server.game.domain.object.component.mob.Mob;
+import com.wordonline.server.game.util.IntervalTimer;
 
 public class SelfAttacker extends Component {
 
@@ -25,10 +26,11 @@ public class SelfAttacker extends Component {
 
     @Override
     public void update() {
-        counter += getGameContext().getDeltaTime();
+        float deltaTime = getGameContext().getDeltaTime();
+        counter += deltaTime;
 
         if (counter > attackInterval) {
-            counter = 0;
+            counter = IntervalTimer.carryOver(counter, attackInterval, deltaTime);
             self.onDamaged(attackInfo);
         }
     }

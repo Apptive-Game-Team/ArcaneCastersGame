@@ -98,11 +98,12 @@ lobby:
 # Operational alerts. The webhook is the one the log appender already uses; leaving
 # DISCORD_WEBHOOK_URL unset disables alerting. cooldown is how long an ongoing episode stays
 # quiet after its first message - a server past capacity has dozens of slow loops on every
-# sweep and one problem.
+# sweep and one problem. fps-threshold-ratio is a share of each session's own tick rate: a loop
+# below 0.75 of its target (15 fps at 20 FPS, 45 fps at 60 FPS) counts as slow.
 alert:
   enabled: ${ALERT_ENABLED:true}
   discord-webhook-url: ${DISCORD_WEBHOOK_URL:}
-  fps-threshold: ${ALERT_FPS_THRESHOLD:15}
+  fps-threshold-ratio: ${ALERT_FPS_THRESHOLD_RATIO:0.75}
   cooldown: ${ALERT_COOLDOWN:5m}
 
 # Loop watchdog. A session whose last completed frame is older than stuck-threshold is

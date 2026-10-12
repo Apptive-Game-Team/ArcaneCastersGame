@@ -22,7 +22,6 @@ public class PveResultChecker extends ResultChecker {
     private final Set<Integer> seenObjectives = new HashSet<>();
 
     private PveWinCondition winCondition = PveWinCondition.DestroyObjectives;
-    private int surviveFrameThreshold = Integer.MAX_VALUE;
     private int surviveSeconds = 0;
 
     public PveResultChecker(SessionObject sessionObject) {
@@ -46,10 +45,8 @@ public class PveResultChecker extends ResultChecker {
         this.winCondition = effective.winCondition();
         if (winCondition == PveWinCondition.Survive) {
             this.surviveSeconds = effective.surviveSeconds() == null ? 0 : effective.surviveSeconds();
-            this.surviveFrameThreshold = surviveSeconds * GameLoop.FPS;
         } else {
             this.surviveSeconds = 0;
-            this.surviveFrameThreshold = Integer.MAX_VALUE;
         }
     }
 
@@ -87,7 +84,8 @@ public class PveResultChecker extends ResultChecker {
         // The player only has to still be alive here, which the lose check above already
         // guarantees for this branch to be reached. Destroying every objective ends the match
         // early; a scenario with no objectives is cleared by the timer alone.
-        if (getSessionObject().getGameContext().getFrameNum() >= surviveFrameThreshold
+        GameContext gameContext = getSessionObject().getGameContext();
+        if (gameContext.getFrameNum() >= getSurviveFrameThreshold(gameContext.getTickRate())
                 || areAllObjectivesTerminal()) {
             setCleared();
         }
@@ -101,8 +99,9 @@ public class PveResultChecker extends ResultChecker {
         return surviveSeconds;
     }
 
-    public int getSurviveFrameThreshold() {
-        return surviveFrameThreshold;
+    // The frame the survive timer runs out on at this tick rate; never for any other win condition.
+    public int getSurviveFrameThreshold(int tickRate) {
+        return winCondition == PveWinCondition.Survive ? surviveSeconds * tickRate : Integer.MAX_VALUE;
     }
 
     public int getObjectivesTotal() {

@@ -2,7 +2,6 @@ package com.wordonline.server.game.service.system;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import com.wordonline.server.game.domain.bot.BotAgent;
 import com.wordonline.server.game.domain.bot.BotEye;
@@ -24,24 +23,22 @@ public class BotAgentSystem implements GameSystem {
     private final ExecutorService botExecutorService;
     private final AtomicBoolean leftBotProcessing = new AtomicBoolean(false);
     private final AtomicBoolean rightBotProcessing = new AtomicBoolean(false);
-    private final AtomicInteger frameCounter = new AtomicInteger(0);
 
     @Override
     public void update(GameContext gameContext) {
-        int currentFrame = frameCounter.incrementAndGet();
-
         if (gameContext.getGameLoop() == null) {
             log.warn("[BotSystem] GameLoop is null, skipping bot update");
             return;
         }
 
         var wordOnlineLoop = gameContext.getGameLoop();
-        log.trace("[BotSystem] Triggering bot tick at frame {}", currentFrame);
+        log.trace("[BotSystem] Triggering bot tick at frame {}", gameContext.getFrameNum());
 
-        submitBotIfNeeded(wordOnlineLoop.getLeftBotAgent(), currentFrame, leftBotProcessing,
+        float deltaTime = gameContext.getDeltaTime();
+        submitBotIfNeeded(wordOnlineLoop.getLeftBotAgent(), deltaTime, leftBotProcessing,
                 gameContext, Master.LeftPlayer, "Left");
 
-        submitBotIfNeeded(wordOnlineLoop.getRightBotAgent(), currentFrame, rightBotProcessing,
+        submitBotIfNeeded(wordOnlineLoop.getRightBotAgent(), deltaTime, rightBotProcessing,
                 gameContext, Master.RightPlayer, "Right");
 
         // Emotes are decided here, on the loop thread, rather than inside the executor tick: the
@@ -60,12 +57,12 @@ public class BotAgentSystem implements GameSystem {
     }
 
     private void submitBotIfNeeded(BotAgent botAgent,
-                                   int currentFrame,
+                                   float deltaTime,
                                    AtomicBoolean processing,
                                    GameContext gameContext,
                                    Master botSide,
                                    String label) {
-        if (botAgent == null || !botAgent.shouldProcess(currentFrame)) {
+        if (botAgent == null || !botAgent.shouldProcess(deltaTime)) {
             return;
         }
 

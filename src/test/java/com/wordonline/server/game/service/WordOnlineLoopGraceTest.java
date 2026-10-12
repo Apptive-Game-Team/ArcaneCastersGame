@@ -34,6 +34,8 @@ import static org.mockito.Mockito.when;
 
 class WordOnlineLoopGraceTest {
 
+    private static final int TICK_RATE = 20;
+
     private final GameContext gameContext = mock(GameContext.class);
     private final GameTimer gameTimer = mock(GameTimer.class);
     private final SessionObject sessionObject = mock(SessionObject.class);
@@ -52,18 +54,18 @@ class WordOnlineLoopGraceTest {
         verify(botSystem, never()).update(gameContext);
 
         resultChecker.setLoser(Master.RightPlayer);
-        for (int frameNum = 2; frameNum <= GameLoop.FPS; frameNum++) {
+        for (int frameNum = 2; frameNum <= TICK_RATE; frameNum++) {
             update(loop, frameNum);
         }
         verify(sessionObject, never()).sendFrameInfo(anyLong(), any(ResultDto.class));
 
-        update(loop, GameLoop.FPS + 1);
+        update(loop, TICK_RATE + 1);
         verify(sessionObject, times(2)).sendFrameInfo(anyLong(), any(ResultDto.class));
-        update(loop, GameLoop.FPS + 2);
+        update(loop, TICK_RATE + 2);
         assertThat(resultChecker.getLoser()).isEqualTo(Master.LeftPlayer);
         verify(sessionObject, times(2)).sendFrameInfo(anyLong(), any(ResultDto.class));
         verify(mmrService, times(1)).updateMatchResult(1L, 2L, ResultType.Lose);
-        verify(frameDataSystem, times(GameLoop.FPS + 2)).lateUpdate(gameContext);
+        verify(frameDataSystem, times(TICK_RATE + 2)).lateUpdate(gameContext);
     }
 
     @Test
@@ -83,7 +85,7 @@ class WordOnlineLoopGraceTest {
         verify(sessionObject, never()).sendFrameInfo(anyLong(), any(ResultDto.class));
 
         leftPlayerData.hp = 30;
-        for (int frameNum = 2; frameNum <= GameLoop.FPS + 1; frameNum++) {
+        for (int frameNum = 2; frameNum <= TICK_RATE + 1; frameNum++) {
             update(loop, frameNum);
         }
 
@@ -94,6 +96,7 @@ class WordOnlineLoopGraceTest {
 
     private WordOnlineLoop loop() {
         when(gameContext.getResultChecker()).thenReturn(resultChecker);
+        when(gameContext.getTickRate()).thenReturn(TICK_RATE);
         when(gameContext.getGameTimer()).thenReturn(gameTimer);
         when(sessionObject.getLeftUserId()).thenReturn(1L);
         when(sessionObject.getRightUserId()).thenReturn(2L);

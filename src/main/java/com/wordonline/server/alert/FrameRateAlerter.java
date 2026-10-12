@@ -59,8 +59,8 @@ public class FrameRateAlerter {
         }
 
         List<SessionFrameRate> slow = frameRates.stream()
-                .filter(rate -> rate.fps() < alertProperties.fpsThreshold())
-                .sorted(Comparator.comparingDouble(SessionFrameRate::fps))
+                .filter(rate -> rate.fps() < alertProperties.fpsThresholdRatio() * rate.targetFps())
+                .sorted(Comparator.comparingDouble(rate -> rate.fps() / rate.targetFps()))
                 .toList();
 
         if (slow.isEmpty()) {
@@ -68,8 +68,8 @@ public class FrameRateAlerter {
                 degraded = false;
                 lastAlertAt = null;
                 discordNotifier.send(String.format(
-                        "Game loops recovered: all %d session(s) are back above %.0f fps.",
-                        frameRates.size(), alertProperties.fpsThreshold()));
+                        "Game loops recovered: all %d session(s) are back above %.0f%% of their tick rate.",
+                        frameRates.size(), alertProperties.fpsThresholdRatio() * 100));
             }
             return;
         }
@@ -88,12 +88,12 @@ public class FrameRateAlerter {
     private String summarize(List<SessionFrameRate> slow, int total) {
         String worst = slow.stream()
                 .limit(NAMED_SESSIONS)
-                .map(rate -> String.format("%s %.1f fps", rate.sessionId(), rate.fps()))
+                .map(rate -> String.format("%s %.1f/%d fps", rate.sessionId(), rate.fps(), rate.targetFps()))
                 .collect(Collectors.joining(", "));
 
         return String.format(
-                "Game loops below %.0f fps: %d of %d session(s). Slowest: %s%s",
-                alertProperties.fpsThreshold(),
+                "Game loops below %.0f%% of their tick rate: %d of %d session(s). Slowest: %s%s",
+                alertProperties.fpsThresholdRatio() * 100,
                 slow.size(),
                 total,
                 worst,
@@ -104,7 +104,8 @@ public class FrameRateAlerter {
      * @param fps frames per second of the last frame, or of the time spent inside the current
      *            one when that is already longer - a loop that stopped ticking reads as slow
      *            rather than as whatever it managed before it stopped
+     * @param targetFps the session's tick rate, which the threshold is a share of
      */
-    public record SessionFrameRate(String sessionId, double fps) {
+    public record SessionFrameRate(String sessionId, double fps, int targetFps) {
     }
 }

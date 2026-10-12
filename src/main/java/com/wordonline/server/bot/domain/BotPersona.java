@@ -1,5 +1,7 @@
 package com.wordonline.server.bot.domain;
 
+import com.wordonline.server.game.service.GameLoop;
+
 public record BotPersona(
         long userId,
         String name,
@@ -34,6 +36,14 @@ public record BotPersona(
 
     public int normalizedReactionIntervalFrames() {
         return Math.max(1, reactionIntervalFrames);
+    }
+
+    /**
+     * How often the bot looks at the board, in seconds. reaction_interval_frames is stored in
+     * 20-FPS frames, so the same persona reacts at the same pace whatever the session's tick rate.
+     */
+    public float reactionIntervalSeconds() {
+        return normalizedReactionIntervalFrames() * GameLoop.LEGACY_FRAME_SECONDS;
     }
 
     public int normalizedThinkingTimeMs() {

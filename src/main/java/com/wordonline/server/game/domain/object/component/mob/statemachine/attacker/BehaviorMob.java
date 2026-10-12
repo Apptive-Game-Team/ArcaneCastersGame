@@ -25,6 +25,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
+import com.wordonline.server.game.util.IntervalTimer;
 
 @Slf4j
 public class BehaviorMob extends StateMachineMob implements IntervalAttacker {
@@ -420,11 +421,12 @@ public class BehaviorMob extends StateMachineMob implements IntervalAttacker {
                 setState(new IdleState());
                 return;
             }
-            timer += getGameContext().getDeltaTime();
+            float deltaTime = getGameContext().getDeltaTime();
+            timer += deltaTime;
             if (!withinAttackRange(attackRange)) {
                 setState(new MoveState());
             } else if (timer > attackInterval.total()) {
-                timer = 0;
+                timer = IntervalTimer.carryOver(timer, attackInterval.total(), deltaTime);
 
                 if (!behavior.test(target)) {
                     setState(new IdleState());

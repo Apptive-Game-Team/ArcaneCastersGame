@@ -8,6 +8,7 @@ import com.wordonline.server.game.domain.object.Vector3;
 import com.wordonline.server.game.domain.object.component.mob.Mob;
 import com.wordonline.server.game.dto.Status;
 import com.wordonline.server.game.util.CombatRange;
+import com.wordonline.server.game.util.IntervalTimer;
 
 public class Totem extends Mob {
 
@@ -38,9 +39,10 @@ public class Totem extends Mob {
     @Override
     public void update() {
         super.update();
-        timer += getGameContext().getDeltaTime();
+        float deltaTime = getGameContext().getDeltaTime();
+        timer += deltaTime;
         if (timer >= healCooldown) {
-            timer = 0;
+            timer = IntervalTimer.carryOver(timer, healCooldown, deltaTime);
             //heal circle prefab
             for (GameObject object : getGameContext().getGameSessionData().gameObjects) {
                 if (!object.isActive() || !CombatRange.contains(gameObject, object, healRange)) continue;

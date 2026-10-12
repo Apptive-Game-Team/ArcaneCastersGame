@@ -9,7 +9,10 @@ import java.util.EnumSet;
 import java.util.Set;
 
 public class MovementSpeedTracker extends Component {
-    private static final int SAMPLE_FRAME_COUNT = 3;
+    // Speed is measured over this much game time, three frames at 20 FPS. The epsilon keeps three
+    // float steps of 0.05 s from falling just short of the window.
+    private static final float SAMPLE_SECONDS = 0.15f;
+    private static final float SAMPLE_EPSILON_SECONDS = 1e-4f;
     private static final Set<Effect> CHARGE_EFFECTS = EnumSet.of(
             Effect.StormStagCharge2,
             Effect.StormStagCharge3,
@@ -17,7 +20,6 @@ public class MovementSpeedTracker extends Component {
 
     private final float maxSpeed;
     private Vector3 samplePosition;
-    private int elapsedFrames;
     private float elapsedSeconds;
     private int tier = 1;
     private boolean tracking;
@@ -38,9 +40,8 @@ public class MovementSpeedTracker extends Component {
             return;
         }
 
-        elapsedFrames++;
         elapsedSeconds += getGameContext().getDeltaTime();
-        if (elapsedFrames < SAMPLE_FRAME_COUNT || elapsedSeconds <= 0f) {
+        if (elapsedSeconds + SAMPLE_EPSILON_SECONDS < SAMPLE_SECONDS) {
             return;
         }
 
@@ -48,7 +49,6 @@ public class MovementSpeedTracker extends Component {
         float measuredSpeed = (float) (distance / elapsedSeconds);
         updateTier(tierFor(measuredSpeed, maxSpeed));
         samplePosition = new Vector3(gameObject.getPosition());
-        elapsedFrames = 0;
         elapsedSeconds = 0f;
     }
 
@@ -59,7 +59,6 @@ public class MovementSpeedTracker extends Component {
 
     public void reset() {
         tracking = false;
-        elapsedFrames = 0;
         elapsedSeconds = 0f;
         samplePosition = new Vector3(gameObject.getPosition());
         tier = 1;

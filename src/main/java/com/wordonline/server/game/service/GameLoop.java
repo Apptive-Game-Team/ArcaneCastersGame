@@ -53,15 +53,24 @@ public abstract class GameLoop implements Runnable {
     @Getter
     private volatile long lastFrameEndMillis = System.currentTimeMillis();
 
-    public static final int FPS = 20;
+    // Frame counts stored in the database before the tick rate became a session setting
+    // (bot_personas.reaction_interval_frames, the FrameNumGte trigger value) count 20-FPS frames.
+    // They are read as that many twentieths of a second, whatever the session's own rate.
+    public static final int LEGACY_TICK_RATE = 20;
+    public static final float LEGACY_FRAME_SECONDS = 1f / LEGACY_TICK_RATE;
 
-    // Every tenth frame SyncFrameDataSystem replaces the frame message with a full snapshot.
+    // SyncFrameDataSystem replaces the frame message with a full snapshot every half second of game
+    // time, and on the very first frame so the client learns the tick rate before anything else.
     // The loop builds the snapshot for it, so both sides read the period from here rather than
     // from two literals that can drift apart.
-    public static final int SYNC_FRAME_INTERVAL = 10;
+    public static final float SYNC_INTERVAL_SECONDS = 0.5f;
 
-    public static boolean isSyncFrame(int frameNum) {
-        return frameNum % SYNC_FRAME_INTERVAL == 0;
+    public static int syncIntervalFrames(int tickRate) {
+        return Math.max(1, Math.round(SYNC_INTERVAL_SECONDS * tickRate));
+    }
+
+    public static boolean isSyncFrame(int frameNum, int tickRate) {
+        return frameNum == 1 || frameNum % syncIntervalFrames(tickRate) == 0;
     }
 
     public SessionObject sessionObject;
@@ -179,16 +188,19 @@ public abstract class GameLoop implements Runnable {
 
     // this method is called when the game loop is started
     private void runLoop() {
-        long frameDuration = 1000 / FPS;
+        // Nanoseconds, not 1000 / tickRate milliseconds: integer milliseconds turn 60 into 16 ms,
+        // which is 62.5 frames a second.
+        long frameNanos = TimeUnit.SECONDS.toNanos(1) / gameContext.getTickRate();
 
         loopThread = Thread.currentThread();
         state = LoopState.RUNNING;
         startSignal.countDown();
 
         try {
+            long frameStart = System.nanoTime();
+            long nextFrameStart = frameStart + frameNanos;
             while (!stopRequested) {
                 gameContext.incrementFrameNum();
-                long startTime = System.currentTimeMillis();
 
                 try {
                     // Every write to game state happens on this thread. update() runs
@@ -202,15 +214,24 @@ public abstract class GameLoop implements Runnable {
                     break;
                 }
 
-                long endTime = System.currentTimeMillis();
-                long sleepTime = frameDuration - (endTime - startTime);
-                if (sleepTime > 0) {
+                // Sleeping until a deadline rather than for frameNanos minus the work keeps the
+                // average rate exact: the few tens of microseconds a sleep oversleeps come off the
+                // next frame's sleep instead of adding up.
+                long sleepNanos = nextFrameStart - System.nanoTime();
+                if (sleepNanos > 0) {
                     try {
-                        Thread.sleep(sleepTime);
+                        Thread.sleep(Duration.ofNanos(sleepNanos));
                     } catch (InterruptedException ignored) {
                     }
                 }
-                gameContext.setDeltaTime((System.currentTimeMillis() - startTime) / 1000.0f);
+                long now = System.nanoTime();
+                // deltaTime stays the measured length of this frame rather than a fixed step, and
+                // is never zero so a timer that divides by it or waits on it always moves.
+                gameContext.setDeltaTime(Math.max(now - frameStart, 1L) / 1_000_000_000f);
+                frameStart = now;
+                // A loop that fell more than a frame behind starts a new schedule from now instead
+                // of running frames back to back to catch up; deltaTime already carries the delay.
+                nextFrameStart = Math.max(nextFrameStart + frameNanos, now);
                 lastFrameEndMillis = System.currentTimeMillis();
             }
         } finally {
