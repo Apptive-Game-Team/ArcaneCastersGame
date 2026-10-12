@@ -71,4 +71,7 @@ tasks.named('test') {
     useJUnitPlatform()
     // Explicit offline example export; ordinary tests never overwrite preview assets.
     systemProperty 'preview.export', providers.gradleProperty('previewExport').getOrElse('false')
+    // LocalLauncherProcessTest runs the boot jar as the desktop client does.
+    dependsOn tasks.named('bootJar')
+    systemProperty 'localServer.jar', tasks.named('bootJar').flatMap { it.archiveFile }.get().asFile.absolutePath
 }
