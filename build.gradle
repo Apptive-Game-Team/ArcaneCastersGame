@@ -75,3 +75,5 @@ tasks.named('test') {
     dependsOn tasks.named('bootJar')
     systemProperty 'localServer.jar', tasks.named('bootJar').flatMap { it.archiveFile }.get().asFile.absolutePath
 }
+
+apply from: 'gradle/local-server-dist.gradle'
