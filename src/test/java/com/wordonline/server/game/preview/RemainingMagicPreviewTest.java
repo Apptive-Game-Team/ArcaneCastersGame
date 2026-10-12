@@ -118,7 +118,8 @@ class RemainingMagicPreviewTest {
             case "buff_duration" -> 2;
             case "z_force", "push_force" -> 5;
             case "projectile_speed" -> 8;
-            case "chain_count", "vine_count" -> 3;
+            case "chain_count" -> 3;
+            case "vine_count" -> 9;
             case "min_damage" -> 20;
             case "max_mana" -> 100;
             case "acceleration" -> 5;
