@@ -100,8 +100,8 @@ class ProductionPreviewRecorderTest {
             } catch (Exception | AssertionError e) { failures.add(name + ": " + e.getMessage()); }
         }
         assertThat(failures).isEmpty();
-        assertThat(magics).hasSize(85);
-        assertThat(scenarios).isEqualTo(129);
+        assertThat(magics).hasSize(86);
+        assertThat(scenarios).isEqualTo(130);
         System.out.printf("Production previews: %d magics, %d scenarios, %d compact bytes, %d gzip bytes%n", magics.size(), scenarios, bytes, compressed);
     }
 
