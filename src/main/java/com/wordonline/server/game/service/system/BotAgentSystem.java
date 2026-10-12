@@ -69,7 +69,9 @@ public class BotAgentSystem implements GameSystem {
         if (processing.compareAndSet(false, true)) {
             // Taken here, on the loop thread, mid-frame but with nothing else mutating game state.
             // The executor gets an immutable copy and never reaches back into the live objects.
-            BotEye botEye = BotEye.observe(gameContext.getGameSessionData(), botSide);
+            // Game time rather than wall time, so motion reads the same at any tick rate or speed.
+            double gameTimeSeconds = (double) gameContext.getFrameNum() / gameContext.getTickRate();
+            BotEye botEye = BotEye.observe(gameContext.getGameSessionData(), botSide, gameTimeSeconds);
             log.debug("[BotSystem] Submitting {} Bot task", label);
             botExecutorService.submit(() -> {
                 try {

@@ -43,7 +43,7 @@ class BotBrainComboTest {
 
         BotBrain.InputDecision decision = brain.think(eye, parameters(), Master.LeftPlayer, new Random(1));
 
-        assertThat(decision.ruleId()).isEqualTo(BotBrain.SEED_SPIRIT_RULE);
+        assertThat(decision.ruleId()).isEqualTo(SeedSpiritComboRule.RULE_ID);
         assertThat(decision.magicId()).isEqualTo(vineToss.id);
         assertThat(decision.target()).isEqualTo(seedPosition);
     }
@@ -61,7 +61,7 @@ class BotBrainComboTest {
 
         BotBrain.InputDecision decision = brain.think(eye, parameters(), Master.LeftPlayer, new Random(1));
 
-        assertThat(decision.ruleId()).isEqualTo(BotBrain.MOB_CLUSTER_RULE);
+        assertThat(decision.ruleId()).isEqualTo(MobClusterComboRule.RULE_ID);
         assertThat(decision.target()).isEqualTo(new Vector3(5, 0, 5));
         assertThat(decision.reason()).contains("3 enemy mobs");
     }
