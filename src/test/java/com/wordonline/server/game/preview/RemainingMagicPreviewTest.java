@@ -95,6 +95,8 @@ class RemainingMagicPreviewTest {
         if (key.equals("speed") && Set.of("storm_stag", "zap_mouse").contains(object)) return 4;
         if (key.equals("detection_range") && Set.of("storm_stag", "zap_mouse").contains(object)) return 0.6;
         if (key.equals("sub_attack_range") && object.equals("evil_ent")) return 6;
+        // 정령 폭탄 빔은 클릭 거리와 상관없이 사거리 끝까지 뻗는다. 운영 값 18 을 따른다.
+        if (key.equals("range") && object.equals("spirit_bomb")) return 18;
         if (key.equals("attack_offset")) return 3;
         if (key.equals("radius") && Set.of("meteor_shower", "magma_explosion", "overgrowth", "shock_overload", "razor_gale", "leafair").contains(object)) return 2;
         if (key.equals("duration") && object.equals("repair_totem")) return 5;
