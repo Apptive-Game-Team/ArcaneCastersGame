@@ -643,7 +643,7 @@ class PveScriptSystemTest {
         system.update(context);
         org.mockito.Mockito.clearInvocations(sessionObject);
 
-        int window = PveScriptSystem.REPLAY_SECONDS * com.wordonline.server.game.service.GameLoop.FPS;
+        int window = PveScriptSystem.REPLAY_SECONDS * context.getTickRate();
         when(context.getFrameNum()).thenReturn(10 + window + 1);
         system.sendRecentEventsTo(context, 7L, 0);
         system.sendStatesTo(context, 7L);
