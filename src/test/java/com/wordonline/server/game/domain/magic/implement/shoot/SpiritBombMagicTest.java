@@ -11,12 +11,15 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 import com.wordonline.server.game.domain.AttackInfo;
+import com.wordonline.server.game.domain.Parameters;
 import com.wordonline.server.game.domain.magic.ElementType;
 import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.Vector3;
 import com.wordonline.server.game.domain.object.component.magic.SpiritBombChannel;
 import com.wordonline.server.game.domain.object.component.mob.simple.DummyMob;
 import com.wordonline.server.game.domain.object.prefab.PrefabType;
+import com.wordonline.server.game.domain.parameter.GameObjectKey;
+import com.wordonline.server.game.domain.parameter.ParameterKey;
 import com.wordonline.server.game.dto.Master;
 import com.wordonline.server.game.dto.Status;
 import com.wordonline.server.game.service.GameContext;
@@ -29,6 +32,9 @@ class SpiritBombMagicTest {
         GameContext context = mock(GameContext.class);
         ObjectsInfoDtoBuilder dtoBuilder = mock(ObjectsInfoDtoBuilder.class);
         when(context.getObjectsInfoDtoBuilder()).thenReturn(dtoBuilder);
+        Parameters parameters = mock(Parameters.class);
+        when(parameters.getValue(GameObjectKey.SPIRIT_BOMB, ParameterKey.RANGE)).thenReturn(18.0);
+        when(context.getParameters()).thenReturn(parameters);
 
         GameObject player = object(Master.LeftPlayer, PrefabType.Player, Vector3.ZERO, context);
         GameObject healthyAlly = object(Master.LeftPlayer, PrefabType.MiniRock, new Vector3(1f, 0f, 0f), context);
