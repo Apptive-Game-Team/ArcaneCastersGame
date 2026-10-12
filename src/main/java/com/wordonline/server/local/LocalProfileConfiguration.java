@@ -1,9 +1,15 @@
 package com.wordonline.server.local;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.UUID;
 
 import javax.sql.DataSource;
 
+import org.springframework.boot.web.embedded.tomcat.TomcatServletWebServerFactory;
+import org.springframework.boot.web.server.WebServerFactoryCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
@@ -54,6 +60,22 @@ public class LocalProfileConfiguration {
     @Bean
     public DataSource dataSource(LocalDatabase localDatabase) {
         return localDatabase.dataSource();
+    }
+
+    // Tomcat's document root would otherwise be a fresh folder in java.io.tmpdir, which Spring Boot's
+    // launcher reads before LocalLauncher can point it at dataDir. A low integrity process on Windows
+    // (see LocalLauncher) may not write to %TEMP%, so the folder is named here instead.
+    @Bean
+    public WebServerFactoryCustomizer<TomcatServletWebServerFactory> localDocumentRoot(LocalInit localInit) {
+        return factory -> {
+            Path documentRoot = localInit.temporaryDirectory().resolve("docbase");
+            try {
+                Files.createDirectories(documentRoot);
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+            factory.setDocumentRoot(documentRoot.toFile());
+        };
     }
 
     // The one JwtDecoder in a local context; JwtProvider injects it by that interface.

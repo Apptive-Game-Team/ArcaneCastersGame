@@ -31,6 +31,11 @@ public record LocalInit(String token, Path dataDir, Path staticDataPath) {
         return dataDir.resolve("logs");
     }
 
+    /** Where the JVM and the embedded web server put temporary files instead of the user's temp folder. */
+    public Path temporaryDirectory() {
+        return dataDir.resolve("tmp");
+    }
+
     public static LocalInit parse(String line) {
         if (line == null) {
             throw new LocalStartupException("stdin closed before the init line arrived");
