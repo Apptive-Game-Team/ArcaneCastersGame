@@ -6,7 +6,7 @@ import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.component.effect.ElectricDeathEnergy;
 import com.wordonline.server.game.domain.object.component.effect.receiver.LightningSummonEffectReceiver;
 import com.wordonline.server.game.domain.object.component.mob.detector.TargetMask;
-import com.wordonline.server.game.domain.object.component.mob.statemachine.attacker.MeleeAttackMob;
+import com.wordonline.server.game.domain.object.component.mob.statemachine.attacker.BuildingPrioMob;
 import com.wordonline.server.game.domain.object.component.physic.CircleCollider;
 import com.wordonline.server.game.domain.object.component.physic.RigidBody;
 import com.wordonline.server.game.domain.object.component.physic.ZPhysics;
@@ -32,7 +32,7 @@ public class ZapMousePrefabInitializer extends PrefabInitializer {
         gameObject.addComponent(new RigidBody(gameObject, zapMouseParameters.intValue(ParameterKey.MASS)));
         gameObject.addComponent(new ZPhysics(gameObject));
         gameObject.addCollider(new CircleCollider(gameObject, zapMouseParameters.floatValue(ParameterKey.RADIUS), false));
-        gameObject.addComponent(new MeleeAttackMob(gameObject,
+        gameObject.addComponent(new BuildingPrioMob(gameObject,
                 zapMouseParameters.intValue(ParameterKey.HP),
                 zapMouseParameters.floatValue(ParameterKey.SPEED),
                 TargetMask.GROUND.bit,
