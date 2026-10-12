@@ -6,7 +6,7 @@ import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.component.effect.ElectricDeathEnergy;
 import com.wordonline.server.game.domain.object.component.effect.receiver.LightningSummonEffectReceiver;
 import com.wordonline.server.game.domain.object.component.mob.detector.TargetMask;
-import com.wordonline.server.game.domain.object.component.mob.statemachine.attacker.CowardMob;
+import com.wordonline.server.game.domain.object.component.mob.statemachine.attacker.MeleeAttackMob;
 import com.wordonline.server.game.domain.object.component.physic.CircleCollider;
 import com.wordonline.server.game.domain.object.component.physic.RigidBody;
 import com.wordonline.server.game.domain.object.component.physic.ZPhysics;
@@ -32,14 +32,12 @@ public class ZapMousePrefabInitializer extends PrefabInitializer {
         gameObject.addComponent(new RigidBody(gameObject, zapMouseParameters.intValue(ParameterKey.MASS)));
         gameObject.addComponent(new ZPhysics(gameObject));
         gameObject.addCollider(new CircleCollider(gameObject, zapMouseParameters.floatValue(ParameterKey.RADIUS), false));
-        gameObject.addComponent(new CowardMob(gameObject,
+        gameObject.addComponent(new MeleeAttackMob(gameObject,
                 zapMouseParameters.intValue(ParameterKey.HP),
                 zapMouseParameters.floatValue(ParameterKey.SPEED),
                 TargetMask.GROUND.bit,
                 zapMouseParameters.intValue(ParameterKey.DAMAGE),
-                zapMouseParameters.floatValue(ParameterKey.ATTACK_INTERVAL),
-                zapMouseParameters.floatValue(ParameterKey.DETECTION_RANGE),
-                zapMouseParameters.floatValue(ParameterKey.PANIC_DURATION)));
+                zapMouseParameters.floatValue(ParameterKey.ATTACK_INTERVAL)));
         gameObject.setElement(ElementType.LIGHTNING);
         gameObject.addComponent(new ElectricDeathEnergy(gameObject));
         gameObject.addComponent(new LightningSummonEffectReceiver(gameObject));
