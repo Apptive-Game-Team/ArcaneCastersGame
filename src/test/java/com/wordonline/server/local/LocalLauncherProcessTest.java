@@ -86,6 +86,10 @@ class LocalLauncherProcessTest {
                 HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/healthcheck")).build(),
                 HttpResponse.BodyHandlers.ofString());
         assertThat(health.statusCode()).isEqualTo(200);
+        // On Windows the process may write only under dataDir (low integrity, see LocalLauncher),
+        // so Tomcat's folders have to be there rather than in the system temp folder.
+        assertThat(directory.resolve("data/tmp/docbase")).isDirectory();
+        assertThat(directory.resolve("data/tmp/tomcat")).isDirectory();
 
         assertThat(postSession(port, "cd".repeat(32))).isBetween(400, 499);
         assertThat(postSession(port, null)).isBetween(400, 499);

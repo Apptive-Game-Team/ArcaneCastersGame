@@ -87,6 +87,7 @@ public final class LocalLauncher {
         try {
             LocalInit init = LocalInit.parse(stdin.readLine());
             Files.createDirectories(init.logDirectory());
+            useDataDirForTemporaryFiles(init);
             startControlThread();
 
             ConfigurableApplicationContext started = start(args, init);
@@ -109,9 +110,20 @@ public final class LocalLauncher {
             applicationContext.getBeanFactory().registerSingleton("localInit", init);
             applicationContext.getBeanFactory().registerSingleton("localProtocol", protocol);
         });
-        String[] arguments = Arrays.copyOf(args, args.length + 1);
+        String[] arguments = Arrays.copyOf(args, args.length + 2);
         arguments[args.length] = "--logging.file.name=" + init.logDirectory().resolve(LOG_FILE_NAME);
+        arguments[args.length + 1] = "--server.tomcat.basedir=" + init.temporaryDirectory().resolve("tomcat");
         return application.run(arguments);
+    }
+
+    // Unity hands over a folder under AppData\LocalLow on Windows, and the bundle is unpacked there
+    // too. An executable carrying LocalLow's low integrity label runs as a low integrity process,
+    // which may write nowhere else: Tomcat's work folder in %TEMP% fails with AccessDeniedException.
+    // Everything this process writes therefore stays under dataDir. Set before Spring starts, while
+    // nothing has read java.io.tmpdir yet.
+    private static void useDataDirForTemporaryFiles(LocalInit init) throws IOException {
+        Files.createDirectories(init.temporaryDirectory());
+        System.setProperty("java.io.tmpdir", init.temporaryDirectory().toString());
     }
 
     // Started right after init so a client that dies during startup does not leave the server
