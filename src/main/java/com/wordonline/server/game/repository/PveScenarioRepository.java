@@ -10,6 +10,7 @@ import com.wordonline.server.game.domain.pve.PveScenarioAction;
 import com.wordonline.server.game.domain.pve.PveScenarioEvent;
 import com.wordonline.server.game.domain.pve.PveScenarioRules;
 import com.wordonline.server.game.domain.pve.PveSetBgmAction;
+import com.wordonline.server.game.domain.pve.PvePullPlayerUnitsAction;
 import com.wordonline.server.game.domain.pve.PveSetSpawnerAction;
 import com.wordonline.server.game.domain.pve.PveShield;
 import com.wordonline.server.game.domain.pve.PveSpawnWaveAction;
@@ -101,14 +102,17 @@ public class PveScenarioRepository {
 
     public Optional<PveScenario> findById(Long scenarioId) {
         List<PveInstallObject> installers = findInstallers(scenarioId);
-        if (installers.isEmpty()) {
+        PveScenarioRules rules = findRules(scenarioId);
+        // A Survive scenario may start with no structure at all (the player only has to outlast
+        // the timer). Any other scenario with no installer row is still treated as unknown.
+        if (installers.isEmpty() && rules.winCondition() != PveWinCondition.Survive) {
             return Optional.empty();
         }
         return Optional.of(new PveScenario(
                         findObjectives(scenarioId),
                         installers,
                         findEvents(scenarioId),
-                        findRules(scenarioId),
+                        rules,
                         findShields(scenarioId)
                 ));
     }
@@ -214,6 +218,7 @@ public class PveScenarioRepository {
                     row.prefabType() == null ? null : PrefabType.valueOf(row.prefabType()),
                     row.intervalSeconds()
             );
+            case "PullPlayerUnits" -> new PvePullPlayerUnitsAction(row.installerId());
             case "PlayBgm" -> new PveSetBgmAction(row.bgmKey());
             default -> throw new IllegalArgumentException("Unknown action_type: " + row.actionType());
         };

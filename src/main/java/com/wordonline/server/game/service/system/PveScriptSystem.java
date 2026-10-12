@@ -2,7 +2,9 @@ package com.wordonline.server.game.service.system;
 
 import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.Vector3;
+import com.wordonline.server.game.domain.object.component.PulledToPoint;
 import com.wordonline.server.game.domain.object.component.magic.Spawner;
+import com.wordonline.server.game.domain.object.component.mob.detector.TargetCategory;
 import com.wordonline.server.game.domain.object.component.mob.Mob;
 import com.wordonline.server.game.domain.object.component.mob.PveShieldComponent;
 import com.wordonline.server.game.domain.pve.PveInstallObject;
@@ -11,6 +13,7 @@ import com.wordonline.server.game.domain.pve.PveObjectiveTarget;
 import com.wordonline.server.game.domain.pve.PveScenario;
 import com.wordonline.server.game.domain.pve.PveScenarioAction;
 import com.wordonline.server.game.domain.pve.PveScenarioEvent;
+import com.wordonline.server.game.domain.pve.PvePullPlayerUnitsAction;
 import com.wordonline.server.game.domain.pve.PveSetBgmAction;
 import com.wordonline.server.game.domain.pve.PveSetSpawnerAction;
 import com.wordonline.server.game.domain.pve.PveShield;
@@ -210,6 +213,8 @@ public class PveScriptSystem implements GameSystem {
                     runInstallObject(installObject, gameContext);
                 } else if (action instanceof PveSetSpawnerAction setSpawner) {
                     runSetSpawner(setSpawner, gameContext);
+                } else if (action instanceof PvePullPlayerUnitsAction pull) {
+                    runPullPlayerUnits(pull, gameContext);
                 } else if (action instanceof PveSetBgmAction setBgm) {
                     setState(PveStateStore.BGM, setBgm.bgmKey(), gameContext);
                 }
@@ -282,6 +287,30 @@ public class PveScriptSystem implements GameSystem {
                     ? Spawner.DEFAULT_SPAWN_INTERVAL_SEC
                     : action.intervalSeconds();
             target.addComponent(new Spawner(target, 0, action.prefabType(), interval, false, action.count()));
+        }
+    }
+
+    // Every live LeftPlayer summon loses its mob components (movement, attacks, damage intake)
+    // and is dragged to the destination installer. The player master and structures (a mob that
+    // does not move) are left alone. With no destination the summons are destroyed where they
+    // stand.
+    private void runPullPlayerUnits(PvePullPlayerUnitsAction action, GameContext gameContext) {
+        GameObject destination = resolveTarget(action.installerId(), gameContext);
+        boolean hasDestination = destination != null && !destination.isDestroyed();
+        for (GameObject unit : gameContext.getActiveGameObjects()) {
+            if (unit.getMaster() != Master.LeftPlayer
+                    || unit.isDying()
+                    || TargetCategory.of(unit) != TargetCategory.UNIT) {
+                continue;
+            }
+            if (!hasDestination) {
+                unit.destroy();
+                continue;
+            }
+            for (Mob mob : unit.getComponents(Mob.class)) {
+                unit.removeComponent(mob);
+            }
+            unit.addComponent(new PulledToPoint(unit, destination.getPosition()));
         }
     }
 }
