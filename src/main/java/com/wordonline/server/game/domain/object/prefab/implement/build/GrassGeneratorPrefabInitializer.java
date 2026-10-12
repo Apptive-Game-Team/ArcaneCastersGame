@@ -10,6 +10,7 @@ import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.component.TimedSelfDestroyer;
 import com.wordonline.server.game.domain.object.component.effect.receiver.BuildingEffectReceiver;
 import com.wordonline.server.game.domain.object.component.magic.GrassSpread;
+import com.wordonline.server.game.domain.object.component.magic.SeedSpiritVineSummoner;
 import com.wordonline.server.game.domain.object.component.mob.simple.DummyMob;
 import com.wordonline.server.game.domain.object.component.physic.CircleCollider;
 import com.wordonline.server.game.domain.object.component.physic.RigidBody;
@@ -43,6 +44,7 @@ public class GrassGeneratorPrefabInitializer extends PrefabInitializer {
                 grassGeneratorParameters.intValue(ParameterKey.QUANTITY),
                 leafFieldRadius
         ));
+        gameObject.addComponent(new SeedSpiritVineSummoner(gameObject, effectRadius));
         gameObject.addComponent(new TimedSelfDestroyer(gameObject, grassGeneratorParameters.floatValue(ParameterKey.DURATION)));
         gameObject.setElement(ElementType.NATURE);
         gameObject.addComponent(new BuildingEffectReceiver(gameObject));
