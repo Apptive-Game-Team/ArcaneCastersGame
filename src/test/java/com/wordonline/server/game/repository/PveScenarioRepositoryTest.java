@@ -6,6 +6,7 @@ import com.wordonline.server.game.domain.object.prefab.PrefabType;
 import com.wordonline.server.game.domain.pve.PveInstallObjectAction;
 import com.wordonline.server.game.domain.pve.PveScenarioAction;
 import com.wordonline.server.game.domain.pve.PveScenarioEvent;
+import com.wordonline.server.game.domain.pve.PvePullPlayerUnitsAction;
 import com.wordonline.server.game.domain.pve.PveSetBgmAction;
 import com.wordonline.server.game.domain.pve.PveSetSpawnerAction;
 import com.wordonline.server.game.domain.pve.PveSpawnWaveAction;
@@ -301,5 +302,68 @@ class PveScenarioRepositoryTest {
         assertThat(scenario).isPresent();
         assertThat(scenario.get().rules().winCondition()).isEqualTo(PveWinCondition.Survive);
         assertThat(scenario.get().rules().surviveSeconds()).isEqualTo(90);
+    }
+
+    @Test
+    void mapsAPullPlayerUnitsRowToItsDestinationInstaller() {
+        insertBossInstaller(1L, "boss", null);
+        jdbcClient.sql("""
+                INSERT INTO pve_scenario_events
+                    (scenario_id, event_id, trigger_type, trigger_value, message_key, sort_order)
+                VALUES (1, 'e1', 'FrameNumGte', 0, 'k', 0)
+                """)
+                .update();
+        long eventRowId = jdbcClient.sql("SELECT id FROM pve_scenario_events WHERE event_id = 'e1'")
+                .query(Long.class)
+                .single();
+        jdbcClient.sql("""
+                INSERT INTO pve_scenario_event_actions (event_row_id, action_order, action_type, installer_id)
+                VALUES (:eventRowId, 0, 'PullPlayerUnits', 'corrupted')
+                """).param("eventRowId", eventRowId).update();
+
+        List<PveScenarioAction> actions = pveScenarioRepository.findById(1L).orElseThrow()
+                .events().get(0).actions();
+
+        assertThat(actions).containsExactly(new PvePullPlayerUnitsAction("corrupted"));
+    }
+
+    @Test
+    void surviveScenarioWithNoInstallersLoads() {
+        jdbcClient.sql("""
+                INSERT INTO pve_scenario_rules (scenario_id, win_condition, survive_seconds)
+                VALUES (1, 'Survive', 90)
+                """).update();
+
+        var scenario = pveScenarioRepository.findById(1L);
+
+        assertThat(scenario).isPresent();
+        assertThat(scenario.get().installers()).isEmpty();
+        assertThat(scenario.get().objectiveInstallerIds()).isEmpty();
+        assertThat(scenario.get().rules().winCondition()).isEqualTo(PveWinCondition.Survive);
+    }
+
+    @Test
+    void scenarioWithNoInstallersLoadsWhenAnObjectiveIsInstalledLater() {
+        jdbcClient.sql("""
+                INSERT INTO pve_scenario_objectives (installer_id, sort_order, scenario_id)
+                VALUES ('gate_a', 1, 1)
+                """).update();
+
+        var scenario = pveScenarioRepository.findById(1L);
+
+        assertThat(scenario).isPresent();
+        assertThat(scenario.get().installers()).isEmpty();
+        assertThat(scenario.get().objectiveInstallerIds()).containsExactly("gate_a");
+    }
+
+    @Test
+    void destroyObjectivesScenarioWithNoInstallerAndNoObjectiveStillFailsToLoad() {
+        jdbcClient.sql("""
+                INSERT INTO pve_scenario_rules (scenario_id, win_condition)
+                VALUES (1, 'DestroyObjectives')
+                """).update();
+
+        assertThat(pveScenarioRepository.findById(1L)).isEmpty();
+        assertThat(pveScenarioRepository.findById(2L)).isEmpty();
     }
 }

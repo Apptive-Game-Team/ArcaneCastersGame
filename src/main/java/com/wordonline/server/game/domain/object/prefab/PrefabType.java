@@ -115,6 +115,8 @@ public enum PrefabType {
     PveLightningTadpole("pve_lightning_tadpole_prefab"),
     PveEvilEnt("pve_evil_ent_prefab"),
     PveBrickGolem("pve_brick_golem_prefab"),
+    PveCorruptedVineSpirit("pve_corrupted_vine_spirit_prefab"),
+    PveCorruptedWindSpirit("pve_corrupted_wind_spirit_prefab"),
 
     // New 2 card Magic
     EmberSpirit("fire_slime_prefab"),

@@ -5,6 +5,7 @@ import com.wordonline.server.game.domain.SessionObject;
 import com.wordonline.server.game.domain.magic.ElementType;
 import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.Vector3;
+import com.wordonline.server.game.domain.object.component.PulledToPoint;
 import com.wordonline.server.game.domain.object.component.magic.Spawner;
 import com.wordonline.server.game.domain.object.component.mob.Mob;
 import com.wordonline.server.game.domain.object.prefab.PrefabType;
@@ -14,6 +15,7 @@ import com.wordonline.server.game.domain.pve.PveScenario;
 import com.wordonline.server.game.domain.pve.PveScenarioAction;
 import com.wordonline.server.game.domain.pve.PveScenarioEvent;
 import com.wordonline.server.game.domain.pve.PveScenarioRules;
+import com.wordonline.server.game.domain.pve.PvePullPlayerUnitsAction;
 import com.wordonline.server.game.domain.pve.PveSetBgmAction;
 import com.wordonline.server.game.domain.pve.PveSetSpawnerAction;
 import com.wordonline.server.game.domain.pve.PveSpawnWaveAction;
@@ -641,7 +643,7 @@ class PveScriptSystemTest {
         system.update(context);
         org.mockito.Mockito.clearInvocations(sessionObject);
 
-        int window = PveScriptSystem.REPLAY_SECONDS * com.wordonline.server.game.service.GameLoop.FPS;
+        int window = PveScriptSystem.REPLAY_SECONDS * context.getTickRate();
         when(context.getFrameNum()).thenReturn(10 + window + 1);
         system.sendRecentEventsTo(context, 7L, 0);
         system.sendStatesTo(context, 7L);
@@ -658,5 +660,84 @@ class PveScriptSystemTest {
         system.sendStatesTo(context, 7L);
 
         verify(sessionObject, never()).sendFrameInfo(anyLong(), any());
+    }
+
+    // ---- PullPlayerUnits ----
+
+    private static class MovingMob extends TestMob {
+        private MovingMob(GameObject gameObject) {
+            super(gameObject, 10);
+            this.speed = new com.wordonline.server.game.domain.Stat(2f);
+        }
+    }
+
+    private GameObject addUnit(GameContext context, Master master, Vector3 position, boolean moves) {
+        GameObject unit = new GameObject(master, PrefabType.ZapMouse, position, context);
+        unit.addComponent(moves ? new MovingMob(unit) : new TestMob(unit, 10));
+        unit.flushComponents();
+        unit.setStatus(com.wordonline.server.game.dto.Status.Idle);
+        return unit;
+    }
+
+    private PveScriptSystem pullSystem(GameContext context, PveScenarioInstaller installer) {
+        when(context.getActiveGameObjects()).thenAnswer(invocation -> List.copyOf(world));
+        when(context.getDeltaTime()).thenReturn(0.5f);
+        var action = new PvePullPlayerUnitsAction("gate");
+        var scenario = new PveScenario(List.of(), List.of(), List.of(
+                event("pull", PveTriggerType.FrameNumGte, 0, null, List.of(), List.of(action))
+        ), PveScenarioRules.defaultRules());
+        return newSystem(scenario, installer);
+    }
+
+    @Test
+    void pullPlayerUnitsDragsEveryLeftPlayerMovingUnitToTheInstallerThenDestroysItAndSparesTheRest() {
+        GameContext context = newGameContext();
+        PveScenarioInstaller installer = new PveScenarioInstaller();
+        installer.install(List.of(), context);
+        GameObject gate = new GameObject(Master.RightPlayer, PrefabType.ZapMouse, new Vector3(14, 0, 5), context);
+        installer.getRuntime().register("gate", gate);
+
+        GameObject summon = addUnit(context, Master.LeftPlayer, new Vector3(2, 0, 3), true);
+        GameObject building = addUnit(context, Master.LeftPlayer, new Vector3(3, 0, 3), false);
+        GameObject enemy = addUnit(context, Master.RightPlayer, new Vector3(10, 0, 3), true);
+        PveScriptSystem system = pullSystem(context, installer);
+
+        when(context.getFrameNum()).thenReturn(0);
+        system.update(context);
+        summon.flushComponents();
+        building.flushComponents();
+        enemy.flushComponents();
+
+        assertThat(summon.getComponents(Mob.class)).isEmpty();
+        assertThat(summon.getComponent(PulledToPoint.class)).isNotNull();
+        assertThat(building.getComponent(Mob.class)).isNotNull();
+        assertThat(building.getComponent(PulledToPoint.class)).isNull();
+        assertThat(enemy.getComponent(Mob.class)).isNotNull();
+        assertThat(enemy.getComponent(PulledToPoint.class)).isNull();
+
+        // 0.5 s per update: one third of the way after the first, destroyed on the third.
+        summon.getComponent(PulledToPoint.class).update();
+        assertThat(summon.getPosition().getX()).isEqualTo(2f + 12f / 3f, org.assertj.core.data.Offset.offset(0.001f));
+        assertThat(summon.isDestroyed()).isFalse();
+        summon.getComponent(PulledToPoint.class).update();
+        summon.getComponent(PulledToPoint.class).update();
+        assertThat(summon.getPosition().getX()).isEqualTo(14f);
+        assertThat(summon.getPosition().getZ()).isEqualTo(5f);
+        assertThat(summon.isDestroyed()).isTrue();
+    }
+
+    @Test
+    void pullPlayerUnitsDestroysSummonsInPlaceWhenTheInstallerIsMissing() {
+        GameContext context = newGameContext();
+        PveScenarioInstaller installer = new PveScenarioInstaller();
+        installer.install(List.of(), context);
+        GameObject summon = addUnit(context, Master.LeftPlayer, new Vector3(2, 0, 3), true);
+        PveScriptSystem system = pullSystem(context, installer);
+
+        when(context.getFrameNum()).thenReturn(0);
+        system.update(context);
+
+        assertThat(summon.isDestroyed()).isTrue();
+        assertThat(summon.getPosition().getX()).isEqualTo(2f);
     }
 }
