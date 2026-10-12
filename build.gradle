@@ -50,6 +50,8 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-jdbc'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     runtimeOnly 'org.postgresql:postgresql:42.7.7'
+    // The in-memory database of the local profile (LocalProfileConfiguration) and of the tests.
+    runtimeOnly 'com.h2database:h2'
     testImplementation 'com.h2database:h2'
 
     // web socket
