@@ -618,6 +618,8 @@ class MagicScenarioPreviewTest {
                 } catch (ReflectiveOperationException e) { throw new AssertionError(e); }
             }
             for (int tick = 0; tick < Math.round(duration / DT); tick++) {
+                // GameLoop advances the frame number every tick; SequentialLineSpawner times its spawns by it.
+                context.incrementFrameNum();
                 reset.update(context);
                 action.accept(tick);
                 for (GameObject object : List.copyOf(context.getActiveGameObjects())) object.update();
