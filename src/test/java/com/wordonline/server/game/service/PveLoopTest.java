@@ -38,7 +38,7 @@ class PveLoopTest {
             mock(PveScenarioRegistry.class), mock(PveScenarioInstaller.class), scriptSystem);
 
     @Test
-    void sendPveStateToSendsTheObjectiveThenTheMissedEventsToTheAskingUser() {
+    void sendPveStateToSendsTheObjectiveThenTheMissedEventsThenTheStatesToTheAskingUser() {
         ReflectionTestUtils.setField(loop, "pveObjectiveSystem", objectiveSystem);
 
         loop.sendPveStateTo(7L, 3);
@@ -46,6 +46,7 @@ class PveLoopTest {
         InOrder order = inOrder(objectiveSystem, scriptSystem);
         order.verify(objectiveSystem).sendCurrentTo(gameContext, 7L);
         order.verify(scriptSystem).sendRecentEventsTo(gameContext, 7L, 3);
+        order.verify(scriptSystem).sendStatesTo(gameContext, 7L);
     }
 
     @Test

@@ -6,6 +6,7 @@ import com.wordonline.server.game.domain.object.prefab.PrefabType;
 import com.wordonline.server.game.domain.pve.PveInstallObjectAction;
 import com.wordonline.server.game.domain.pve.PveScenarioAction;
 import com.wordonline.server.game.domain.pve.PveScenarioEvent;
+import com.wordonline.server.game.domain.pve.PveSetBgmAction;
 import com.wordonline.server.game.domain.pve.PveSetSpawnerAction;
 import com.wordonline.server.game.domain.pve.PveSpawnWaveAction;
 import com.wordonline.server.game.domain.pve.PveTriggerType;
@@ -88,7 +89,8 @@ class PveScenarioRepositoryTest {
                     interval_seconds REAL,
                     position_x INT,
                     position_z INT,
-                    max_hp INT
+                    max_hp INT,
+                    bgm_key VARCHAR(50)
                 )
                 """).update();
         jdbcClient.sql("""
@@ -246,6 +248,33 @@ class PveScenarioRepositoryTest {
             assertThat(action.count()).isEqualTo(5);
             assertThat(action.intervalSeconds()).isEqualTo(1.5f);
         });
+    }
+
+    @Test
+    void mapsPlayBgmRowsWithAndWithoutBgmKey() {
+        insertBossInstaller(1L, "boss", null);
+        jdbcClient.sql("""
+                INSERT INTO pve_scenario_events
+                    (scenario_id, event_id, trigger_type, trigger_value, message_key, sort_order)
+                VALUES (1, 'e1', 'FrameNumGte', 0, 'k', 0)
+                """)
+                .update();
+        long eventRowId = jdbcClient.sql("SELECT id FROM pve_scenario_events WHERE event_id = 'e1'")
+                .query(Long.class)
+                .single();
+        jdbcClient.sql("""
+                INSERT INTO pve_scenario_event_actions (event_row_id, action_order, action_type, bgm_key)
+                VALUES (:eventRowId, 0, 'PlayBgm', 'boss_battle')
+                """).param("eventRowId", eventRowId).update();
+        jdbcClient.sql("""
+                INSERT INTO pve_scenario_event_actions (event_row_id, action_order, action_type)
+                VALUES (:eventRowId, 1, 'PlayBgm')
+                """).param("eventRowId", eventRowId).update();
+
+        List<PveScenarioAction> actions = pveScenarioRepository.findById(1L).orElseThrow()
+                .events().get(0).actions();
+
+        assertThat(actions).containsExactly(new PveSetBgmAction("boss_battle"), new PveSetBgmAction(null));
     }
 
     @Test
