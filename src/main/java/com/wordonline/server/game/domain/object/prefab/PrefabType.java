@@ -124,6 +124,8 @@ public enum PrefabType {
     BombSprite("bomb_sprite_prefab"),
     BombSpriteBomb("bomb_sprite_bomb_prefab"),
     BombSpriteExplosion("bomb_sprite_explosion_prefab"),
+    BeanShooter("bean_shooter_prefab"),
+    Bean("bean_prefab"),
     MiniRock("mini_rock_prefab"),
     RockRemnant("rock_remnant_prefab"),
     MediumRockRemnant("medium_rock_remnant_prefab"),
