@@ -1,7 +1,6 @@
-package com.wordonline.server.game.domain.object.prefab.implement.build;
+package com.wordonline.server.game.domain.object.prefab.implement.drop;
 
 import com.wordonline.server.game.domain.Parameters;
-import com.wordonline.server.game.domain.object.component.Item;
 import com.wordonline.server.game.domain.parameter.GameObjectKey;
 import com.wordonline.server.game.domain.parameter.ParameterKey;
 import com.wordonline.server.game.domain.magic.ElementType;
@@ -26,13 +25,13 @@ public class RallyingTotemPrefabInitializer extends PrefabInitializer {
     public void initialize(GameObject gameObject) {
         var rallyingTotemParameters = parameters.object(GameObjectKey.RALLYING_TOTEM);
         gameObject.addCollider(new CircleCollider(gameObject, rallyingTotemParameters.floatValue(ParameterKey.RADIUS), true));
-        gameObject.addComponent(new Item(gameObject));
         gameObject.setElement(ElementType.FIRE);
         gameObject.addComponent(new RallyingTotem(
                 gameObject,
+                rallyingTotemParameters.floatValue(ParameterKey.SPEED),
                 rallyingTotemParameters.floatValue(ParameterKey.DURATION),
-                rallyingTotemParameters.floatValue(ParameterKey.RADIUS),
-                rallyingTotemParameters.floatValue(ParameterKey.BUFF_DURATION),
-                rallyingTotemParameters.floatValue(ParameterKey.EFFECT_RADIUS)));
+                rallyingTotemParameters.floatValue(ParameterKey.EFFECT_RADIUS),
+                rallyingTotemParameters.floatValue(ParameterKey.DETECTION_RANGE),
+                rallyingTotemParameters.floatValue(ParameterKey.BUFF_DURATION)));
     }
 }

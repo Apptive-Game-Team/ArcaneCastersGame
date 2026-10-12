@@ -38,7 +38,7 @@ public class BehaviorMob extends StateMachineMob implements IntervalAttacker {
     float targetRadius;
     RigidBody rigidBody;
     @Getter Stat attackInterval;
-    protected float attackRange;
+    @Getter protected float attackRange;
     private final int targetMask;
     /**
      * Whether engagement ignores the vertical gap to the target. A mob that dives from a hover

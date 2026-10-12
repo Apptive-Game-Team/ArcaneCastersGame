@@ -100,6 +100,8 @@ class RemainingMagicPreviewTest {
         if (key.equals("attack_offset")) return 3;
         if (key.equals("radius") && Set.of("meteor_shower", "magma_explosion", "overgrowth", "shock_overload", "razor_gale", "leafair").contains(object)) return 2;
         if (key.equals("duration") && object.equals("repair_totem")) return 5;
+        if (key.equals("speed") && object.equals("rallying_totem")) return 5;
+        if (key.equals("detection_range") && object.equals("rallying_totem")) return 8;
         // This initializer reads an integer interval: 0.8 would truncate to zero
         // and TimedBehaviorMob's production catch-up loop would never terminate.
         if (key.equals("attack_interval") && object.equals("vine_colony")) return 1;
@@ -276,10 +278,10 @@ class RemainingMagicPreviewTest {
             }
         }
         if (selectedName.equals("rallying_totem")) try (Capture c = new Capture(true)) {
-            GameObject ally = new GameObject(Master.LeftPlayer, PrefabType.AquaArcher, new Vector3(3, 0, 5), c.context);
+            GameObject ally = new GameObject(Master.LeftPlayer, PrefabType.AquaArcher, new Vector3(0, 0, 5), c.context);
             c.record(clips, "rallying_totem", "rally", "집결 이동·고무", "Rally movement and Inspired", 5,
                     tick -> { if (tick == 12) c.cast(magic("rallying_totem", c), new Vector3(6, 0, 5)); });
-            assertThat(ally.getPosition().getX()).isGreaterThan(3);
+            assertThat(ally.getPosition().getX()).isGreaterThan(2.5f);
             assertThat(c.seenEffects).contains("Inspired");
         }
         if (selectedName.equals("repair_totem")) try (Capture c = new Capture(true)) {
