@@ -51,6 +51,14 @@ public final class BotSpellStats {
         return damage > 0 ? damage : UNKNOWN_DAMAGE;
     }
 
+    /**
+     * Damage per target exactly as the parameters state it, or 0 when they state none. For
+     * decisions that must not rest on {@link #UNKNOWN_DAMAGE}'s guess.
+     */
+    public double statedDamage(Magic magic) {
+        return Math.max(0.0, parameters.getValueOrDefault(key(magic), "damage", 0.0));
+    }
+
     // The same key MagicInputHandler reads the cast with, so the bot never prices a cast
     // differently from the handler that charges it.
     private static String key(Magic magic) {
