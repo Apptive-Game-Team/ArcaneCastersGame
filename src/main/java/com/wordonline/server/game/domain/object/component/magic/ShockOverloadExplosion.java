@@ -10,6 +10,7 @@ import com.wordonline.server.game.dto.Status;
 
 import java.util.ArrayList;
 import java.util.List;
+import com.wordonline.server.game.util.IntervalTimer;
 
 public class ShockOverloadExplosion extends Explode {
 
@@ -32,7 +33,8 @@ public class ShockOverloadExplosion extends Explode {
             return;
         }
 
-        counter += getGameContext().getDeltaTime();
+        float deltaTime = getGameContext().getDeltaTime();
+        counter += deltaTime;
 
         if (!primaryExploded) {
             if (counter < delay) {
@@ -41,7 +43,7 @@ public class ShockOverloadExplosion extends Explode {
 
             explodePrimary();
             primaryExploded = true;
-            counter = 0f;
+            counter = IntervalTimer.carryOver(counter, delay, deltaTime);
             return;
         }
 

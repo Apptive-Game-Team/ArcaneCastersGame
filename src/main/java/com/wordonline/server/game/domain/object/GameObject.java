@@ -163,6 +163,18 @@ public class GameObject {
         onDestroy();
     }
 
+    // Explicit administrative removal, with no death/status/destruction effects or spawning.
+    // Only call on the owning loop thread.
+    public void discard() {
+        status = Status.Destroyed;
+        statusChangePublisher.close();
+        applyUpdate();
+        components.clear();
+        componentsToAdd.clear();
+        componentsToRemove.clear();
+        colliders.clear();
+    }
+
     public void setPosition(Vector3 position) {
         this.position = position;
         if (Math.abs(position.getX() - GameConfig.X_MID) > GameConfig.X_BOUND || Math.abs(position.getZ() - GameConfig.Y_MID) > GameConfig.Y_BOUND) {
@@ -244,7 +256,7 @@ public class GameObject {
     }
 
     public void start() {
-        PrefabProvider.get(type).initialize(this);
+        if (!gameContext.initializePrefab(this)) PrefabProvider.get(type).initialize(this);
         components.addAll(componentsToAdd);
         componentsToAdd.clear();
         for (Component component : components)

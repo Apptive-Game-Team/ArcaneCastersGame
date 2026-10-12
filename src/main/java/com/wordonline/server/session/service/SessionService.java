@@ -72,8 +72,8 @@ public class SessionService {
         onSessionNumChange.subscribe(subscriber);
     }
 
-    public void createSession(SessionDto sessionDto) {
-        createSessionObject(sessionDto);
+    public SessionObject createSession(SessionDto sessionDto) {
+        return createSessionObject(sessionDto);
     }
 
     public synchronized SessionCreationResult createSession(String attemptId, SessionDto sessionDto) {
@@ -86,7 +86,9 @@ public class SessionService {
             if (!existingSessionId.equals(sessionDto.sessionId())) {
                 throw new IllegalArgumentException("attemptId is already associated with another session");
             }
-            return new SessionCreationResult(attemptId, existingSessionId, isSessionActive(existingSessionId));
+            SessionObject existing = sessions.get(existingSessionId);
+            return new SessionCreationResult(attemptId, existingSessionId, isSessionActive(existingSessionId),
+                    existing == null ? null : existing.getMap());
         }
 
         SessionObject existingSession = sessions.get(sessionDto.sessionId());
@@ -94,9 +96,10 @@ public class SessionService {
             throw new IllegalArgumentException("sessionId already exists");
         }
 
-        createSessionObject(sessionDto);
+        SessionObject created = createSessionObject(sessionDto);
         sessionIdsByAttemptId.put(attemptId, sessionDto.sessionId());
-        return new SessionCreationResult(attemptId, sessionDto.sessionId(), awaitSessionReady(sessionDto.sessionId()));
+        return new SessionCreationResult(attemptId, sessionDto.sessionId(),
+                awaitSessionReady(sessionDto.sessionId()), created.getMap());
     }
 
     // isSessionActive() is only true once the loop thread is ticking, so the lobby would otherwise
@@ -116,30 +119,42 @@ public class SessionService {
         return started;
     }
 
-    private void createSessionObject(SessionDto sessionDto) {
+    private SessionObject createSessionObject(SessionDto sessionDto) {
         SessionObject sessionObject = sessionObjectFactory.createSessionObject(sessionDto);
         GameLoop loop = gameLoopFactory.create(sessionObject.getSessionType());
+        if (sessionDto.tickRate() != null) {
+            loop.getGameContext().setTickRate(sessionDto.tickRate());
+        }
 
         sessionObject.setGameLoop(loop);
         loop.init(sessionObject, () -> onLoopTerminated(sessionObject));
 
-        if (!sessionObject.getSessionId().contains("debug")) {
+        if (sessionObject.getSessionType() != SessionType.Playground && !sessionObject.getSessionId().contains("debug")) {
             statisticService.createBuilder(loop.getGameContext());
             gameSessionRecordService.recordStart(sessionObject);
         }
 
         sessions.put(sessionObject.getSessionId(), sessionObject);
+        // A platform thread on purpose, not a virtual one. Virtual threads are not preempted and share
+        // a carrier pool with the virtual Tomcat request threads, so under HTTP load a loop waits for a
+        // carrier after every sleep: measured with 100 bot sessions, 56-71% of frames came in over 60ms
+        // (p99 interval 212-986ms) against 0.07% on platform threads.
         Thread thread = new Thread(loop);
         try {
             thread.start();
         } catch (RuntimeException | Error exception) {
             sessions.remove(sessionObject.getSessionId(), sessionObject);
-            gameSessionRecordService.recordEnd(sessionObject.getSessionId(),
-                    GameSessionStatus.ABANDONED, "START_FAILED", null, null);
+            sessionObject.getPingChecker().close();
+            if (sessionObject.getSessionType() != SessionType.Playground) {
+                gameSessionRecordService.recordEnd(sessionObject.getSessionId(),
+                        GameSessionStatus.ABANDONED, "START_FAILED", null, null);
+            }
             throw exception;
         }
         submitSessionNumChange();
-        log.info("[Session] Session created; sessionId: {}", sessionObject.getSessionId());
+        log.info("[Session] Session created; sessionId: {}, map: {}", sessionObject.getSessionId(),
+                sessionObject.getMap());
+        return sessionObject;
     }
 
     public boolean isSessionActive(String sessionId) {
@@ -162,6 +177,10 @@ public class SessionService {
         submitSessionNumChange();
 
         GameContext gameContext = sessionObject.getGameContext();
+        if (sessionObject.getSessionType() == SessionType.Playground) {
+            sessionIdsByAttemptId.values().removeIf(sessionObject.getSessionId()::equals);
+            return;
+        }
         ResultChecker resultChecker = gameContext.getResultChecker();
         Master loser = resultChecker.getLoser();
 
@@ -212,6 +231,13 @@ public class SessionService {
         }
         sessionObject.getPingChecker().close();
         submitSessionNumChange();
+
+        if (sessionObject.getSessionType() == SessionType.Playground) {
+            var loop = sessionObject.getGameLoop();
+            loop.close();
+            loop.interruptLoopThread();
+            return true;
+        }
 
         Long statisticGameId = null;
         try {
@@ -335,7 +361,8 @@ public class SessionService {
                         Long.valueOf(s.getLeftUserId()),
                         Long.valueOf(s.getRightUserId()),
                         baseUrl,
-                        s.getCreatedAt()))
+                        s.getCreatedAt(),
+                        s.getMap()))
                 .toList();
     }
 }

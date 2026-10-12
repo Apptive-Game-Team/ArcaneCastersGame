@@ -4,7 +4,6 @@ import com.wordonline.server.game.domain.SessionObject;
 import com.wordonline.server.game.domain.pve.PveWinCondition;
 import com.wordonline.server.game.dto.pve.PveObjectiveDto;
 import com.wordonline.server.game.service.GameContext;
-import com.wordonline.server.game.service.GameLoop;
 import com.wordonline.server.game.service.PveResultChecker;
 
 /**
@@ -26,7 +25,7 @@ public class PveObjectiveSystem implements GameSystem {
 
     @Override
     public void update(GameContext gameContext) {
-        PveObjectiveDto dto = build(gameContext.getFrameNum());
+        PveObjectiveDto dto = build(gameContext.getFrameNum(), gameContext.getTickRate());
         if (lastSent != null
                 && lastSent.remainingSeconds() == dto.remainingSeconds()
                 && lastSent.objectivesRemaining() == dto.objectivesRemaining()) {
@@ -41,14 +40,14 @@ public class PveObjectiveSystem implements GameSystem {
 
     /** Sends the current value to one user. The change detection of {@link #update} is untouched. */
     public void sendCurrentTo(GameContext gameContext, long userId) {
-        gameContext.getSessionObject().sendFrameInfo(userId, build(gameContext.getFrameNum()));
+        gameContext.getSessionObject().sendFrameInfo(userId, build(gameContext.getFrameNum(), gameContext.getTickRate()));
     }
 
-    private PveObjectiveDto build(int frameNum) {
+    private PveObjectiveDto build(int frameNum, int tickRate) {
         PveWinCondition winCondition = resultChecker.getWinCondition();
         if (winCondition == PveWinCondition.Survive) {
-            int remainingFrames = Math.max(0, resultChecker.getSurviveFrameThreshold() - frameNum);
-            int remainingSeconds = (remainingFrames + GameLoop.FPS - 1) / GameLoop.FPS;
+            int remainingFrames = Math.max(0, resultChecker.getSurviveFrameThreshold(tickRate) - frameNum);
+            int remainingSeconds = (remainingFrames + tickRate - 1) / tickRate;
             return new PveObjectiveDto(winCondition, resultChecker.getSurviveSeconds(), remainingSeconds, 0, 0);
         }
         return new PveObjectiveDto(winCondition, 0, 0,

@@ -26,7 +26,7 @@ public class SyncFrameDataSystem extends FrameDataSystem {
 
     @Override
     public void lateUpdate(GameContext gameContext) {
-        if (!GameLoop.isSyncFrame(gameContext.getFrameNum())) {
+        if (!GameLoop.isSyncFrame(gameContext.getFrameNum(), gameContext.getTickRate())) {
             super.lateUpdate(gameContext);
         } else {
             SnapshotResponseDto leftSnapshotResponseDto = gameContext.getGameLoop().getLastSnapshot(gameContext.getSessionObject().getLeftUserId());
@@ -34,11 +34,11 @@ public class SyncFrameDataSystem extends FrameDataSystem {
 
             gameContext.getSessionObject().sendFrameInfo(
                     gameContext.getSessionObject().getLeftUserId(),
-                    getLeftFrameInfoDto().toSyncDto(leftSnapshotResponseDto)
+                    getLeftFrameInfoDto().toSyncDto(leftSnapshotResponseDto, gameContext.getTickRate())
             );
             gameContext.getSessionObject().sendFrameInfo(
                     gameContext.getSessionObject().getRightUserId(),
-                    getRightFrameInfoDto().toSyncDto(rightSnapshotResponseDto)
+                    getRightFrameInfoDto().toSyncDto(rightSnapshotResponseDto, gameContext.getTickRate())
             );
 
             // Broadcast sync info to spectators (userId = 0)
@@ -48,7 +48,7 @@ public class SyncFrameDataSystem extends FrameDataSystem {
             // updatedMana for the same reason.
             if (getBroadcastFrameInfoDto() != null) {
                 gameContext.getSessionObject().broadcastFrameInfo(
-                        getBroadcastFrameInfoDto().toSyncDto(withoutHand(leftSnapshotResponseDto))
+                        getBroadcastFrameInfoDto().toSyncDto(withoutHand(leftSnapshotResponseDto), gameContext.getTickRate())
                 );
             }
         }

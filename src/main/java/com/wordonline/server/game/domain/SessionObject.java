@@ -1,5 +1,6 @@
 package com.wordonline.server.game.domain;
 
+import com.wordonline.server.game.domain.map.GameMap;
 import com.wordonline.server.game.dto.Master;
 import com.wordonline.server.game.dto.PingChecker;
 import com.wordonline.server.game.service.CardDeck;
@@ -15,6 +16,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
@@ -41,6 +43,9 @@ public class SessionObject {
     private final PingChecker pingChecker;
     private final SessionType sessionType;
     private final Long scenarioId;
+    // Decided before the session is created and read twice: by the creation response, and by the
+    // loop when it spawns the terrain. Both must see this one value, so nothing re-rolls it.
+    private final GameMap map;
     private final long randomSeed;
     // Session ids are random UUIDs, so a room list ordered by id says nothing about age. The admin
     // page needs this to tell a session created seconds ago from one that has been running for a while.
@@ -105,7 +110,8 @@ public class SessionObject {
                          List<Long> leftUserCards,
                          List<Long> rightUserCards,
                          SessionType sessionType,
-                         Long scenarioId) {
+                         Long scenarioId,
+                         GameMap map) {
         this.sessionId = sessionId;
         this.leftUserId = leftUserId;
         this.rightUserId = rightUserId;
@@ -131,6 +137,7 @@ public class SessionObject {
         );
         this.sessionType = sessionType;
         this.scenarioId = scenarioId;
+        this.map = Objects.requireNonNull(map, "map");
     }
 
     public SessionObject(String sessionId,
@@ -140,7 +147,8 @@ public class SessionObject {
                          List<Long> leftUserCards,
                          List<Long> rightUserCards,
                          SessionType sessionType) {
-        this(sessionId, leftUserId, rightUserId, template, leftUserCards, rightUserCards, sessionType, null);
+        this(sessionId, leftUserId, rightUserId, template, leftUserCards, rightUserCards, sessionType, null,
+                GameMap.GRASSLAND);
     }
 
     public SessionObject(String sessionId,
@@ -149,7 +157,8 @@ public class SessionObject {
                          SimpMessagingTemplate template,
                          List<Long> leftUserCards,
                          List<Long> rightUserCards) {
-        this(sessionId, leftUserId, rightUserId, template, leftUserCards, rightUserCards, SessionType.PVP, null);
+        this(sessionId, leftUserId, rightUserId, template, leftUserCards, rightUserCards, SessionType.PVP, null,
+                GameMap.GRASSLAND);
     }
 
     private void submitBotToggle(long userId, String actionName, BiConsumer<WordOnlineLoop, Long> toggle) {

@@ -13,6 +13,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.wordonline.server.game.domain.SessionType;
+import com.wordonline.server.game.domain.map.GameMap;
 
 /**
  * Pins the wire format of {@code POST /api/server/game-sessions} against fixtures shared
@@ -66,7 +67,7 @@ class LobbyContractTest {
     void 이_서버가_보내는_응답이_공유_픽스처와_일치한다() throws IOException {
         SessionReadyResponse response = new SessionReadyResponse(
                 "attempt-1", "session-1", true, "http://localhost:7777", "http://localhost:7777/ws",
-                "00000000-0000-0000-0000-000000000001");
+                "00000000-0000-0000-0000-000000000001", GameMap.GRASSLAND);
 
         assertThat(objectMapper.readTree(objectMapper.writeValueAsString(response)))
                 .isEqualTo(objectMapper.readTree(fixture("session-ready-response.json")));
@@ -80,6 +81,17 @@ class LobbyContractTest {
 
         assertThat(json.has("instanceId")).isTrue();
         assertThat(json.get("instanceId").isTextual()).isTrue();
+    }
+
+    @Test
+    void 응답은_다섯_가지_중_하나인_mapType_문자열을_싣는다() throws IOException {
+        JsonNode json = objectMapper.readTree(fixture("session-ready-response.json"));
+
+        assertThat(json.get("mapType").isTextual()).isTrue();
+        assertThat(json.get("mapType").asText())
+                .isIn("GRASSLAND", "RIVER", "FORTRESS", "GATE", "FOREST");
+        assertThat(GameMap.values()).extracting(Enum::name)
+                .containsExactly("GRASSLAND", "RIVER", "FORTRESS", "GATE", "FOREST");
     }
 
     @Test

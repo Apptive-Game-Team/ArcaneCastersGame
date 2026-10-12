@@ -11,6 +11,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * already sets {@code DISCORD_WEBHOOK_URL} needs no new configuration. An empty URL disables
  * alerting outright, which is what local runs and tests get.
  *
+ * <p>{@link #fpsThresholdRatio()} is a share of each session's own tick rate, not a frame rate:
+ * sessions run at different rates, so 15 fps is a struggling 20-FPS loop and a dead 60-FPS one.
+ *
  * <p>{@link #cooldown()} is what keeps a degraded server from emptying itself into the channel:
  * a box holding fifty sessions below the threshold has one problem, not fifty, and it still has
  * that problem on the next sweep two seconds later.
@@ -19,16 +22,16 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record AlertProperties(
         Boolean enabled,
         String discordWebhookUrl,
-        Double fpsThreshold,
+        Double fpsThresholdRatio,
         Duration cooldown) {
 
-    private static final double FALLBACK_FPS_THRESHOLD = 15.0;
+    private static final double FALLBACK_FPS_THRESHOLD_RATIO = 0.75;
     private static final Duration FALLBACK_COOLDOWN = Duration.ofMinutes(5);
 
     public AlertProperties {
         enabled = enabled == null || enabled;
         discordWebhookUrl = discordWebhookUrl == null ? "" : discordWebhookUrl.trim();
-        fpsThreshold = fpsThreshold == null ? FALLBACK_FPS_THRESHOLD : fpsThreshold;
+        fpsThresholdRatio = fpsThresholdRatio == null ? FALLBACK_FPS_THRESHOLD_RATIO : fpsThresholdRatio;
         cooldown = cooldown == null ? FALLBACK_COOLDOWN : cooldown;
     }
 

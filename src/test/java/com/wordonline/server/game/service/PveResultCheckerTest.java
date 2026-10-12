@@ -26,6 +26,7 @@ class PveResultCheckerTest {
     private PveResultChecker newChecker() {
         when(sessionObject.getGameContext()).thenReturn(gameContext);
         when(gameContext.getGameObjects()).thenReturn(world);
+        when(gameContext.getTickRate()).thenReturn(20);
         return new PveResultChecker(sessionObject);
     }
 

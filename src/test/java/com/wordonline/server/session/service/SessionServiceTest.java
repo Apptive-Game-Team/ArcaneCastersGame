@@ -200,6 +200,38 @@ class SessionServiceTest {
                 .containsExactly(now, now.plusSeconds(60));
     }
 
+    // Spectators pick a room from this list, so it must say which map the room runs.
+    @Test
+    void roomListCarriesTheMapTypeOfEachSession() {
+        when(sessionObject.getCreatedAt()).thenReturn(Instant.parse("2026-08-16T00:00:00Z"));
+        when(sessionObject.getMap()).thenReturn(com.wordonline.server.game.domain.map.GameMap.RIVER);
+        sessionService.createSession(sessionDto);
+
+        assertThat(sessionService.getAllActiveSessionsInfo("http://game"))
+                .extracting(RoomInfoDto::mapType)
+                .containsExactly(com.wordonline.server.game.domain.map.GameMap.RIVER);
+    }
+
+    @Test
+    void createSessionReturnsTheSessionWithItsMap() {
+        when(sessionObject.getMap()).thenReturn(com.wordonline.server.game.domain.map.GameMap.GATE);
+
+        SessionObject created = sessionService.createSession(sessionDto);
+
+        assertThat(created).isSameAs(sessionObject);
+    }
+
+    @Test
+    void attemptResultCarriesTheMapAndARepeatedAttemptKeepsIt() {
+        when(sessionObject.getMap()).thenReturn(com.wordonline.server.game.domain.map.GameMap.FOREST);
+
+        SessionCreationResult first = sessionService.createSession("attempt-1", sessionDto);
+        SessionCreationResult repeated = sessionService.createSession("attempt-1", sessionDto);
+
+        assertThat(first.mapType()).isEqualTo(com.wordonline.server.game.domain.map.GameMap.FOREST);
+        assertThat(repeated.mapType()).isEqualTo(com.wordonline.server.game.domain.map.GameMap.FOREST);
+    }
+
     @Test
     void missingSessionIsInactive() {
         assertFalse(sessionService.isSessionActive("missing"));
@@ -329,6 +361,32 @@ class SessionServiceTest {
         when(resultChecker.getLoser()).thenReturn(null);
 
         return resultChecker;
+    }
+
+    @Test
+    void playgroundStartAndNormalEndDoNotWriteOrdinaryMatchState() {
+        when(sessionObject.getSessionType()).thenReturn(SessionType.Playground);
+        when(gameLoopFactory.create(SessionType.Playground)).thenReturn(gameLoop);
+        stubTeardownCollaborators();
+        var terminated = ArgumentCaptor.forClass(Runnable.class);
+        sessionService.createSession(sessionDto);
+        verify(gameLoop).init(eq(sessionObject), terminated.capture());
+        terminated.getValue().run();
+        org.mockito.Mockito.verifyNoInteractions(statisticService, gameSessionRecordService,
+                userService, lobbySessionClient);
+    }
+
+    @Test
+    void playgroundWatchdogTeardownDoesNotWriteOrdinaryMatchState() {
+        when(sessionObject.getSessionType()).thenReturn(SessionType.Playground);
+        when(gameLoopFactory.create(SessionType.Playground)).thenReturn(gameLoop);
+        stubTeardownCollaborators();
+        sessionService.createSession(sessionDto);
+        assertTrue(sessionService.reapStuckSession(sessionObject, "stuck"));
+        org.mockito.Mockito.verifyNoInteractions(statisticService, gameSessionRecordService,
+                userService, lobbySessionClient);
+        verify(gameLoop).close();
+        verify(gameLoop).interruptLoopThread();
     }
 
     private Flow.Subscriber<Integer> recordingSubscriber(List<Integer> sink) {

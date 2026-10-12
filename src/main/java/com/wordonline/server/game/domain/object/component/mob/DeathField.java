@@ -34,7 +34,7 @@ public final class DeathField {
     }
 
     static void spawn(GameObject deceased) {
-        if (!leavesField(deceased)) {
+        if (deceased.getGameContext().suppressesDeathFields() || !leavesField(deceased)) {
             return;
         }
 

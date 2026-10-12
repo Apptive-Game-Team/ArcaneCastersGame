@@ -17,6 +17,21 @@ public class ParameterRepository {
 
     private final JdbcClient jdbcClient;
 
+    /** One query gives an internally consistent input set for an offline replay generation. */
+    public java.util.Map<String, Double> snapshot() {
+        var values = new java.util.TreeMap<String, Double>();
+        jdbcClient.sql("""
+                SELECT game_objects.name AS object_name, parameters.name AS parameter_name, value
+                FROM parameter_values
+                JOIN game_objects ON parameter_values.game_object_id = game_objects.id
+                JOIN parameters ON parameter_values.parameter_id = parameters.id
+                """).query((row, index) -> java.util.Map.entry(
+                        row.getString("object_name").toLowerCase() + "." + row.getString("parameter_name"),
+                        row.getDouble("value")))
+                .list().forEach(entry -> values.put(entry.getKey(), entry.getValue()));
+        return java.util.Map.copyOf(values);
+    }
+
     private static final String GET_PARAMETER_VALUE = """
             SELECT value
             FROM parameter_values

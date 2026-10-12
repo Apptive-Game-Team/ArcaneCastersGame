@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import com.wordonline.server.game.config.GameTickProperties;
 import com.wordonline.server.game.domain.magic.parser.DatabaseMagicParser;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Service;
@@ -11,8 +12,10 @@ import org.springframework.stereotype.Service;
 import com.wordonline.server.game.domain.GameSessionData;
 import com.wordonline.server.game.domain.Parameters;
 import com.wordonline.server.game.domain.SessionObject;
+import com.wordonline.server.game.domain.map.Terrain;
 import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.Vector3;
+import com.wordonline.server.game.domain.object.component.mob.pathfinder.FlowFieldNavigation;
 import com.wordonline.server.game.domain.object.prefab.PrefabType;
 import com.wordonline.server.game.dto.Master;
 import com.wordonline.server.game.dto.frame.GameEventDto;
@@ -41,12 +44,35 @@ public class GameContext {
     private final MagicInputHandler magicInputHandler;
     private final DatabaseMagicParser magicParser;
     private ObjectsInfoDtoBuilder objectsInfoDtoBuilder;
-    private float deltaTime = 1f / GameLoop.FPS;
+    // Frames per second this session's loop runs at. GameLoopFactory sets the configured default and
+    // a session may override it before the loop starts; nothing changes it mid-match.
+    private int tickRate = GameTickProperties.DEFAULT_TICK_RATE;
+    // The measured length of the previous frame, never zero. Starts at one nominal frame so the
+    // first frame advances every timer by the same amount the following ones do.
+    private float deltaTime = 1f / GameTickProperties.DEFAULT_TICK_RATE;
     private CardSelectVisualizer cardSelectVisualizer;
     private final List<GameEventDto> events = new ArrayList<>();
     private final GameActionQueue actionQueue = new GameActionQueue();
+    private final FlowFieldNavigation navigation = new FlowFieldNavigation(this::getFrameNum, this::getGameObjects, this::getTerrain);
+    // Where the water is. Set once by GameLoop.initializeLoop before the first frame; the pathfinding
+    // and the placement check read it from here, and the water cells build their colliders from it.
+    private Terrain terrain = Terrain.NONE;
+    private java.util.function.Consumer<GameObject> objectInitializer = object -> {};
 
     private WordOnlineLoop gameLoop;
+
+    /** True only when a context supplied its own initialization. Ordinary sessions use the provider. */
+    public boolean initializePrefab(GameObject object) {
+        return false;
+    }
+
+    public boolean suppressesDeathFields() {
+        return false;
+    }
+
+    public void onObjectInitializationFailed(GameObject object, RuntimeException error) {
+        // Ordinary matches isolate one failed object. Offline captures reject the incomplete recording.
+    }
 
     public void init(SessionObject sessionObject, WordOnlineLoop gameLoop) {
         this.sessionObject = sessionObject;
@@ -94,6 +120,10 @@ public class GameContext {
         objectsInfoDtoBuilder.createGameObject(gameObject);
     }
 
+    public void initializeCreatedObject(GameObject gameObject) {
+        objectInitializer.accept(gameObject);
+    }
+
     public void addGameObject(GameObject gameObject) {
         gameSessionData.addGameObject(gameObject);
     }
@@ -126,6 +156,11 @@ public class GameContext {
 
     public void incrementFrameNum() {
         this.frameNum++;
+    }
+
+    public void setTickRate(int tickRate) {
+        this.tickRate = GameTickProperties.validate(tickRate);
+        this.deltaTime = 1f / this.tickRate;
     }
 
     // Threads other than the loop thread never mutate game state directly. They queue what they

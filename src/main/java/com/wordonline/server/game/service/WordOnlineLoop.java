@@ -30,7 +30,7 @@ import lombok.extern.slf4j.Slf4j;
 public class WordOnlineLoop extends GameLoop {
 
     // Keep sending frames for one second so clients can see the final action play out.
-    private static final int GAME_END_GRACE_FRAMES = GameLoop.FPS;
+    private static final int GAME_END_GRACE_SECONDS = 1;
 
     private final SyncFrameDataSystem frameDataSystem;
     private final GameActionSystem gameActionSystem;
@@ -203,7 +203,7 @@ public class WordOnlineLoop extends GameLoop {
             if (endDetectedFrame == null) {
                 endDetectedFrame = gameContext.getFrameNum();
             }
-            if (!gameEndHandled && gameContext.getFrameNum() - endDetectedFrame >= GAME_END_GRACE_FRAMES) {
+            if (!gameEndHandled && gameContext.getFrameNum() - endDetectedFrame >= GAME_END_GRACE_SECONDS * gameContext.getTickRate()) {
                 gameEndHandled = true;
                 handleGameEnd();
             }
@@ -220,7 +220,7 @@ public class WordOnlineLoop extends GameLoop {
 
         // The snapshot is only read by the sync frame, so it is only built on one. frameNum is
         // incremented once at the top of the frame, so this and SyncFrameDataSystem agree.
-        if (isSyncFrame(gameContext.getFrameNum())) {
+        if (isSyncFrame(gameContext.getFrameNum(), gameContext.getTickRate())) {
             buildSnapshot();
         }
 

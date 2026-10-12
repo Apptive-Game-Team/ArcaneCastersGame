@@ -7,6 +7,7 @@ import com.wordonline.server.game.domain.object.component.mob.Mob;
 
 import lombok.Getter;
 import lombok.Setter;
+import com.wordonline.server.game.util.IntervalTimer;
 
 public abstract class TimedBehaviorMob extends Mob implements IntervalAttacker {
 
@@ -28,10 +29,11 @@ public abstract class TimedBehaviorMob extends Mob implements IntervalAttacker {
     @Override
     public void update() {
         super.update();
-        timer += getGameContext().getDeltaTime();
+        float deltaTime = getGameContext().getDeltaTime();
+        timer += deltaTime;
         if (timer >= attackInterval.total()) {
             if (behavior.behave()) {
-                timer = 0;
+                timer = IntervalTimer.carryOver(timer, attackInterval.total(), deltaTime);
             }
         }
     }

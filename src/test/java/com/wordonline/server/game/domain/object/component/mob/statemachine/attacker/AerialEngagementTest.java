@@ -1,5 +1,6 @@
 package com.wordonline.server.game.domain.object.component.mob.statemachine.attacker;
 
+import com.wordonline.server.game.domain.object.component.mob.pathfinder.FlowFieldNavigation;
 import com.wordonline.server.game.config.GameConfig;
 import com.wordonline.server.game.domain.GameSessionData;
 import com.wordonline.server.game.domain.PlayerData;
@@ -44,6 +45,7 @@ class AerialEngagementTest {
         sessionData = new GameSessionData(mock(PlayerData.class), mock(PlayerData.class));
         when(gameContext.getGameSessionData()).thenReturn(sessionData);
         when(gameContext.getDeltaTime()).thenReturn(0.05f);
+        when(gameContext.getNavigation()).thenReturn(new FlowFieldNavigation(() -> 0, List::of));
         Physics physics = mock(Physics.class);
         when(gameContext.getPhysics()).thenReturn(physics);
         when(physics.overlapSphereAll(any(GameObject.class), anyFloat())).thenReturn(List.of());

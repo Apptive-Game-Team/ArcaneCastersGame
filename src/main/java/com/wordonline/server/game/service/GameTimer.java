@@ -11,9 +11,9 @@ import com.wordonline.server.game.domain.parameter.ParameterKey;
 @Component
 public class GameTimer {
 
-    private final long startTime;
-    private final long endTime;
-    private final long duration;
+    private long startTime;
+    private long endTime;
+    private long duration;
     private final long feverTimeDuration;
 
     public GameTimer(Parameters parameters) {
@@ -26,6 +26,14 @@ public class GameTimer {
 
     public long getRemainingTimeMillis() {
         return endTime - System.currentTimeMillis();
+    }
+
+    // Session initialization only; ordinary matches keep their database duration.
+    public void overrideDuration(long durationMillis) {
+        if (durationMillis <= 0) throw new IllegalArgumentException("Duration must be positive.");
+        duration = durationMillis;
+        startTime = System.currentTimeMillis();
+        endTime = startTime + duration;
     }
 
     public long getRemainingTimeSeconds() {

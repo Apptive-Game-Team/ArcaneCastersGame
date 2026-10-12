@@ -2,6 +2,7 @@ package com.wordonline.server.server.service;
 
 import java.time.Instant;
 import java.util.Optional;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +24,10 @@ public class ServerStatusService {
     private final ServerIdentityProperties serverIdentityProperties;
     private final ServerInstanceIdProvider serverInstanceIdProvider;
 
+    // Not synchronized: publishStatus does JDBC I/O, and a virtual thread blocked inside a
+    // monitor pins its carrier thread on Java 21.
+    private final ReentrantLock publishLock = new ReentrantLock();
+
     @Getter
     private volatile ServerState currentState = ServerState.ACTIVE;
 
@@ -31,8 +36,13 @@ public class ServerStatusService {
     // findByDomainAndPort and the @Transactional inside SimpleJpaRepository.save each take
     // their own connection for what is a single row update.
     @Transactional
-    public synchronized void setServerStatus(ServerState state) {
-        publishStatus(state, state == ServerState.INACTIVE ? 0 : null);
+    public void setServerStatus(ServerState state) {
+        publishLock.lock();
+        try {
+            publishStatus(state, state == ServerState.INACTIVE ? 0 : null);
+        } finally {
+            publishLock.unlock();
+        }
     }
 
     /**
@@ -48,8 +58,13 @@ public class ServerStatusService {
     }
 
     @Transactional
-    public synchronized void publishHeartbeat(int sessionCount) {
-        publishStatus(currentState, sessionCount);
+    public void publishHeartbeat(int sessionCount) {
+        publishLock.lock();
+        try {
+            publishStatus(currentState, sessionCount);
+        } finally {
+            publishLock.unlock();
+        }
     }
 
     private void publishStatus(ServerState state, Integer sessionCount) {

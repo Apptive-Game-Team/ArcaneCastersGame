@@ -1,5 +1,6 @@
 package com.wordonline.server.game.domain.object.prefab.implement.pve;
 
+import com.wordonline.server.game.domain.object.component.mob.pathfinder.FlowFieldNavigation;
 import com.wordonline.server.game.domain.AttackInfo;
 import com.wordonline.server.game.domain.GameSessionData;
 import com.wordonline.server.game.domain.Parameters;
@@ -32,6 +33,8 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.mock;
@@ -58,6 +61,7 @@ class PveEvilEntPrefabInitializerTest {
         sessionData = new GameSessionData(mock(PlayerData.class), mock(PlayerData.class));
         when(gameContext.getGameSessionData()).thenReturn(sessionData);
         when(gameContext.getDeltaTime()).thenReturn(TICK_SEC);
+        when(gameContext.getNavigation()).thenReturn(new FlowFieldNavigation(() -> 0, List::of));
         when(gameContext.getObjectsInfoDtoBuilder()).thenReturn(new ObjectsInfoDtoBuilder(gameContext));
 
         pveEnt = entParameters(3000, 20f, 20f);

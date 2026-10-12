@@ -14,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import com.wordonline.server.game.util.CombatRange;
 
 import java.util.List;
+import com.wordonline.server.game.util.IntervalTimer;
 
 @Slf4j
 public class CowardMob extends AttackMob {
@@ -241,11 +242,12 @@ public class CowardMob extends AttackMob {
                 return;
             }
 
-            timer += getGameContext().getDeltaTime();
+            float deltaTime = getGameContext().getDeltaTime();
+            timer += deltaTime;
             if (!CombatRange.contains(gameObject, target, attackRange)) {
                 setState(new CowardMoveState());
             } else if (timer > attackInterval.total()) {
-                timer = 0f;
+                timer = IntervalTimer.carryOver(timer, attackInterval.total(), deltaTime);
 
                 if (!behavior.test(target)) {
                     setState(new CowardIdleState());

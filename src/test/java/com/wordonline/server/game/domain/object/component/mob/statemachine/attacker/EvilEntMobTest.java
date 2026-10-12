@@ -1,5 +1,6 @@
 package com.wordonline.server.game.domain.object.component.mob.statemachine.attacker;
 
+import com.wordonline.server.game.domain.object.component.mob.pathfinder.FlowFieldNavigation;
 import com.wordonline.server.game.domain.GameSessionData;
 import com.wordonline.server.game.domain.PlayerData;
 import com.wordonline.server.game.domain.object.GameObject;
@@ -46,6 +47,7 @@ class EvilEntMobTest {
         objectsInfoDtoBuilder = new ObjectsInfoDtoBuilder(gameContext);
         when(gameContext.getGameSessionData()).thenReturn(sessionData);
         when(gameContext.getDeltaTime()).thenReturn(DELTA_TIME);
+        when(gameContext.getNavigation()).thenReturn(new FlowFieldNavigation(() -> 0, List::of));
         when(gameContext.getObjectsInfoDtoBuilder()).thenReturn(objectsInfoDtoBuilder);
     }
 
