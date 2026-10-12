@@ -9,7 +9,7 @@ import com.wordonline.server.game.domain.object.component.mob.simple.Totem;
 import com.wordonline.server.game.domain.object.prefab.PrefabInitializer;
 import com.wordonline.server.game.domain.object.prefab.PrefabType;
 import com.wordonline.server.game.domain.object.prefab.implement.build.LifeTreePrefabInitializer;
-import com.wordonline.server.game.domain.object.prefab.implement.build.RallyingTotemPrefabInitializer;
+import com.wordonline.server.game.domain.object.prefab.implement.drop.RallyingTotemPrefabInitializer;
 import com.wordonline.server.game.domain.object.prefab.implement.misc.HealingTotemPrefabInitializer;
 import com.wordonline.server.game.domain.parameter.GameObjectKey;
 import com.wordonline.server.game.domain.parameter.GameObjectParameters;
@@ -60,7 +60,7 @@ class TotemEffectRadiusPrefabInitializerTest {
         GameObject totem = initialize(GameObjectKey.RALLYING_TOTEM, PrefabType.RallyingTotem,
                 RallyingTotemPrefabInitializer::new);
 
-        assertThat(ReflectionTestUtils.getField(component(totem, RallyingTotem.class), "rallyCombatRange"))
+        assertThat(ReflectionTestUtils.getField(component(totem, RallyingTotem.class), "zoneRadius"))
                 .isEqualTo(EFFECT_RADIUS);
     }
 
