@@ -8,6 +8,7 @@ import com.wordonline.server.game.domain.object.component.Component;
 import com.wordonline.server.game.domain.object.component.TimedSelfDestroyer;
 import com.wordonline.server.game.domain.object.component.effect.receiver.BuildingEffectReceiver;
 import com.wordonline.server.game.domain.object.component.magic.GrassSpread;
+import com.wordonline.server.game.domain.object.component.magic.SeedSpiritVineSummoner;
 import com.wordonline.server.game.domain.object.component.mob.simple.DummyMob;
 import com.wordonline.server.game.domain.object.component.physic.CircleCollider;
 import com.wordonline.server.game.domain.object.component.physic.RigidBody;
@@ -76,6 +77,13 @@ class GrassGeneratorPrefabInitializerTest {
                 .findFirst()
                 .orElseThrow();
         assertThat(ReflectionTestUtils.getField(grassSpread, "radius")).isEqualTo(7f);
+
+        SeedSpiritVineSummoner vineSummoner = components.stream()
+                .filter(SeedSpiritVineSummoner.class::isInstance)
+                .map(SeedSpiritVineSummoner.class::cast)
+                .findFirst()
+                .orElseThrow();
+        assertThat(ReflectionTestUtils.getField(vineSummoner, "radius")).isEqualTo(7f);
 
         TimedSelfDestroyer selfDestroyer = components.stream()
                 .filter(TimedSelfDestroyer.class::isInstance)
