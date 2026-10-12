@@ -47,6 +47,7 @@ public enum GameObjectKey {
     PVE_FIRE_TADPOLE("pve_fire_tadpole"),
     PVE_LIGHTNING_TADPOLE("pve_lightning_tadpole"),
     PVE_EVIL_ENT("pve_evil_ent"),
+    PVE_BRICK_GOLEM("pve_brick_golem"),
     FRENZY_TOTEM("frenzy_totem"),
     GAME("game"),
     GIANT_VINE("giant_vine"),
