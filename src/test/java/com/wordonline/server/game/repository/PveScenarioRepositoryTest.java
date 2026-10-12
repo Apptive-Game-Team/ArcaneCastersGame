@@ -343,7 +343,21 @@ class PveScenarioRepositoryTest {
     }
 
     @Test
-    void destroyObjectivesScenarioWithNoInstallersStillFailsToLoad() {
+    void scenarioWithNoInstallersLoadsWhenAnObjectiveIsInstalledLater() {
+        jdbcClient.sql("""
+                INSERT INTO pve_scenario_objectives (installer_id, sort_order, scenario_id)
+                VALUES ('gate_a', 1, 1)
+                """).update();
+
+        var scenario = pveScenarioRepository.findById(1L);
+
+        assertThat(scenario).isPresent();
+        assertThat(scenario.get().installers()).isEmpty();
+        assertThat(scenario.get().objectiveInstallerIds()).containsExactly("gate_a");
+    }
+
+    @Test
+    void destroyObjectivesScenarioWithNoInstallerAndNoObjectiveStillFailsToLoad() {
         jdbcClient.sql("""
                 INSERT INTO pve_scenario_rules (scenario_id, win_condition)
                 VALUES (1, 'DestroyObjectives')

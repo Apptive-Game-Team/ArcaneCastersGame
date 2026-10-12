@@ -102,14 +102,17 @@ public class PveScenarioRepository {
 
     public Optional<PveScenario> findById(Long scenarioId) {
         List<PveInstallObject> installers = findInstallers(scenarioId);
+        List<String> objectives = findObjectives(scenarioId);
         PveScenarioRules rules = findRules(scenarioId);
-        // A Survive scenario may start with no structure at all (the player only has to outlast
-        // the timer). Any other scenario with no installer row is still treated as unknown.
-        if (installers.isEmpty() && rules.winCondition() != PveWinCondition.Survive) {
+        // A scenario may start with no structure: a Survive scenario only has to outlast the
+        // timer, and a scenario with objectives installs them later through InstallObject. With
+        // no installer, no objective and no Survive rule, the id is treated as unknown.
+        if (installers.isEmpty() && objectives.isEmpty()
+                && rules.winCondition() != PveWinCondition.Survive) {
             return Optional.empty();
         }
         return Optional.of(new PveScenario(
-                        findObjectives(scenarioId),
+                        objectives,
                         installers,
                         findEvents(scenarioId),
                         rules,
