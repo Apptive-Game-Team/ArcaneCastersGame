@@ -10,6 +10,8 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import com.wordonline.server.game.domain.AttackInfo;
+import com.wordonline.server.game.domain.magic.ElementType;
 import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.Vector3;
 import com.wordonline.server.game.domain.object.component.mob.simple.DummyMob;
@@ -39,7 +41,8 @@ class SpiritBombChannelTest {
         SpiritBombChannel channel = new SpiritBombChannel(
                 player,
                 new Vector3(6f, 0f, 0f),
-                7
+                7,
+                18f
         );
 
         channel.update();
@@ -76,6 +79,68 @@ class SpiritBombChannelTest {
         assertThat(half).isEqualTo(0.625f);
         assertThat(SpiritBombChannel.visualWidth(300)).isLessThan(half);
         assertThat(SpiritBombChannel.visualWidth(800)).isGreaterThan(half);
+    }
+
+    @Test
+    void beamReachesCastRangeEvenWhenClickedCloseToThePlayer() {
+        GameContext context = channelContext();
+        GameObject player = object(Master.LeftPlayer, PrefabType.Player, Vector3.ZERO, context);
+        GameObject enemy = object(Master.RightPlayer, PrefabType.MiniRock, new Vector3(12f, 0f, 0f), context);
+        DummyMob mob = addMob(enemy);
+        when(context.getActiveGameObjects()).thenReturn(List.of(player, enemy));
+
+        SpiritBombChannel channel = new SpiritBombChannel(player, new Vector3(1f, 0f, 0f), 40, 18f);
+        channel.update();
+
+        assertThat(mob.getHp()).isEqualTo(90);
+    }
+
+    @Test
+    void enemyOutsideTheLaneIsNotHit() {
+        GameContext context = channelContext();
+        GameObject player = object(Master.LeftPlayer, PrefabType.Player, Vector3.ZERO, context);
+        GameObject offLane = object(Master.RightPlayer, PrefabType.MiniRock, new Vector3(5f, 0f, 3f), context);
+        DummyMob offLaneMob = addMob(offLane);
+        GameObject beyondRange = object(Master.RightPlayer, PrefabType.MiniRock, new Vector3(25f, 0f, 0f), context);
+        DummyMob beyondRangeMob = addMob(beyondRange);
+        when(context.getActiveGameObjects()).thenReturn(List.of(player, offLane, beyondRange));
+
+        SpiritBombChannel channel = new SpiritBombChannel(player, new Vector3(6f, 0f, 0f), 40, 18f);
+        channel.update();
+
+        assertThat(offLaneMob.getHp()).isEqualTo(100);
+        assertThat(beyondRangeMob.getHp()).isEqualTo(100);
+    }
+
+    @Test
+    void overkillCarriesOverToTheNextEnemyInTheSameTick() {
+        GameContext context = channelContext();
+        GameObject player = object(Master.LeftPlayer, PrefabType.Player, Vector3.ZERO, context);
+        GameObject first = object(Master.RightPlayer, PrefabType.MiniRock, new Vector3(3f, 0f, 0f), context);
+        DummyMob firstMob = addMob(first);
+        firstMob.applyDamage(new AttackInfo(70, ElementType.NONE));
+        GameObject second = object(Master.RightPlayer, PrefabType.MiniRock, new Vector3(6f, 0f, 0f), context);
+        DummyMob secondMob = addMob(second);
+        when(context.getActiveGameObjects()).thenReturn(List.of(player, second, first));
+
+        // 첫 tick 피해량 40: 첫 적은 30 만 남아 있어 10 이 넘치고, 그 10 이 다음 적에게 간다.
+        SpiritBombChannel channel = new SpiritBombChannel(player, new Vector3(6f, 0f, 0f), 160, 18f);
+        channel.update();
+
+        assertThat(firstMob.getHp()).isLessThanOrEqualTo(0);
+        assertThat(secondMob.getHp()).isEqualTo(90);
+        verify(context.getObjectsInfoDtoBuilder()).createProjection(
+                player, first, SpiritBombChannel.BEAM_PROJECTILE, 1.05f, SpiritBombChannel.visualWidth(160));
+        verify(context.getObjectsInfoDtoBuilder()).createProjection(
+                player, second, SpiritBombChannel.BEAM_PROJECTILE, 1.05f, SpiritBombChannel.visualWidth(160));
+    }
+
+    private GameContext channelContext() {
+        GameContext context = mock(GameContext.class);
+        ObjectsInfoDtoBuilder dtoBuilder = mock(ObjectsInfoDtoBuilder.class);
+        when(context.getObjectsInfoDtoBuilder()).thenReturn(dtoBuilder);
+        when(context.getDeltaTime()).thenReturn(SpiritBombChannel.CHARGE_DURATION);
+        return context;
     }
 
     private DummyMob addMob(GameObject object) {
