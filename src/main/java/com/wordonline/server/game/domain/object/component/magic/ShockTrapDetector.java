@@ -6,6 +6,7 @@ import com.wordonline.server.game.domain.debug.GizmoCategory;
 import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.Vector3;
 import com.wordonline.server.game.domain.object.component.Component;
+import com.wordonline.server.game.domain.object.component.Damageable;
 import com.wordonline.server.game.domain.object.component.effect.EffectApplyPolicy;
 import com.wordonline.server.game.domain.object.component.effect.StatusEffectKey;
 import com.wordonline.server.game.domain.object.component.effect.receiver.CommonEffectReceiver;
@@ -21,6 +22,9 @@ import com.wordonline.server.game.dto.frame.GameEventDto;
  * whoever is still inside the radius at that moment and destroys itself, the same
  * one-shot shape as {@link Explode}. The only other way it leaves the field is an enemy
  * killing its {@code DummyMob} hit points.
+ *
+ * <p>Only objects with hit points count as enemies. Fields and projectiles carry no
+ * {@link Damageable}, so an opponent's field lying inside the radius does not set it off.
  */
 public class ShockTrapDetector extends Component {
 
@@ -89,6 +93,7 @@ public class ShockTrapDetector extends Component {
     private List<GameObject> detectEnemies() {
         return getGameContext().overlapSphereAll(gameObject, radius).stream()
                 .filter(target -> TargetRelation.canAttack(gameObject, target))
+                .filter(target -> target.hasComponent(Damageable.class))
                 .toList();
     }
 
