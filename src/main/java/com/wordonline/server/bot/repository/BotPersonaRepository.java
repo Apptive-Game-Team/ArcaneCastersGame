@@ -1,5 +1,6 @@
 package com.wordonline.server.bot.repository;
 
+import com.wordonline.server.bot.domain.BotBrainType;
 import com.wordonline.server.bot.domain.BotPersona;
 import com.wordonline.server.bot.domain.BotTemperament;
 import com.wordonline.server.bot.domain.BotTier;
@@ -17,23 +18,25 @@ public class BotPersonaRepository {
 
     private static final String FIND_ALL = """
             SELECT user_id, name, tier, thinking_time_ms, reaction_interval_frames,
-                   counter_aggression, enabled, hospitality, temperament
+                   counter_aggression, enabled, hospitality, temperament, brain_type, llm_model
             FROM bot_personas
             ORDER BY user_id;
             """;
 
     private static final String FIND_BY_ID = """
             SELECT user_id, name, tier, thinking_time_ms, reaction_interval_frames,
-                   counter_aggression, enabled, hospitality, temperament
+                   counter_aggression, enabled, hospitality, temperament, brain_type, llm_model
             FROM bot_personas
             WHERE user_id = :userId;
             """;
 
     private static final String INSERT = """
             INSERT INTO bot_personas(user_id, name, tier, thinking_time_ms, reaction_interval_frames,
-                                     counter_aggression, enabled, hospitality, temperament)
+                                     counter_aggression, enabled, hospitality, temperament,
+                                     brain_type, llm_model)
             VALUES(:userId, :name, :tier::bot_tier, :thinkingTimeMs, :reactionIntervalFrames,
-                   :counterAggression, :enabled, :hospitality, :temperament::bot_temperament);
+                   :counterAggression, :enabled, :hospitality, :temperament::bot_temperament,
+                   :brainType, :llmModel);
             """;
 
     private static final String UPDATE = """
@@ -45,7 +48,9 @@ public class BotPersonaRepository {
                 counter_aggression = :counterAggression,
                 enabled = :enabled,
                 hospitality = :hospitality,
-                temperament = :temperament::bot_temperament
+                temperament = :temperament::bot_temperament,
+                brain_type = :brainType,
+                llm_model = :llmModel
             WHERE user_id = :userId;
             """;
     private static final String DELETE = """
@@ -95,7 +100,11 @@ public class BotPersonaRepository {
                 .param("hospitality", requestDto.hospitality() != null && requestDto.hospitality())
                 .param("temperament", requestDto.temperament() == null
                         ? BotTemperament.WARM.name()
-                        : requestDto.temperament().name());
+                        : requestDto.temperament().name())
+                .param("brainType", requestDto.brainType() == null
+                        ? BotBrainType.RULE.name()
+                        : requestDto.brainType().name())
+                .param("llmModel", BotPersona.normalizeLlmModel(requestDto.llmModel()));
     }
 
     private BotPersona map(java.sql.ResultSet rs, int rowNum) throws java.sql.SQLException {
@@ -108,7 +117,9 @@ public class BotPersonaRepository {
                 rs.getDouble("counter_aggression"),
                 rs.getBoolean("enabled"),
                 rs.getBoolean("hospitality"),
-                BotTemperament.valueOf(rs.getString("temperament"))
+                BotTemperament.valueOf(rs.getString("temperament")),
+                BotBrainType.fromDatabase(rs.getString("brain_type")),
+                BotPersona.normalizeLlmModel(rs.getString("llm_model"))
         );
     }
 }
