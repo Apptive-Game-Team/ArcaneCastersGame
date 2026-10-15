@@ -16,6 +16,7 @@ import java.util.function.LongFunction;
 import java.util.function.Supplier;
 
 import com.wordonline.server.game.domain.Parameters;
+import com.wordonline.server.game.domain.PlayerData;
 import com.wordonline.server.game.domain.bot.BlastTargetSelector;
 import com.wordonline.server.game.domain.bot.BotBrain;
 import com.wordonline.server.game.domain.bot.BotEye;
@@ -73,6 +74,8 @@ public final class LlmCandidateBuilder {
     private final LongFunction<Magic> magicLookup;
     private final BotCounterEvaluator counterEvaluator;
     private final Supplier<Random> random;
+    private final boolean cardMenu;
+    private final MagicDescriptions descriptions;
 
     /** {@code counterEvaluator} may be null, in which case every magic is described as neutral. */
     public LlmCandidateBuilder(LongFunction<Magic> magicLookup, BotCounterEvaluator counterEvaluator) {
@@ -81,9 +84,25 @@ public final class LlmCandidateBuilder {
 
     LlmCandidateBuilder(LongFunction<Magic> magicLookup, BotCounterEvaluator counterEvaluator,
                         Supplier<Random> random) {
+        this(magicLookup, counterEvaluator, random, false, MagicDescriptions.bundled());
+    }
+
+    LlmCandidateBuilder(LongFunction<Magic> magicLookup, BotCounterEvaluator counterEvaluator,
+                        Supplier<Random> random, boolean cardMenu, MagicDescriptions descriptions) {
         this.magicLookup = magicLookup;
         this.counterEvaluator = counterEvaluator;
         this.random = random;
+        this.cardMenu = cardMenu;
+        this.descriptions = descriptions;
+    }
+
+    /**
+     * A builder whose menu is {@link #buildCards one option per affordable card}, for the CARD mode,
+     * where the model decides what to play and code only decides where.
+     */
+    public static LlmCandidateBuilder cards(LongFunction<Magic> magicLookup, BotCounterEvaluator counterEvaluator) {
+        return new LlmCandidateBuilder(magicLookup, counterEvaluator, ThreadLocalRandom::current, true,
+                MagicDescriptions.bundled());
     }
 
     public LlmCandidates build(BotEye botEye, Parameters parameters, Master botSide) {
@@ -96,6 +115,9 @@ public final class LlmCandidateBuilder {
      */
     public LlmCandidates build(BotEye botEye, Parameters parameters, Master botSide,
                                BotBrain.InputDecision standard) {
+        if (cardMenu) {
+            return buildCards(botEye, parameters, botSide);
+        }
         Turn turn = new Turn(botEye, parameters, botSide);
 
         List<Draft> drafts = new ArrayList<>();
@@ -150,6 +172,67 @@ public final class LlmCandidateBuilder {
                     draft.impact().unitDamage()));
         }
         return new LlmCandidates(plays, turn.waitDescription(), turn.state());
+    }
+
+    /**
+     * One option per affordable card, keyed by the magic's name, plus waiting. Each option says what
+     * the card does in the words the player reads (the magic book text), what the unit it leaves
+     * does, and what the card would do on this board right now. No option is marked as preferred:
+     * deciding what to play is the model's job. The point is picked by code, the same way the rule
+     * brain picks it, and picked again from the current snapshot when the answer is cast. A damage
+     * spell whose best target hits no unit and not the base is left out, since casting it would hit nothing.
+     */
+    public LlmCandidates buildCards(BotEye botEye, Parameters parameters, Master botSide) {
+        Turn turn = new Turn(botEye, parameters, botSide);
+        Map<String, LlmCandidates.Play> plays = new LinkedHashMap<>();
+        for (Magic magic : turn.affordable) {
+            if (plays.size() >= MAX_PLAYS) {
+                break;
+            }
+            int cost = turn.stats.manaCost(magic);
+            StringBuilder text = new StringBuilder(magic.name);
+            Vector3 target;
+            Impact impact = Impact.NONE;
+            boolean summon = magic instanceof ObjectSummoningMagic;
+            if (magic instanceof ObjectSummoningMagic summoning) {
+                target = PlacementPlanner.plan(
+                        turn.ownBase, turn.stats.castRange(magic), botSide, turn.threats, random.get());
+                text.append(" (summon, ").append(cost).append(" mana): ").append(cardText(magic));
+                PrefabType unit = summoning.summonedPrefab();
+                text.append(" Puts ").append(summoning.summonedQuantity()).append(' ').append(unit)
+                        .append(". It ").append(turn.guide.role(unit)).append(". ");
+                text.append("Right now: ").append(turn.summonNow(unit, target)).append('.');
+            } else {
+                Optional<BlastTargetSelector.Impact> best = BlastTargetSelector.bestImpact(
+                        turn.threats.threats(), turn.ownBase, turn.stats.castRange(magic),
+                        turn.stats.blastRadius(magic), turn.stats.damagePerTarget(magic));
+                if (best.isEmpty()) {
+                    continue;
+                }
+                target = best.get().center();
+                impact = turn.impact(target, turn.stats.blastRadius(magic), turn.stats.damagePerTarget(magic));
+                if (impact.hit().isEmpty() && !impact.baseHit()) {
+                    continue;
+                }
+                text.append(" (spell, ").append(cost).append(" mana, range ")
+                        .append(number(turn.stats.castRange(magic))).append("): ").append(cardText(magic))
+                        .append(" Right now its best target ");
+                turn.appendImpact(text, impact, cost);
+                text.append('.');
+            }
+            plays.put(magic.name, new LlmCandidates.Play(magic.id, magic.name, cost, new Vector3(target),
+                    text.toString(), summon, impact.baseDamage(), impact.unitDamage()));
+        }
+        String wait = plays.isEmpty() ? null : turn.keepManaDescription();
+        return new LlmCandidates(plays, wait, turn.state());
+    }
+
+    private String cardText(Magic magic) {
+        String text = descriptions.describe(magic.name);
+        if (text == null) {
+            return "";
+        }
+        return text.endsWith(".") ? text : text + ".";
     }
 
     /** What a damage spell lands where it is aimed; all zero for a summon. */
@@ -242,7 +325,7 @@ public final class LlmCandidateBuilder {
             return text.toString();
         }
 
-        private Impact impact(Vector3 target, double radius, double damage) {
+        Impact impact(Vector3 target, double radius, double damage) {
             List<String> hit = new ArrayList<>();
             double unitDamage = 0;
             double baseDamage = 0;
@@ -272,7 +355,7 @@ public final class LlmCandidateBuilder {
             return new Impact(hit, unitDamage, baseDamage, kills, baseHit);
         }
 
-        private void appendImpact(StringBuilder text, Impact impact, int cost) {
+        void appendImpact(StringBuilder text, Impact impact, int cost) {
             List<String> hit = impact.hit();
             if (hit.isEmpty() && !impact.baseHit()) {
                 text.append("hits no enemy unit");
@@ -289,6 +372,46 @@ public final class LlmCandidateBuilder {
             text.append(" for ").append(number(total)).append(" total damage (")
                     .append(number(cost > 0 ? total / cost : total)).append(" per mana), kills ")
                     .append(impact.kills());
+        }
+
+        long copiesInHand(Magic magic) {
+            return eye.cardList().stream().filter(id -> id != null && id == magic.id).count();
+        }
+
+        /** Where a summon would stand and which enemies are near that spot. */
+        String summonNow(PrefabType unit, Vector3 spot) {
+            StringBuilder text = new StringBuilder("it would be placed ")
+                    .append(number(spot.distance(ownBase))).append(" from our base");
+            if (enemyUnits.isEmpty()) {
+                return text.append(", and no enemy unit is on the field").toString();
+            }
+            BotVisibleObject nearest = enemyUnits.stream()
+                    .min(Comparator.comparingDouble(enemy -> enemy.position().distance(spot)))
+                    .orElseThrow();
+            text.append("; the nearest enemy unit to that spot is a ").append(typeName(nearest)).append(' ')
+                    .append(number(nearest.position().distance(spot))).append(" away");
+            double reach = guide.reach(unit);
+            if (guide.stats(unit).speed() <= 0 && reach > 0) {
+                long inReach = enemyUnits.stream()
+                        .filter(enemy -> enemy.position().distance(spot) <= reach)
+                        .count();
+                text.append("; ").append(inReach).append(" enemy unit").append(inReach == 1 ? " is" : "s are")
+                        .append(" within its reach of ").append(number(reach)).append(" now");
+            }
+            return text.toString();
+        }
+
+        /** Waiting, with the cards it would save for. */
+        String keepManaDescription() {
+            List<String> later = hand.stream()
+                    .filter(magic -> stats.manaCost(magic) > eye.mana() && stats.manaCost(magic) < UNPRICED_COST)
+                    .map(magic -> magic.name + " (" + stats.manaCost(magic) + " mana)")
+                    .toList();
+            boolean full = eye.cardList().size() >= PlayerData.MAX_CARD_NUM;
+            return "Cast nothing now and keep the mana; mana is " + eye.mana()
+                    + (later.isEmpty() ? ", and every card in hand is already affordable."
+                            : ", and these cards in hand are not affordable yet: " + String.join(", ", later) + ".")
+                    + (full ? " The hand is full, so no new card is drawn while nothing is played." : "");
         }
 
         /** The most advanced enemy unit and the enemy base, when in range and not under the best blast. */
@@ -363,8 +486,10 @@ public final class LlmCandidateBuilder {
                 Map<String, Object> card = new LinkedHashMap<>();
                 card.put("magic", magic.name);
                 card.put("cost", stats.manaCost(magic));
+                card.put("copies", copiesInHand(magic));
                 return card;
             }).toList());
+            state.put("handSlotsUsed", eye.cardList().size() + " of " + PlayerData.MAX_CARD_NUM);
             state.put("enemyUnits", summarise(enemyUnits, MAX_STATE_ENEMIES, ownBase, "toOurBase", guide));
             state.put("ourUnits", summarise(ownUnits, MAX_STATE_ALLIES, enemyBase, "toEnemyBase", guide));
             state.put("unitGuide", unitGuide());

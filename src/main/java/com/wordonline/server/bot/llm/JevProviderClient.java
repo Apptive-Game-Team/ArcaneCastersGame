@@ -44,12 +44,32 @@ public final class JevProviderClient implements LlmProviderClient {
             + "before our attack wins the race, and save when a stronger card is close to affordable and nothing "
             + "is coming.";
 
+    static final String CARD_INSTRUCTIONS = "You are a wizard in a real-time lane battle. Each side has a base at "
+            + "one end of the lane with 1000 hp; the first base to reach zero loses. Mana refills over time up to "
+            + "120. The state lists both base hp values, our mana, every unit on the field with its distance to "
+            + "the base it walks toward and the seconds until it starts hitting that base, and a unitGuide. "
+            + "Each option is one card in our hand: what the card does, what the unit it leaves behind does, and "
+            + "what it would do on this board right now. Code aims the card for you; you decide which card to "
+            + "play, or to keep the mana. The hand holds at most 6 cards (handSlotsUsed, and copies per card); a card "
+            + "stays in the hand until it is played, and every second a free slot draws the next card of the deck, "
+            + "so a card we never play keeps blocking a slot, and playing a weak card frees its slot for a better "
+            + "one. Think about what each card is for. A unit that never moves only helps "
+            + "where enemies will come; a unit that walks or flies to the enemy base can hit it; a spell is wasted "
+            + "on a target that does not matter. Pick the card that does the most for winning on this board now.";
+
     private final URI uri;
     private final String defaultModel;
+    private final String playInstructions;
 
     public JevProviderClient(String url, String defaultModel) {
+        this(url, defaultModel, PLAY_INSTRUCTIONS);
+    }
+
+    /** @param playInstructions what the {@value #PLAY_QUESTION} question tells the model about its options */
+    public JevProviderClient(String url, String defaultModel, String playInstructions) {
         this.uri = URI.create(url);
         this.defaultModel = defaultModel;
+        this.playInstructions = playInstructions;
     }
 
     @Override
@@ -79,7 +99,7 @@ public final class JevProviderClient implements LlmProviderClient {
 
     @Override
     public String requestBody(LlmCandidates candidates, String model) throws LlmCallFailure {
-        return choiceBody(PLAY_QUESTION, PLAY_INSTRUCTIONS, candidates.criteria(), candidates.state(), model);
+        return choiceBody(PLAY_QUESTION, playInstructions, candidates.criteria(), candidates.state(), model);
     }
 
     /** One {@value #STANCE_QUESTION} question whose options are the plans in {@code criteria}. */

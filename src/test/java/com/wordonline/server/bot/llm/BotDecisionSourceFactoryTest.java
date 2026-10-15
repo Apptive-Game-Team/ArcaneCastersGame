@@ -59,6 +59,22 @@ class BotDecisionSourceFactoryTest {
         factory.shutdown();
     }
 
+    @Test
+    void inCardModeAJevPersonaGetsTheLlmSourceWithTheCardMenu() {
+        LlmApiKeyProvider keys = new LlmApiKeyProvider(mock(LlmApiKeyRepository.class), new LlmKeyCipher("secret"),
+                mock(LlmKeyUnavailabilityRecorder.class));
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS, new ArrayBlockingQueue<>(1));
+        LlmBotProperties card = new LlmBotProperties(null, null, null, null, null, null, null, null, null, null, "card");
+        BotDecisionSourceFactory factory = new BotDecisionSourceFactory(card, keys,
+                mock(LlmKeyUnavailabilityRecorder.class),
+                (uri, headers, body) -> new LlmHttpClient.Response(500, "", null), executor);
+
+        assertThat(card.jevMode()).isEqualTo(LlmBotProperties.JEV_MODE_CARD);
+        assertThat(factory.create(persona(BotBrainType.JEV), magicParser, counterEvaluator, 0.5))
+                .isInstanceOf(LlmDecisionSource.class);
+        factory.shutdown();
+    }
+
     private static BotPersona persona(BotBrainType brainType) {
         return new BotPersona(-7, "Bot", BotTier.BEGINNER, 250, 8, 0.25, true, false,
                 BotTemperament.WARM, brainType, null);

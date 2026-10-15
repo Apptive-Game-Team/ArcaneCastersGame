@@ -10,8 +10,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * {@code unavailableMinutes} is how long a key stays unavailable after HTTP 402 or 403.
  * {@code minIntervalMs} spaces one bot's OpenRouter requests; {@code jevMinIntervalMs} spaces its
  * jev requests, which answer in about 0.2 seconds and so can be asked far more often.
- * {@code jevMode} is {@code PLAY} (jev picks each cast) or {@code STANCE} (jev picks a plan and code
- * casts under it, {@link StanceDecisionSource}).
+ * {@code jevMode} is {@code PLAY} (jev picks each cast from plays code aimed), {@code STANCE} (jev
+ * picks a plan and code casts under it, {@link StanceDecisionSource}) or {@code CARD} (jev picks the
+ * card from what each card does, code aims it).
  */
 @ConfigurationProperties(prefix = "bot.llm")
 public record LlmBotProperties(
@@ -29,6 +30,7 @@ public record LlmBotProperties(
 ) {
     public static final String JEV_MODE_PLAY = "PLAY";
     public static final String JEV_MODE_STANCE = "STANCE";
+    public static final String JEV_MODE_CARD = "CARD";
     public static final int DEFAULT_TIMEOUT_MS = 4_000;
     public static final int DEFAULT_MIN_INTERVAL_MS = 1_500;
     public static final int DEFAULT_JEV_MIN_INTERVAL_MS = 500;
@@ -52,11 +54,19 @@ public record LlmBotProperties(
                 ? DEFAULT_UNAVAILABLE_MINUTES : unavailableMinutes;
         jevMinIntervalMs = jevMinIntervalMs == null || jevMinIntervalMs < 0
                 ? DEFAULT_JEV_MIN_INTERVAL_MS : jevMinIntervalMs;
-        jevMode = JEV_MODE_PLAY.equalsIgnoreCase(blankTo(jevMode, JEV_MODE_STANCE)) ? JEV_MODE_PLAY : JEV_MODE_STANCE;
+        jevMode = switch (blankTo(jevMode, JEV_MODE_STANCE).toUpperCase(java.util.Locale.ROOT)) {
+            case JEV_MODE_PLAY -> JEV_MODE_PLAY;
+            case JEV_MODE_CARD -> JEV_MODE_CARD;
+            default -> JEV_MODE_STANCE;
+        };
     }
 
     public boolean jevStance() {
         return JEV_MODE_STANCE.equals(jevMode);
+    }
+
+    public boolean jevCard() {
+        return JEV_MODE_CARD.equals(jevMode);
     }
 
     /** Every setting at its default and no secret: the LLM brains are off. */

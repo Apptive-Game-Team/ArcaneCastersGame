@@ -165,8 +165,10 @@ public final class LlmDecisionSource implements BotDecisionSource {
             LlmAnswer answer = client.parseResponse(response.body());
             health.recordSuccess();
             BotBrain.InputDecision decision = answer.toDecision(candidates, client.ruleId());
-            log.debug("[LlmBot {}] Answer play={} confidence={} -> {}", client.type(),
-                    answer.playKey(), answer.confidence(), candidates.describe(answer.playKey()));
+            log.debug("[LlmBot {}] Answer play={} confidence={} mana={} pressure={} options={} -> {}", client.type(),
+                    answer.playKey(), answer.confidence(), candidates.state().get("mana"),
+                    candidates.state().get("pressure"), candidates.criteria().keySet(),
+                    candidates.describe(answer.playKey()));
             completed.set(Outcome.decided(decision, candidates.plays().get(answer.playKey())));
         } catch (LlmCallFailure failure) {
             fail(failure);
