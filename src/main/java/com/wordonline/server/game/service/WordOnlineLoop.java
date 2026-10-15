@@ -1,5 +1,7 @@
 package com.wordonline.server.game.service;
 
+import com.wordonline.server.bot.domain.BotPersona;
+import com.wordonline.server.bot.llm.BotDecisionSourceFactory;
 import com.wordonline.server.bot.service.BotPersonaService;
 import com.wordonline.server.game.domain.magic.parser.DatabaseMagicParser;
 import org.springframework.context.annotation.Scope;
@@ -43,6 +45,7 @@ public class WordOnlineLoop extends GameLoop {
     private final DatabaseMagicParser magicParser;
     private final BotPersonaService botPersonaService;
     private final BotCounterEvaluator botCounterEvaluator;
+    private final BotDecisionSourceFactory botDecisionSourceFactory;
 
     private volatile BotAgent leftBotAgent;
     private volatile BotAgent rightBotAgent;
@@ -57,7 +60,8 @@ public class WordOnlineLoop extends GameLoop {
                           GameObjectStateInitialSystem gameObjectStateInitialSystem,
                           ComponentUpdateSystem componentUpdateSystem, PhysicSystem physicSystem,
                           GameObjectAddRemoteSystem gameObjectAddRemoveSystem, DatabaseMagicParser magicParser,
-                          BotPersonaService botPersonaService, BotCounterEvaluator botCounterEvaluator) {
+                          BotPersonaService botPersonaService, BotCounterEvaluator botCounterEvaluator,
+                          BotDecisionSourceFactory botDecisionSourceFactory) {
         super(mmrService, userService, gameContext, parameters);
         this.frameDataSystem = frameDataSystem;
         this.gameActionSystem = gameActionSystem;
@@ -70,6 +74,7 @@ public class WordOnlineLoop extends GameLoop {
         this.magicParser = magicParser;
         this.botPersonaService = botPersonaService;
         this.botCounterEvaluator = botCounterEvaluator;
+        this.botDecisionSourceFactory = botDecisionSourceFactory;
     }
 
     @Override
@@ -91,13 +96,13 @@ public class WordOnlineLoop extends GameLoop {
     }
 
     private BotAgent newBotAgent(SessionObject sessionObject, Master side, long participantId) {
+        BotPersona persona = botPersonaService.findByParticipantIdOrDefault(participantId);
         return new BotAgent(
                 sessionObject,
-                magicParser,
                 side,
-                botPersonaService.findByParticipantIdOrDefault(participantId),
-                botCounterEvaluator,
-                opponentNoviceProgress(sessionObject, side)
+                persona,
+                botDecisionSourceFactory.create(
+                        persona, magicParser, botCounterEvaluator, opponentNoviceProgress(sessionObject, side))
         );
     }
 
