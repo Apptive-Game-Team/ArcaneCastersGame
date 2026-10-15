@@ -23,6 +23,24 @@ public class BotPersonaRepository {
             ORDER BY user_id;
             """;
 
+    /**
+     * The persona rule shared with the lobby: enabled, not hospitality, and either the rule brain
+     * or an LLM brain whose provider has a key row that is not currently unavailable.
+     */
+    private static final String FIND_MATCHABLE = """
+            SELECT bp.user_id, bp.name, bp.tier, bp.thinking_time_ms, bp.reaction_interval_frames,
+                   bp.counter_aggression, bp.enabled, bp.hospitality, bp.temperament,
+                   bp.brain_type, bp.llm_model
+            FROM bot_personas bp
+            WHERE bp.enabled
+              AND NOT bp.hospitality
+              AND (bp.brain_type = 'RULE'
+                   OR EXISTS (SELECT 1 FROM llm_api_keys k
+                              WHERE k.provider = bp.brain_type
+                                AND (k.unavailable_until IS NULL OR k.unavailable_until <= CURRENT_TIMESTAMP)))
+            ORDER BY bp.user_id;
+            """;
+
     private static final String FIND_BY_ID = """
             SELECT user_id, name, tier, thinking_time_ms, reaction_interval_frames,
                    counter_aggression, enabled, hospitality, temperament, brain_type, llm_model
@@ -62,6 +80,12 @@ public class BotPersonaRepository {
 
     public List<BotPersona> findAll() {
         return jdbcClient.sql(FIND_ALL)
+                .query(this::map)
+                .list();
+    }
+
+    public List<BotPersona> findMatchable() {
+        return jdbcClient.sql(FIND_MATCHABLE)
                 .query(this::map)
                 .list();
     }

@@ -52,13 +52,15 @@ public class BotDecisionSourceFactory {
     private final AtomicBoolean secretWarned = new AtomicBoolean();
 
     @Autowired
-    public BotDecisionSourceFactory(LlmBotProperties properties, LlmApiKeyProvider keyProvider) {
-        this(properties, keyProvider,
+    public BotDecisionSourceFactory(LlmBotProperties properties, LlmApiKeyProvider keyProvider,
+                                    LlmKeyUnavailabilityRecorder recorder) {
+        this(properties, keyProvider, recorder,
                 LlmHttpClient.jdk(Duration.ofMillis(properties.timeoutMs())),
                 keyProvider != null && keyProvider.isConfigured() ? newExecutor(properties.poolSize()) : null);
     }
 
     BotDecisionSourceFactory(LlmBotProperties properties, LlmApiKeyProvider keyProvider,
+                             LlmKeyUnavailabilityRecorder recorder,
                              LlmHttpClient httpClient, ThreadPoolExecutor executor) {
         this.properties = properties;
         this.keyProvider = keyProvider;
@@ -68,14 +70,21 @@ public class BotDecisionSourceFactory {
         clients.put(BotBrainType.OPENROUTER,
                 new OpenRouterProviderClient(properties.openrouterUrl(), properties.openrouterDefaultModel()));
         for (BotBrainType type : clients.keySet()) {
-            health.put(type, new LlmProviderHealth(type, System::currentTimeMillis));
+            health.put(type, new LlmProviderHealth(type, System::currentTimeMillis, failure -> {
+                if (recorder != null) {
+                    recorder.recordFailure(type, failure);
+                }
+                if (keyProvider != null) {
+                    keyProvider.invalidate(type);
+                }
+            }));
         }
     }
 
     /** A factory that only ever hands out the rule brain, for tests and tools without a database. */
     public static BotDecisionSourceFactory ruleOnly() {
         LlmBotProperties defaults = LlmBotProperties.defaults();
-        return new BotDecisionSourceFactory(defaults, null, (uri, headers, body) -> {
+        return new BotDecisionSourceFactory(defaults, null, null, (uri, headers, body) -> {
             throw new IllegalStateException("The rule-only factory makes no HTTP calls.");
         }, null);
     }

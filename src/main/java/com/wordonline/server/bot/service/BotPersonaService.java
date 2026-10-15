@@ -33,13 +33,19 @@ public class BotPersonaService {
                 .toList();
     }
 
+    /** Personas a match may use now: see {@link BotPersonaRepository#findMatchable()}. */
     @Transactional(readOnly = true)
-    public Optional<BotPersona> findRandomEnabled() {
-        List<BotPersona> enabled = findEnabled();
-        if (enabled.isEmpty()) {
+    public List<BotPersona> findMatchable() {
+        return botPersonaRepository.findMatchable();
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<BotPersona> findRandomMatchable() {
+        List<BotPersona> matchable = findMatchable();
+        if (matchable.isEmpty()) {
             return Optional.empty();
         }
-        return Optional.of(enabled.get(ThreadLocalRandom.current().nextInt(enabled.size())));
+        return Optional.of(matchable.get(ThreadLocalRandom.current().nextInt(matchable.size())));
     }
 
     @Transactional(readOnly = true)

@@ -7,6 +7,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *
  * <p>{@code keySecret} is the {@code LLM_KEY_SECRET} that the admin server encrypts the provider
  * API keys with. Blank means no key can be read, and every LLM persona plays with the rule brain.
+ * {@code unavailableMinutes} is how long a key stays unavailable after HTTP 402 or 403.
  */
 @ConfigurationProperties(prefix = "bot.llm")
 public record LlmBotProperties(
@@ -17,11 +18,13 @@ public record LlmBotProperties(
         String jevUrl,
         String jevDefaultModel,
         String openrouterUrl,
-        String openrouterDefaultModel
+        String openrouterDefaultModel,
+        Integer unavailableMinutes
 ) {
     public static final int DEFAULT_TIMEOUT_MS = 4_000;
     public static final int DEFAULT_MIN_INTERVAL_MS = 1_500;
     public static final int DEFAULT_POOL_SIZE = 4;
+    public static final int DEFAULT_UNAVAILABLE_MINUTES = 60;
     public static final String DEFAULT_JEV_URL = "https://api.typesafe.ai/v1/systemone";
     public static final String DEFAULT_JEV_MODEL = "jev-latest";
     public static final String DEFAULT_OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
@@ -36,11 +39,13 @@ public record LlmBotProperties(
         jevDefaultModel = blankTo(jevDefaultModel, DEFAULT_JEV_MODEL);
         openrouterUrl = blankTo(openrouterUrl, DEFAULT_OPENROUTER_URL);
         openrouterDefaultModel = blankTo(openrouterDefaultModel, DEFAULT_OPENROUTER_MODEL);
+        unavailableMinutes = unavailableMinutes == null || unavailableMinutes < 1
+                ? DEFAULT_UNAVAILABLE_MINUTES : unavailableMinutes;
     }
 
     /** Every setting at its default and no secret: the LLM brains are off. */
     public static LlmBotProperties defaults() {
-        return new LlmBotProperties(null, null, null, null, null, null, null, null);
+        return new LlmBotProperties(null, null, null, null, null, null, null, null, null);
     }
 
     public boolean hasKeySecret() {
@@ -57,6 +62,7 @@ public record LlmBotProperties(
         return "LlmBotProperties[keySecret=" + (hasKeySecret() ? "<set>" : "<blank>")
                 + ", timeoutMs=" + timeoutMs + ", minIntervalMs=" + minIntervalMs
                 + ", poolSize=" + poolSize + ", jevUrl=" + jevUrl + ", jevDefaultModel=" + jevDefaultModel
-                + ", openrouterUrl=" + openrouterUrl + ", openrouterDefaultModel=" + openrouterDefaultModel + "]";
+                + ", openrouterUrl=" + openrouterUrl + ", openrouterDefaultModel=" + openrouterDefaultModel
+                + ", unavailableMinutes=" + unavailableMinutes + "]";
     }
 }

@@ -135,7 +135,8 @@ public final class LlmDecisionSource implements BotDecisionSource {
                 throw new LlmCallFailure(
                         client.type() + " returned HTTP " + response.status() + (message == null ? "" : ": " + message),
                         response.status(),
-                        LlmProviderHealth.parseRetryAfterMillis(response.retryAfter()));
+                        LlmProviderHealth.parseRetryAfterMillis(response.retryAfter()),
+                        message);
             }
             LlmAnswer answer = client.parseResponse(response.body());
             health.recordSuccess();

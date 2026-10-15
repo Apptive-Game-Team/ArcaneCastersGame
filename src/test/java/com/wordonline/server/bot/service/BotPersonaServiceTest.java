@@ -62,19 +62,16 @@ class BotPersonaServiceTest {
     @Test
     void selectsTheOnlyEnabledPersona() {
         BotPersona persona = persona(-7);
-        when(repository.findAll()).thenReturn(List.of(persona));
+        when(repository.findMatchable()).thenReturn(List.of(persona));
 
-        assertThat(service.findRandomEnabled()).contains(persona);
+        assertThat(service.findRandomMatchable()).contains(persona);
     }
 
     @Test
     void returnsEmptyWhenNoPersonaIsEnabled() {
-        when(repository.findAll()).thenReturn(List.of(
-                new BotPersona(-7, "Disabled", BotTier.BEGINNER, 250, 8, 0.25, false, false,
-                        BotTemperament.WARM)
-        ));
+        when(repository.findMatchable()).thenReturn(List.of());
 
-        assertThat(service.findRandomEnabled()).isEmpty();
+        assertThat(service.findRandomMatchable()).isEmpty();
     }
 
     @Test

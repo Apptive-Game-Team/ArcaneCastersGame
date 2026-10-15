@@ -83,8 +83,85 @@ class BotPersonaRepositoryTest {
                 .update();
         LlmApiKeyRepository keys = new LlmApiKeyRepository(jdbcClient);
 
-        assertThat(keys.findEncryptedKey("JEV")).contains("v1:abc");
-        assertThat(keys.findEncryptedKey("OPENROUTER")).isEmpty();
+        assertThat(keys.findStoredKey("JEV")).contains(new LlmApiKeyRepository.StoredKey("v1:abc", false, null));
+        assertThat(keys.findStoredKey("OPENROUTER")).isEmpty();
+    }
+
+    @Test
+    void markUnavailableMakesTheKeyUnavailableUntilTheDurationPasses() {
+        insertKey("JEV");
+        LlmApiKeyRepository keys = new LlmApiKeyRepository(jdbcClient);
+
+        assertThat(keys.markUnavailable("JEV", 60, "HTTP 402: balance empty")).isEqualTo(1);
+
+        LlmApiKeyRepository.StoredKey stored = keys.findStoredKey("JEV").orElseThrow();
+        assertThat(stored.unavailable()).isTrue();
+        assertThat(stored.unavailableReason()).isEqualTo("HTTP 402: balance empty");
+        Long minutesAhead = jdbcClient.sql("""
+                SELECT DATEDIFF('MINUTE', CURRENT_TIMESTAMP, unavailable_until) FROM llm_api_keys
+                WHERE provider = 'JEV'""").query(Long.class).single();
+        assertThat(minutesAhead).isBetween(59L, 60L);
+
+        keys.markUnavailable("JEV", 43_200, "HTTP 401: key rejected");
+        Long daysAhead = jdbcClient.sql("""
+                SELECT DATEDIFF('DAY', CURRENT_TIMESTAMP, unavailable_until) FROM llm_api_keys
+                WHERE provider = 'JEV'""").query(Long.class).single();
+        assertThat(daysAhead).isBetween(29L, 30L);
+    }
+
+    @Test
+    void anExpiredUnavailableRowReadsAsAvailable() {
+        insertKey("JEV");
+        jdbcClient.sql("UPDATE llm_api_keys SET unavailable_until = DATEADD('MINUTE', -1, CURRENT_TIMESTAMP)")
+                .update();
+
+        assertThat(new LlmApiKeyRepository(jdbcClient).findStoredKey("JEV").orElseThrow().unavailable()).isFalse();
+    }
+
+    @Test
+    void findMatchableHonoursBrainTypeKeyRowsAndUnavailability() {
+        for (int id = 1; id <= 8; id++) {
+            jdbcClient.sql("INSERT INTO users(id) VALUES (:id)").param("id", -100 - id).update();
+        }
+        persona(-101, "rule", "RULE", true, false);
+        persona(-102, "rule-disabled", "RULE", false, false);
+        persona(-103, "rule-hospitality", "RULE", true, true);
+        persona(-104, "jev-no-key", "JEV", true, false);
+        persona(-105, "openrouter-ok", "OPENROUTER", true, false);
+        persona(-106, "openrouter-hospitality", "OPENROUTER", true, true);
+        persona(-107, "jev-unavailable", "JEV", true, false);
+        persona(-108, "jev-expired-twin", "JEV", true, false);
+        insertKey("OPENROUTER");
+
+        assertThat(names()).containsExactlyInAnyOrder("rule", "openrouter-ok");
+
+        insertKey("JEV");
+        jdbcClient.sql("UPDATE llm_api_keys SET unavailable_until = DATEADD('MINUTE', 30, CURRENT_TIMESTAMP) "
+                + "WHERE provider = 'JEV'").update();
+        assertThat(names()).containsExactlyInAnyOrder("rule", "openrouter-ok");
+
+        jdbcClient.sql("UPDATE llm_api_keys SET unavailable_until = DATEADD('MINUTE', -1, CURRENT_TIMESTAMP) "
+                + "WHERE provider = 'JEV'").update();
+        assertThat(names()).containsExactlyInAnyOrder("rule", "jev-no-key", "openrouter-ok", "jev-unavailable",
+                "jev-expired-twin");
+        assertThat(service.findRandomMatchable()).isPresent();
+    }
+
+    private java.util.List<String> names() {
+        return repository.findMatchable().stream().map(BotPersona::name).toList();
+    }
+
+    private void insertKey(String provider) {
+        jdbcClient.sql("INSERT INTO llm_api_keys(provider, encrypted_key, key_hint) VALUES (:p, 'v1:abc', '…1234')")
+                .param("p", provider).update();
+    }
+
+    private void persona(long id, String name, String brainType, boolean enabled, boolean hospitality) {
+        jdbcClient.sql("""
+                INSERT INTO bot_personas(user_id, name, brain_type, enabled, hospitality)
+                VALUES (:id, :name, :brain, :enabled, :hospitality)""")
+                .param("id", id).param("name", name).param("brain", brainType)
+                .param("enabled", enabled).param("hospitality", hospitality).update();
     }
 
     private static BotPersonaRequestDto request(BotBrainType brainType, String llmModel) {
