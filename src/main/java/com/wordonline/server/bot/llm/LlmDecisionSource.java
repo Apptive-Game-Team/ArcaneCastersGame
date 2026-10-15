@@ -20,19 +20,28 @@ import lombok.extern.slf4j.Slf4j;
  *
  * <p>{@link #think} runs on the shared bot executor, whose overflow runs on the game loop thread,
  * so it only ever looks at state and hands work off. When no request is in flight and
- * {@code minIntervalMillis} has passed since the last one, it builds the option menu from the
- * snapshot and submits the HTTP call to the dedicated LLM pool. While the call is in flight it
+ * {@code minIntervalMillis} has passed since the last one, it asks the rule brain what it would
+ * do, builds the play menu from the snapshot with that decision as the standard play, and submits
+ * the HTTP call to the dedicated LLM pool. A menu with a single play and no wait is cast at once
+ * without asking. While the call is in flight it
  * returns null, so the bot does nothing. The next think after the call finishes returns its
  * decision once.
  *
  * <p>When the call fails, or the pool is full, or the provider is backing off, the rule brain
  * decides that tick instead. {@link LlmProviderHealth} owns the back-off.
  *
+ * <p>At DEBUG, the full request body is logged on the first request and every
+ * {@value #BODY_LOG_EVERY}th after it, and every answer is logged with its play. Neither carries the
+ * API key, which only ever travels in a header.
+ *
  * <p>Only one think runs at a time per bot (BotAgentSystem gates it), while the request thread
  * writes the outcome; the hand-off between them goes through the two atomics.
  */
 @Slf4j
 public final class LlmDecisionSource implements BotDecisionSource {
+
+    /** Requests between two logged request bodies, per bot. */
+    static final int BODY_LOG_EVERY = 20;
 
     /** Supplies the plaintext API key on the request thread. */
     @FunctionalInterface
@@ -55,6 +64,7 @@ public final class LlmDecisionSource implements BotDecisionSource {
     // Written and read only by think, which never runs twice at once for one bot.
     private boolean requestedBefore;
     private long lastRequestAtMillis;
+    private long requestCount;
 
     public LlmDecisionSource(BotDecisionSource fallback,
                              LlmProviderClient client,
@@ -99,9 +109,15 @@ public final class LlmDecisionSource implements BotDecisionSource {
         LlmCandidates candidates;
         String body;
         try {
-            candidates = candidateBuilder.build(botEye, parameters, botSide);
-            if (!candidates.hasCastableMagic()) {
+            candidates = candidateBuilder.build(botEye, parameters, botSide,
+                    standardDecision(botEye, parameters, botSide, overdue));
+            if (!candidates.hasPlays()) {
                 return null;
+            }
+            if (candidates.plays().size() == 1 && !candidates.offersWait()) {
+                String onlyKey = candidates.plays().keySet().iterator().next();
+                return new LlmAnswer(onlyKey, "Only play: " + candidates.describe(onlyKey), null)
+                        .toDecision(candidates, client.ruleId());
             }
             body = client.requestBody(candidates, model);
         } catch (LlmCallFailure failure) {
@@ -114,6 +130,10 @@ public final class LlmDecisionSource implements BotDecisionSource {
 
         requestedBefore = true;
         lastRequestAtMillis = now;
+        requestCount++;
+        if (log.isDebugEnabled() && shouldLogBody(requestCount)) {
+            log.debug("[LlmBot {}] Request #{} body: {}", client.type(), requestCount, body);
+        }
         inFlight.set(true);
         try {
             executor.execute(() -> call(candidates, body));
@@ -141,8 +161,8 @@ public final class LlmDecisionSource implements BotDecisionSource {
             LlmAnswer answer = client.parseResponse(response.body());
             health.recordSuccess();
             BotBrain.InputDecision decision = answer.toDecision(candidates, client.ruleId());
-            log.debug("[LlmBot {}] Answer magic={} target={} -> {}", client.type(),
-                    answer.magicKey(), answer.targetKey(), decision == null ? "no cast" : decision.magicId());
+            log.debug("[LlmBot {}] Answer play={} confidence={} -> {}", client.type(),
+                    answer.playKey(), answer.confidence(), candidates.describe(answer.playKey()));
             completed.set(Outcome.decided(decision));
         } catch (LlmCallFailure failure) {
             fail(failure);
@@ -167,10 +187,28 @@ public final class LlmDecisionSource implements BotDecisionSource {
         completed.set(Outcome.FAILED);
     }
 
+    // The rule brain is stateless between calls (BotBrain keeps only its persona, parsers and the
+    // hospitality director's fixed share), so asking it here changes nothing it decides later. A
+    // throw only costs the standard play.
+    private BotBrain.InputDecision standardDecision(BotEye botEye, Parameters parameters, Master botSide,
+                                                    boolean overdue) {
+        try {
+            return fallback.think(botEye, parameters, botSide, overdue);
+        } catch (RuntimeException e) {
+            log.debug("[LlmBot {}] Rule brain failed while building the standard play", client.type(), e);
+            return null;
+        }
+    }
+
     // The answer was asked about an older snapshot; a card played or cycled since then is dropped
     // here rather than sent for the input handler to refuse.
     private static boolean stillInHand(BotBrain.InputDecision decision, BotEye botEye) {
         return decision != null && botEye.cardList().contains(decision.magicId());
+    }
+
+    /** The first request and every {@link #BODY_LOG_EVERY}th after it. */
+    static boolean shouldLogBody(long requestNumber) {
+        return requestNumber % BODY_LOG_EVERY == 1;
     }
 
     boolean isInFlight() {
