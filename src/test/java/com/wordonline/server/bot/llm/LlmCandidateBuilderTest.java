@@ -45,8 +45,8 @@ class LlmCandidateBuilderTest {
         assertThat(best.manaCost()).isEqualTo(3);
         assertThat(best.target()).isEqualTo(new Vector3(6, 0, 6));
         assertThat(best.description()).isEqualTo("fire_shot (damage spell, cost 3, 20 damage in radius 1.5) at "
-                + "(6, 6), 5.1 from our base: hits 2 enemy units (FireSlime, FireSlime) for 35 total damage, "
-                + "kills 1. Neutral against the enemy units on the field (counter score 0).");
+                + "(6, 6), 5.1 from our base: hits 2 enemy units (FireSlime, FireSlime) for 35 total damage "
+                + "(11.7 per mana), kills 1. Neutral against the enemy units on the field (counter score 0).");
         LlmCandidates.Play advanced = candidates.plays().get("p1");
         assertThat(advanced.target()).isEqualTo(new Vector3(3.5f, 0, 4));
         assertThat(advanced.description()).contains("at (3.5, 4), 2.7 from our base: hits 1 enemy unit (FireSlime)",
@@ -178,7 +178,7 @@ class LlmCandidateBuilderTest {
         assertThat(candidates.plays().get("p0").description())
                 .contains("at (1, 5), 16 from our base: hits the enemy base for 20 total damage");
         assertThat(candidates.plays().get("p1").description())
-                .contains("at (12, 5), 5 from our base: hits 1 enemy unit (FireSlime) for 20 total damage, kills 0");
+                .contains("at (12, 5), 5 from our base: hits 1 enemy unit (FireSlime) for 20 total damage (6.7 per mana), kills 0");
         assertThat(candidates.state()).containsEntry("side", "right").containsEntry("ourHp", 88)
                 .containsEntry("enemyHp", 60);
     }

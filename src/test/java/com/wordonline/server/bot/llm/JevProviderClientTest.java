@@ -32,7 +32,7 @@ class JevProviderClientTest {
         assertThat(fieldNames(play)).containsExactly("type", "instructions", "criteria");
         assertThat(play.path("type").asText()).isEqualTo("choice");
         assertThat(play.path("instructions").asText())
-                .contains("win the lane battle", "Defend first", "never wait while enemy units are close");
+                .contains("race between the two base hp values", "hit the enemy base", "never wait while enemy units are close");
         assertThat(fieldNames(play.path("criteria"))).containsExactly("p0", "p1");
         assertThat(play.path("criteria").path("p0").asText()).startsWith("fire_shot (damage spell, cost 3");
 

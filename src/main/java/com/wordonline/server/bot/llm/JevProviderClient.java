@@ -19,14 +19,16 @@ public final class JevProviderClient implements LlmProviderClient {
 
     static final String PLAY_QUESTION = "play";
     static final String PLAY_INSTRUCTIONS = "You are a wizard in a real-time lane battle. Each side has a base at "
-            + "one end of the lane; a side loses when its base hp reaches zero. The state lists our hp, the enemy hp, "
-            + "our mana, the pressure on our base (0 none, 1 several enemies at the door), and every unit with its "
-            + "distance to the base it walks toward. Each option is one complete play: a magic and where it lands. "
-            + "Goal: win the lane battle. Defend first: when enemy units are close to our base, pick a play that "
-            + "kills them or blocks them. Prefer plays that kill units and plays that are strong against the enemy "
-            + "units on the field. Do not waste mana on a play that hits nothing. The STANDARD TACTIC play is "
-            + "what a solid rule bot would do and is a safe default. Waiting saves mana; never wait while enemy "
-            + "units are close to our base.";
+            + "one end of the lane with 1000 hp; the first base to reach zero loses, so the game is a race between "
+            + "the two base hp values. The state lists our hp, the enemy hp, our mana, the pressure on our base (0 "
+            + "none, 1 several enemies at the door), and every unit with its distance to the base it walks toward. "
+            + "Each option is one complete play: a magic and where it lands, with its damage per mana. Damage that "
+            + "lands on the enemy base counts directly toward winning; damage on units only matters when those "
+            + "units would otherwise reach our base. Pick the play that wins the race: hit the enemy base whenever "
+            + "no enemy unit is close to our base, defend with the most damage per mana when one is, and summon "
+            + "units that will push to the enemy base. Never pick a play that hits nothing. The STANDARD TACTIC "
+            + "play is what a cautious rule bot would do; it often spends mana on units instead of the base. "
+            + "Waiting saves mana; never wait while enemy units are close to our base.";
 
     private final URI uri;
     private final String defaultModel;
