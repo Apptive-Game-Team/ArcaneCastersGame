@@ -89,6 +89,8 @@ bot:
     timeout-ms: ${BOT_LLM_TIMEOUT_MS:4000}
     min-interval-ms: ${BOT_LLM_MIN_INTERVAL_MS:1500}
     jev-min-interval-ms: ${BOT_LLM_JEV_MIN_INTERVAL_MS:500}
+    # PLAY: jev picks each cast. STANCE: jev picks attack, defend or save and code casts under it.
+    jev-mode: ${BOT_LLM_JEV_MODE:STANCE}
     pool-size: ${BOT_LLM_POOL_SIZE:4}
     jev-url: ${BOT_LLM_JEV_URL:https://api.typesafe.ai/v1/systemone}
     jev-default-model: ${BOT_LLM_JEV_DEFAULT_MODEL:jev-latest}

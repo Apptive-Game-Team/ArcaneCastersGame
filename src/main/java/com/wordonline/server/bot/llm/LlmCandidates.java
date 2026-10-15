@@ -29,9 +29,19 @@ public record LlmCandidates(
         state = Collections.unmodifiableMap(new LinkedHashMap<>(state));
     }
 
-    /** One magic cast at one point, described in words the model reads without the code. */
+    /**
+     * One magic cast at one point, described in words the model reads without the code.
+     *
+     * @param baseDamage damage the play lands on the enemy base, 0 for a summon
+     * @param unitDamage damage the play lands on enemy units, 0 for a summon
+     */
     public record Play(long magicId, String magicName, int manaCost, Vector3 target, String description,
-                       boolean summon) {
+                       boolean summon, double baseDamage, double unitDamage) {
+        public Play(long magicId, String magicName, int manaCost, Vector3 target, String description,
+                    boolean summon) {
+            this(magicId, magicName, manaCost, target, description, summon, 0, 0);
+        }
+
         public Play(long magicId, String magicName, int manaCost, Vector3 target, String description) {
             this(magicId, magicName, manaCost, target, description, false);
         }

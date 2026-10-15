@@ -32,6 +32,18 @@ public final class JevProviderClient implements LlmProviderClient {
             + "play is what a cautious rule bot would do; it often spends mana on units instead of the base. "
             + "Waiting saves mana; never wait while enemy units are close to our base.";
 
+    static final String STANCE_QUESTION = "stance";
+    static final String STANCE_INSTRUCTIONS = "You command a wizard in a real-time lane battle. Each side has a "
+            + "base at one end of the lane with 1000 hp; the first base to reach zero loses, so the game is a race "
+            + "between the two base hp values. The state lists our hp, the enemy hp, our mana, the pressure on our "
+            + "base (0 none, 1 several enemies at the door), every unit with its distance to the base it walks "
+            + "toward and the seconds until it starts hitting that base, and a unitGuide that says what each unit "
+            + "type does. Code aims every cast; you only choose the plan for the next second, and you are asked "
+            + "again every second. Each option says what the plan would do right now. Attack when the enemy base "
+            + "is in reach and no enemy unit will hit our base soon, defend when enemy units will reach our base "
+            + "before our attack wins the race, and save when a stronger card is close to affordable and nothing "
+            + "is coming.";
+
     private final URI uri;
     private final String defaultModel;
 
@@ -67,15 +79,26 @@ public final class JevProviderClient implements LlmProviderClient {
 
     @Override
     public String requestBody(LlmCandidates candidates, String model) throws LlmCallFailure {
+        return choiceBody(PLAY_QUESTION, PLAY_INSTRUCTIONS, candidates.criteria(), candidates.state(), model);
+    }
+
+    /** One {@value #STANCE_QUESTION} question whose options are the plans in {@code criteria}. */
+    public String stanceBody(Map<String, String> criteria, Map<String, Object> state, String model)
+            throws LlmCallFailure {
+        return choiceBody(STANCE_QUESTION, STANCE_INSTRUCTIONS, criteria, state, model);
+    }
+
+    private static String choiceBody(String questionId, String instructions, Map<String, String> criteria,
+                                     Map<String, Object> state, String model) throws LlmCallFailure {
         Map<String, Object> question = new LinkedHashMap<>();
         question.put("type", "choice");
-        question.put("instructions", PLAY_INSTRUCTIONS);
-        question.put("criteria", candidates.criteria());
+        question.put("instructions", instructions);
+        question.put("criteria", criteria);
 
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("model", model);
-        body.put("state", candidates.state());
-        body.put("questions", Map.of(PLAY_QUESTION, question));
+        body.put("state", state);
+        body.put("questions", Map.of(questionId, question));
         try {
             return JSON.writeValueAsString(body);
         } catch (JsonProcessingException e) {
@@ -85,16 +108,25 @@ public final class JevProviderClient implements LlmProviderClient {
 
     @Override
     public LlmAnswer parseResponse(String body) throws LlmCallFailure {
+        return parseChoice(PLAY_QUESTION, body);
+    }
+
+    /** The key jev chose for the {@value #STANCE_QUESTION} question. */
+    public LlmAnswer parseStance(String body) throws LlmCallFailure {
+        return parseChoice(STANCE_QUESTION, body);
+    }
+
+    private static LlmAnswer parseChoice(String questionId, String body) throws LlmCallFailure {
         JsonNode answers;
         try {
             answers = JSON.readTree(body).path("answers");
         } catch (Exception e) {
             throw new LlmCallFailure("jev answer is not JSON");
         }
-        JsonNode play = answers.path(PLAY_QUESTION);
+        JsonNode play = answers.path(questionId);
         String playKey = LlmProviderClient.text(play.get("choice"));
         if (playKey == null) {
-            throw new LlmCallFailure("jev answer has no play choice");
+            throw new LlmCallFailure("jev answer has no " + questionId + " choice");
         }
         JsonNode confidence = play.get("confidence");
         return new LlmAnswer(playKey, null, confidence != null && confidence.isNumber() ? confidence.asDouble() : null);

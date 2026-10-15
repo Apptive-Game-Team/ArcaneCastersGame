@@ -43,6 +43,26 @@ class JevProviderClientTest {
     }
 
     @Test
+    void asksOneStanceQuestionAndReadsItsChoice() throws Exception {
+        JsonNode body = JSON.readTree(client.stanceBody(
+                java.util.Map.of("attack", "Attack: a", "defend", "Defend: d"), java.util.Map.of("mana", 5), "jev-latest"));
+
+        assertThat(fieldNames(body)).containsExactly("model", "state", "questions");
+        assertThat(fieldNames(body.path("questions"))).containsExactly("stance");
+        JsonNode stance = body.path("questions").path("stance");
+        assertThat(stance.path("type").asText()).isEqualTo("choice");
+        assertThat(stance.path("instructions").asText()).contains("Code aims every cast");
+        assertThat(fieldNames(stance.path("criteria"))).containsExactlyInAnyOrder("attack", "defend");
+
+        LlmAnswer answer = client.parseStance(
+                "{\"answers\":{\"stance\":{\"type\":\"choice\",\"choice\":\"save\",\"confidence\":0.7}}}");
+        assertThat(answer.playKey()).isEqualTo("save");
+        assertThat(answer.confidence()).isEqualTo(0.7);
+        assertThatThrownBy(() -> client.parseStance("{\"answers\":{\"play\":{\"choice\":\"p0\"}}}"))
+                .isInstanceOf(LlmCallFailure.class);
+    }
+
+    @Test
     void aRealisticBodyStaysWithinTheApiLimits() throws Exception {
         BotBrain.InputDecision rule = new BotBrain.InputDecision(LlmTestFixtures.FIRE_SHOT_ID, new Vector3(5, 0, 5),
                 "combo.mob-cluster", "AbstractExplosionMagic targets a cluster of 3 enemy mobs.");

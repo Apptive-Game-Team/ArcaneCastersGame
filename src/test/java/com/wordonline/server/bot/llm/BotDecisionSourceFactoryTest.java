@@ -53,6 +53,9 @@ class BotDecisionSourceFactoryTest {
 
         assertThat(factory.create(persona(BotBrainType.OPENROUTER), magicParser, counterEvaluator, 0.5))
                 .isInstanceOf(LlmDecisionSource.class);
+        assertThat(factory.create(persona(BotBrainType.JEV), magicParser, counterEvaluator, 0.5))
+                .as("jev plays in stance mode by default")
+                .isInstanceOf(StanceDecisionSource.class);
         factory.shutdown();
     }
 

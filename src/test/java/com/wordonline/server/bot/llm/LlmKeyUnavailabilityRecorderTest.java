@@ -24,7 +24,7 @@ class LlmKeyUnavailabilityRecorderTest {
     private final LlmApiKeyRepository repository = mock(LlmApiKeyRepository.class);
     private final AtomicLong clock = new AtomicLong(1_000_000);
     private final LlmKeyUnavailabilityRecorder recorder = new LlmKeyUnavailabilityRecorder(
-            repository, new LlmBotProperties(null, null, null, null, null, null, null, null, 90, null), clock::get);
+            repository, new LlmBotProperties(null, null, null, null, null, null, null, null, 90, null, null), clock::get);
 
     @Test
     void a401KeepsTheKeyUnavailableForThirtyDays() {
