@@ -50,8 +50,25 @@ class JevProviderClientTest {
         JsonNode play = JSON.readTree(cards.requestBody(LlmTestFixtures.candidates(), "jev-latest"))
                 .path("questions").path("play");
 
-        assertThat(play.path("instructions").asText()).contains("you decide which card to play",
+        assertThat(play.path("instructions").asText()).contains("You decide which card to play",
                 "a card we never play keeps blocking a slot");
+    }
+
+    @Test
+    void asksWhereEachSummonShouldGoAndReadsTheChosenCardsAim() throws Exception {
+        LlmCandidates cards = LlmCandidateBuilder.cards(LlmTestFixtures.lookup(), LlmTestFixtures.neutralCounters())
+                .build(LlmTestFixtures.eye(List.of(LlmTestFixtures.FIRE_SHOT_ID, LlmTestFixtures.SLIME_SUMMON_ID), 5),
+                        LlmTestFixtures.parameters(), Master.LeftPlayer);
+
+        JsonNode questions = JSON.readTree(client.requestBody(cards, "jev-latest")).path("questions");
+
+        assertThat(fieldNames(questions)).containsExactly("play", "aim_wind_slime_summon");
+        assertThat(questions.path("aim_wind_slime_summon").path("instructions").asText())
+                .startsWith("If wind_slime_summon is the card played");
+        LlmAnswer answer = client.parseResponse("""
+                {"answers":{"play":{"choice":"wind_slime_summon","confidence":0.8},
+                 "aim_wind_slime_summon":{"choice":"near_low"}}}""");
+        assertThat(answer.aimKey()).isEqualTo("near_low");
     }
 
     @Test

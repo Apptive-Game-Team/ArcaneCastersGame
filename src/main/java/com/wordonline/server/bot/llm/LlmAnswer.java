@@ -11,8 +11,13 @@ import com.wordonline.server.game.domain.object.Vector3;
  *
  * @param reason     the model's own short reason, or null (jev gives none)
  * @param confidence the provider's confidence in the choice, or null
+ * @param aimKey     where the chosen card should land, from the play's aims, or null
  */
-public record LlmAnswer(String playKey, String reason, Double confidence) {
+public record LlmAnswer(String playKey, String reason, Double confidence, String aimKey) {
+
+    public LlmAnswer(String playKey, String reason, Double confidence) {
+        this(playKey, reason, confidence, null);
+    }
 
     /** Longest reason the bot-thought DTO is given. */
     public static final int MAX_REASON_LENGTH = 120;
@@ -29,7 +34,7 @@ public record LlmAnswer(String playKey, String reason, Double confidence) {
         String text = reason != null && !reason.isBlank()
                 ? reason.strip()
                 : (confidence == null ? "" : String.format(Locale.ROOT, "(%.2f) ", confidence)) + play.description();
-        return new BotBrain.InputDecision(play.magicId(), new Vector3(play.target()), ruleId, truncate(text));
+        return new BotBrain.InputDecision(play.magicId(), new Vector3(play.targetFor(aimKey)), ruleId, truncate(text));
     }
 
     static String truncate(String text) {

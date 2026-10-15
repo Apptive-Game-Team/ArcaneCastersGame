@@ -34,9 +34,20 @@ public record LlmCandidates(
      *
      * @param baseDamage damage the play lands on the enemy base, 0 for a summon
      * @param unitDamage damage the play lands on enemy units, 0 for a summon
+     * @param aims       where the card may land, keyed for the model's aim question; empty when the
+     *                   point is fixed by code. {@code target} is the point used when no aim is chosen.
      */
     public record Play(long magicId, String magicName, int manaCost, Vector3 target, String description,
-                       boolean summon, double baseDamage, double unitDamage) {
+                       boolean summon, double baseDamage, double unitDamage, Map<String, Aim> aims) {
+        public Play {
+            aims = aims == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(aims));
+        }
+
+        public Play(long magicId, String magicName, int manaCost, Vector3 target, String description,
+                    boolean summon, double baseDamage, double unitDamage) {
+            this(magicId, magicName, manaCost, target, description, summon, baseDamage, unitDamage, Map.of());
+        }
+
         public Play(long magicId, String magicName, int manaCost, Vector3 target, String description,
                     boolean summon) {
             this(magicId, magicName, manaCost, target, description, summon, 0, 0);
@@ -45,6 +56,21 @@ public record LlmCandidates(
         public Play(long magicId, String magicName, int manaCost, Vector3 target, String description) {
             this(magicId, magicName, manaCost, target, description, false);
         }
+
+        /** The point the chosen aim names, or {@link #target} when the aim is unknown or absent. */
+        public Vector3 targetFor(String aimKey) {
+            Aim aim = aimKey == null ? null : aims.get(aimKey);
+            return aim == null ? target : aim.target();
+        }
+    }
+
+    /** One place a card may land, described by what is there rather than by coordinates. */
+    public record Aim(String description, Vector3 target) {
+    }
+
+    /** True when at least one play asks where it should land. */
+    public boolean asksAims() {
+        return plays.values().stream().anyMatch(play -> play.aims().size() > 1);
     }
 
     public boolean offersWait() {

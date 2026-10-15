@@ -165,11 +165,13 @@ public final class LlmDecisionSource implements BotDecisionSource {
             LlmAnswer answer = client.parseResponse(response.body());
             health.recordSuccess();
             BotBrain.InputDecision decision = answer.toDecision(candidates, client.ruleId());
-            log.debug("[LlmBot {}] Answer play={} confidence={} mana={} pressure={} options={} -> {}", client.type(),
-                    answer.playKey(), answer.confidence(), candidates.state().get("mana"),
-                    candidates.state().get("pressure"), candidates.criteria().keySet(),
-                    candidates.describe(answer.playKey()));
-            completed.set(Outcome.decided(decision, candidates.plays().get(answer.playKey())));
+            log.debug("[LlmBot {}] Answer play={} aim={} confidence={} mana={} pressure={} options={} -> {}",
+                    client.type(), answer.playKey(), answer.aimKey(), answer.confidence(),
+                    candidates.state().get("mana"), candidates.state().get("pressure"),
+                    candidates.criteria().keySet(), candidates.describe(answer.playKey()));
+            LlmCandidates.Play play = candidates.plays().get(answer.playKey());
+            LlmCandidates.Aim aim = play == null || answer.aimKey() == null ? null : play.aims().get(answer.aimKey());
+            completed.set(Outcome.decided(decision, play, aim));
         } catch (LlmCallFailure failure) {
             fail(failure);
         } catch (HttpTimeoutException e) {
@@ -236,6 +238,10 @@ public final class LlmDecisionSource implements BotDecisionSource {
         if (decision == null || chosen == null) {
             return decision;
         }
+        if (outcome.aim() != null) {
+            // The model chose this spot for a summon; units walking past do not move it.
+            return decision;
+        }
         try {
             BotBrain.InputDecision standard = standardDecision(botEye, parameters, botSide, overdue);
             if (chosen.description().startsWith(LlmCandidateBuilder.STANDARD_TACTIC)
@@ -259,11 +265,12 @@ public final class LlmDecisionSource implements BotDecisionSource {
                 decision.reason());
     }
 
-    private record Outcome(BotBrain.InputDecision decision, LlmCandidates.Play play, boolean failed) {
-        static final Outcome FAILED = new Outcome(null, null, true);
+    private record Outcome(BotBrain.InputDecision decision, LlmCandidates.Play play, LlmCandidates.Aim aim,
+                           boolean failed) {
+        static final Outcome FAILED = new Outcome(null, null, null, true);
 
-        static Outcome decided(BotBrain.InputDecision decision, LlmCandidates.Play play) {
-            return new Outcome(decision, play, false);
+        static Outcome decided(BotBrain.InputDecision decision, LlmCandidates.Play play, LlmCandidates.Aim aim) {
+            return new Outcome(decision, play, aim, false);
         }
     }
 }
