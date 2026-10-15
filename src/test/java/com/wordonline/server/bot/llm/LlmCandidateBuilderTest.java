@@ -210,7 +210,7 @@ class LlmCandidateBuilderTest {
         Map<String, Object> state = LlmTestFixtures.candidates().state();
 
         assertThat(state).containsOnlyKeys("side", "ourHp", "enemyHp", "mana", "pressure", "enemyNearOurBase",
-                "hand", "enemyUnits", "ourUnits");
+                "hand", "enemyUnits", "ourUnits", "unitGuide");
         assertThat(state).containsEntry("ourHp", 90).containsEntry("enemyHp", 88).containsEntry("mana", 5)
                 .containsEntry("pressure", 0.69).containsEntry("enemyNearOurBase", true);
         @SuppressWarnings("unchecked")
