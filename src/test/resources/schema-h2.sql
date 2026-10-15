@@ -184,7 +184,10 @@ CREATE TABLE llm_api_keys (
     provider VARCHAR(20) NOT NULL PRIMARY KEY CHECK (provider IN ('JEV', 'OPENROUTER')),
     encrypted_key TEXT NOT NULL,
     key_hint VARCHAR(16) NOT NULL,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    -- Mirrors database migration V045: set by the game server when the provider rejects the key.
+    unavailable_until TIMESTAMP,
+    unavailable_reason VARCHAR(200)
 );
 
 CREATE TABLE tags (

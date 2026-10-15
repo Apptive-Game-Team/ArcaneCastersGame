@@ -50,8 +50,8 @@ public class DebugService {
     private SessionObject debugSession;
 
     public DebugGameResponseDto enterPracticeSession(DebugGameRequestDto debugGameRequestDto) {
-        BotPersona opponent = botPersonaService.findRandomEnabled()
-                .orElseThrow(() -> new IllegalStateException("No enabled bot persona is available."));
+        BotPersona opponent = botPersonaService.findRandomMatchable()
+                .orElseThrow(() -> new IllegalStateException("No matchable bot persona is available."));
         SessionObject created = createPracticeDebugSession(debugGameRequestDto.userId(), opponent.userId());
         DebugGameResponseDto dto = new DebugGameResponseDto(created.getSessionId(), created.getMap());
         log.info(
