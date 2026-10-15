@@ -11,8 +11,24 @@ public record BotPersona(
         double counterAggression,
         boolean enabled,
         boolean hospitality,
-        BotTemperament temperament
+        BotTemperament temperament,
+        BotBrainType brainType,
+        String llmModel
 ) {
+    /** Longest model name the llm_model column holds. */
+    public static final int LLM_MODEL_MAX_LENGTH = 100;
+
+    /**
+     * The persona without a brain choice of its own plays with the rule brain. Kept so callers
+     * that predate the brain choice still compile and mean what they meant.
+     */
+    public BotPersona(long userId, String name, BotTier tier, int thinkingTimeMs,
+                      int reactionIntervalFrames, double counterAggression, boolean enabled,
+                      boolean hospitality, BotTemperament temperament) {
+        this(userId, name, tier, thinkingTimeMs, reactionIntervalFrames, counterAggression, enabled,
+                hospitality, temperament, BotBrainType.RULE, null);
+    }
+
     public static final BotPersona DEFAULT = new BotPersona(
             0,
             "Default Bot",
@@ -22,8 +38,27 @@ public record BotPersona(
             0.25,
             true,
             false,
-            BotTemperament.WARM
+            BotTemperament.WARM,
+            BotBrainType.RULE,
+            null
     );
+
+    /** A missing brain type plays as the rule brain, matching the column default. */
+    public BotBrainType normalizedBrainType() {
+        return brainType == null ? BotBrainType.RULE : brainType;
+    }
+
+    /** The model name, trimmed; blank means the provider default and comes back as null. */
+    public String normalizedLlmModel() {
+        return normalizeLlmModel(llmModel);
+    }
+
+    public static String normalizeLlmModel(String llmModel) {
+        if (llmModel == null || llmModel.isBlank()) {
+            return null;
+        }
+        return llmModel.trim();
+    }
 
     /**
      * The temperament the emote director reads. A bot with no row of its own still plays, so the

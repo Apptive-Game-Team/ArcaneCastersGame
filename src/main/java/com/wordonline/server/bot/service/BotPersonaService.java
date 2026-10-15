@@ -1,5 +1,6 @@
 package com.wordonline.server.bot.service;
 
+import com.wordonline.server.bot.domain.BotBrainType;
 import com.wordonline.server.bot.domain.BotParticipant;
 import com.wordonline.server.bot.domain.BotPersona;
 import com.wordonline.server.bot.domain.BotTemperament;
@@ -92,7 +93,18 @@ public class BotPersonaService {
                 Math.max(-1.0, Math.min(1.0, requestDto.counterAggression())),
                 requestDto.enabled(),
                 requestDto.hospitality(),
-                requestDto.temperament() == null ? BotTemperament.WARM : requestDto.temperament()
+                requestDto.temperament() == null ? BotTemperament.WARM : requestDto.temperament(),
+                requestDto.brainType() == null ? BotBrainType.RULE : requestDto.brainType(),
+                normalizeLlmModel(requestDto.llmModel())
         );
+    }
+
+    private static String normalizeLlmModel(String llmModel) {
+        String normalized = BotPersona.normalizeLlmModel(llmModel);
+        if (normalized != null && normalized.length() > BotPersona.LLM_MODEL_MAX_LENGTH) {
+            throw new IllegalArgumentException(
+                    "LLM model name must be at most " + BotPersona.LLM_MODEL_MAX_LENGTH + " characters.");
+        }
+        return normalized;
     }
 }

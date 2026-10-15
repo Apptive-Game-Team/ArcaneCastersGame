@@ -1,5 +1,6 @@
 package com.wordonline.server.bot.dto;
 
+import com.wordonline.server.bot.domain.BotBrainType;
 import com.wordonline.server.bot.domain.BotPersona;
 import com.wordonline.server.bot.domain.BotTemperament;
 import com.wordonline.server.bot.domain.BotTier;
@@ -13,7 +14,9 @@ public record BotPersonaResponseDto(
         double counterAggression,
         boolean enabled,
         boolean hospitality,
-        BotTemperament temperament
+        BotTemperament temperament,
+        BotBrainType brainType,
+        String llmModel
 ) {
     public BotPersonaResponseDto(BotPersona persona) {
         this(
@@ -25,7 +28,9 @@ public record BotPersonaResponseDto(
                 persona.counterAggression(),
                 persona.enabled(),
                 persona.hospitality(),
-                persona.normalizedTemperament()
+                persona.normalizedTemperament(),
+                persona.normalizedBrainType(),
+                persona.normalizedLlmModel()
         );
     }
 }
