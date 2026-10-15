@@ -220,14 +220,14 @@ public final class LlmCandidateBuilder {
                 double damage = stats.damagePerTarget(magic);
                 text.append(" (damage spell, cost ").append(cost).append(", ").append(number(damage))
                         .append(" damage in radius ").append(number(radius)).append(')').append(where).append(": ");
-                appendImpact(text, target, radius, damage);
+                appendImpact(text, target, radius, damage, cost);
                 text.append(". ");
             }
             text.append(counter(magic));
             return text.toString();
         }
 
-        private void appendImpact(StringBuilder text, Vector3 target, double radius, double damage) {
+        private void appendImpact(StringBuilder text, Vector3 target, double radius, double damage, int cost) {
             List<String> hit = new ArrayList<>();
             double total = 0;
             int kills = 0;
@@ -264,7 +264,8 @@ public final class LlmCandidateBuilder {
             if (baseHit) {
                 text.append(hit.isEmpty() ? "hits the enemy base" : " and the enemy base");
             }
-            text.append(" for ").append(number(total)).append(" total damage, kills ").append(kills);
+            text.append(" for ").append(number(total)).append(" total damage (")
+                    .append(number(cost > 0 ? total / cost : total)).append(" per mana), kills ").append(kills);
         }
 
         /** The most advanced enemy unit and the enemy base, when in range and not under the best blast. */
