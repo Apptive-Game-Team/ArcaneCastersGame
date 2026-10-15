@@ -1,5 +1,6 @@
 package com.wordonline.server.game.service;
 
+import com.wordonline.server.bot.llm.BotDecisionSourceFactory;
 import com.wordonline.server.bot.service.BotPersonaService;
 import com.wordonline.server.game.domain.SessionObject;
 import com.wordonline.server.game.domain.SessionType;
@@ -39,12 +40,13 @@ public class PveLoop extends WordOnlineLoop {
                    com.wordonline.server.game.domain.magic.parser.DatabaseMagicParser magicParser,
                    BotPersonaService botPersonaService,
                    BotCounterEvaluator botCounterEvaluator,
+                   BotDecisionSourceFactory botDecisionSourceFactory,
                    PveScenarioRegistry pveScenarioRegistry,
                    PveScenarioInstaller pveScenarioInstaller,
                    PveScriptSystem pveScriptSystem) {
         super(mmrService, userService, gameContext, parameters, frameDataSystem, gameActionSystem, botSystem, feverTimeSystem,
                 gameObjectStateInitialSystem, componentUpdateSystem, physicSystem, gameObjectAddRemoveSystem, magicParser,
-                botPersonaService, botCounterEvaluator);
+                botPersonaService, botCounterEvaluator, botDecisionSourceFactory);
         this.pveScenarioRegistry = pveScenarioRegistry;
         this.pveScenarioInstaller = pveScenarioInstaller;
         this.pveScriptSystem = pveScriptSystem;

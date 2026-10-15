@@ -76,6 +76,19 @@ bot:
   executor:
     pool-size: ${BOT_EXECUTOR_POOL_SIZE:0}
     queue-capacity: ${BOT_EXECUTOR_QUEUE_CAPACITY:64}
+  # Bot personas whose brain_type is JEV or OPENROUTER. key-secret decrypts the provider API keys the
+  # admin server stores in llm_api_keys; both servers need the same LLM_KEY_SECRET, and when it is
+  # blank every LLM persona plays with the rule brain. Requests run on their own pool of pool-size
+  # threads, at most one per bot every min-interval-ms, and give up after timeout-ms.
+  llm:
+    key-secret: ${LLM_KEY_SECRET:}
+    timeout-ms: ${BOT_LLM_TIMEOUT_MS:4000}
+    min-interval-ms: ${BOT_LLM_MIN_INTERVAL_MS:1500}
+    pool-size: ${BOT_LLM_POOL_SIZE:4}
+    jev-url: ${BOT_LLM_JEV_URL:https://jev-ai.pro/api/v1/systemone}
+    jev-default-model: ${BOT_LLM_JEV_DEFAULT_MODEL:jev-latest}
+    openrouter-url: ${BOT_LLM_OPENROUTER_URL:https://openrouter.ai/api/v1/chat/completions}
+    openrouter-default-model: ${BOT_LLM_OPENROUTER_DEFAULT_MODEL:openrouter/auto}
 
 # account mints every JWT this server verifies; the JwtDecoder fetches account's JSON Web
 # Key Set from url + /.well-known/jwks (see AccountProperties). No local public key is kept

@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Service;
+import com.wordonline.server.bot.llm.BotDecisionSourceFactory;
 import com.wordonline.server.bot.service.BotPersonaService;
 import com.wordonline.server.game.domain.Parameters;
 import com.wordonline.server.game.domain.SessionObject;
@@ -41,7 +42,7 @@ public class PlaygroundLoop extends WordOnlineLoop {
             GameObjectAddRemoteSystem objects, DatabaseMagicParser magics, BotPersonaService personas,
             BotCounterEvaluator counters, @Qualifier("playgroundClock") Clock clock) {
         super(mmr, users, context, parameters, frames, actions, bots, fever, initial, components, physics,
-                objects, magics, personas, counters);
+                objects, magics, personas, counters, BotDecisionSourceFactory.ruleOnly());
         this.clock = clock;
     }
 

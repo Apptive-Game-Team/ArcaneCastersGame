@@ -1,5 +1,6 @@
 package com.wordonline.server.game.service;
 
+import com.wordonline.server.bot.llm.BotDecisionSourceFactory;
 import com.wordonline.server.bot.service.BotPersonaService;
 import com.wordonline.server.game.domain.GameSessionData;
 import com.wordonline.server.game.domain.Parameters;
@@ -109,7 +110,8 @@ class WordOnlineLoopGraceTest {
                 mock(FeverTimeSystem.class), mock(GameObjectStateInitialSystem.class),
                 mock(ComponentUpdateSystem.class), mock(PhysicSystem.class),
                 mock(GameObjectAddRemoteSystem.class), mock(DatabaseMagicParser.class),
-                mock(BotPersonaService.class), mock(BotCounterEvaluator.class)) {
+                mock(BotPersonaService.class), mock(BotCounterEvaluator.class),
+                BotDecisionSourceFactory.ruleOnly()) {
             @Override
             protected void buildSnapshot() {
             }
