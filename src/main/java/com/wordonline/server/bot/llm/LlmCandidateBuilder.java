@@ -8,6 +8,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
@@ -162,6 +163,7 @@ public final class LlmCandidateBuilder {
         final Vector3 enemyBase;
         final BotEye eye;
         final BotSpellStats stats;
+        final UnitGuide guide;
         final ThreatAssessment threats;
         final List<BotVisibleObject> enemyUnits;
         final List<BotVisibleObject> ownUnits;
@@ -177,6 +179,7 @@ public final class LlmCandidateBuilder {
             this.ownBase = BotSideUtil.getPlayerPosition(botSide);
             this.enemyBase = BotSideUtil.getPlayerPosition(enemySide);
             this.stats = new BotSpellStats(parameters);
+            this.guide = new UnitGuide(parameters);
             this.threats = ThreatAssessment.observe(eye.gameObjectList(), enemySide, ownBase, eye.enemyPlayerHp());
             this.enemyUnits = units(eye, enemySide, ownBase);
             this.ownUnits = units(eye, botSide, enemyBase);
@@ -206,6 +209,8 @@ public final class LlmCandidateBuilder {
                 text.append(" (summon, cost ").append(cost).append(')').append(where).append(": puts ")
                         .append(summoning.summonedQuantity()).append(' ').append(summoning.summonedPrefab())
                         .append(summoning.summonsAirborne() ? " (flying)" : "")
+                        .append(guide.stats(summoning.summonedPrefab()).known()
+                                ? " [" + guide.describe(summoning.summonedPrefab()) + "]" : "")
                         .append(" in lane z=").append(number(target.getZ())).append("; ");
                 if (enemyUnits.isEmpty()) {
                     text.append("no enemy unit is on the field, so it starts an advance");
@@ -247,7 +252,7 @@ public final class LlmCandidateBuilder {
                 if (object == null || !object.mob()) {
                     continue;
                 }
-                hit.add(typeName(object));
+                hit.add(threatName(object));
                 total += Math.min(damage, threat.hp());
                 if (damage >= threat.hp()) {
                     kills++;
@@ -342,9 +347,39 @@ public final class LlmCandidateBuilder {
                 card.put("cost", stats.manaCost(magic));
                 return card;
             }).toList());
-            state.put("enemyUnits", summarise(enemyUnits, MAX_STATE_ENEMIES, ownBase, "toOurBase"));
-            state.put("ourUnits", summarise(ownUnits, MAX_STATE_ALLIES, enemyBase, "toEnemyBase"));
+            state.put("enemyUnits", summarise(enemyUnits, MAX_STATE_ENEMIES, ownBase, "toOurBase", guide));
+            state.put("ourUnits", summarise(ownUnits, MAX_STATE_ALLIES, enemyBase, "toEnemyBase", guide));
+            state.put("unitGuide", unitGuide());
             return state;
+        }
+
+        /** Every unit type on the field or summonable from hand, with what it does. */
+        private Map<String, String> unitGuide() {
+            Map<String, String> types = new TreeMap<>();
+            for (BotVisibleObject unit : enemyUnits) {
+                types.computeIfAbsent(typeName(unit), name -> guide.describe(unit.type()));
+            }
+            for (BotVisibleObject unit : ownUnits) {
+                types.computeIfAbsent(typeName(unit), name -> guide.describe(unit.type()));
+            }
+            for (Magic magic : hand) {
+                if (magic instanceof ObjectSummoningMagic summoning && summoning.summonedPrefab() != null) {
+                    types.computeIfAbsent(summoning.summonedPrefab().name(),
+                            name -> guide.describe(summoning.summonedPrefab()));
+                }
+            }
+            return types;
+        }
+
+        /** "WindSpirit (hits our base for 300 in 2.3s)" for an enemy unit that is under a blast. */
+        private String threatName(BotVisibleObject object) {
+            UnitGuide.Stats unit = guide.stats(object.type());
+            Double eta = unit.secondsToReach(object.position().distance(ownBase));
+            if (unit.damage() <= 0 || eta == null) {
+                return typeName(object);
+            }
+            return typeName(object) + " (hits our base for " + number(unit.damage()) + " in "
+                    + number(eta) + "s)";
         }
 
         private Integer ownHp() {
@@ -375,14 +410,19 @@ public final class LlmCandidateBuilder {
     }
 
     private static List<Map<String, Object>> summarise(List<BotVisibleObject> objects, int limit, Vector3 from,
-                                                       String distanceName) {
+                                                       String distanceName, UnitGuide guide) {
         return objects.stream()
                 .limit(limit)
                 .map(object -> {
                     Map<String, Object> row = new LinkedHashMap<>();
+                    double distance = object.position().distance(from);
                     row.put("type", typeName(object));
                     row.put("hp", object.hp());
-                    row.put(distanceName, round(object.position().distance(from)));
+                    row.put(distanceName, round(distance));
+                    Double eta = guide.stats(object.type()).secondsToReach(distance);
+                    if (eta != null) {
+                        row.put("secondsToHitBase", round(eta));
+                    }
                     row.put("z", round(object.position().getZ()));
                     return row;
                 })
