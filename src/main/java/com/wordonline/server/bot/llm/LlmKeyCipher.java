@@ -10,6 +10,7 @@ import javax.crypto.Cipher;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
@@ -32,6 +33,7 @@ public class LlmKeyCipher {
 
     private final String secret;
 
+    @Autowired
     public LlmKeyCipher(LlmBotProperties properties) {
         this(properties.keySecret());
     }
