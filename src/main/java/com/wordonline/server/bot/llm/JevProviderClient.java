@@ -10,19 +10,23 @@ import com.wordonline.server.bot.domain.BotBrainType;
 
 /**
  * TypeSafe Jev decision API (api.typesafe.ai; jev-ai.pro relays the same schema with its own
- * keys): one call with two {@code choice} questions, {@code magic} and {@code target}. The body
- * carries only {@code model}, {@code state} and {@code questions}; the API rejects unknown fields.
+ * keys): one call with one {@code choice} question, {@code play}, whose options are complete plays
+ * (magic and target together). Jev answers separate questions in parallel, so a magic and its
+ * target asked apart would be picked without knowing each other. The body carries only
+ * {@code model}, {@code state} and {@code questions}; the API rejects unknown fields.
  */
 public final class JevProviderClient implements LlmProviderClient {
 
-    static final String MAGIC_QUESTION = "magic";
-    static final String TARGET_QUESTION = "target";
-    static final String MAGIC_INSTRUCTIONS = "You are a wizard in a real-time lane battle, defending your base on the "
-            + "left or right end of the board while destroying the enemy base. Pick the magic to cast now, "
-            + "or wait to save mana for a stronger magic. Answer threats near your base first.";
-    static final String TARGET_INSTRUCTIONS = "Pick where to cast the chosen magic. Damage spells belong on enemy "
-            + "units, ideally where several stand together; summons belong in front of your own base or on the "
-            + "lane toward the enemy base.";
+    static final String PLAY_QUESTION = "play";
+    static final String PLAY_INSTRUCTIONS = "You are a wizard in a real-time lane battle. Each side has a base at "
+            + "one end of the lane; a side loses when its base hp reaches zero. The state lists our hp, the enemy hp, "
+            + "our mana, the pressure on our base (0 none, 1 several enemies at the door), and every unit with its "
+            + "distance to the base it walks toward. Each option is one complete play: a magic and where it lands. "
+            + "Goal: win the lane battle. Defend first: when enemy units are close to our base, pick a play that "
+            + "kills them or blocks them. Prefer plays that kill units and plays that are strong against the enemy "
+            + "units on the field. Do not waste mana on a play that hits nothing. The STANDARD TACTIC play is "
+            + "what a solid rule bot would do and is a safe default. Waiting saves mana; never wait while enemy "
+            + "units are close to our base.";
 
     private final URI uri;
     private final String defaultModel;
@@ -59,27 +63,20 @@ public final class JevProviderClient implements LlmProviderClient {
 
     @Override
     public String requestBody(LlmCandidates candidates, String model) throws LlmCallFailure {
-        Map<String, Object> questions = new LinkedHashMap<>();
-        questions.put(MAGIC_QUESTION, choice(MAGIC_INSTRUCTIONS, candidates.magicCriteria()));
-        questions.put(TARGET_QUESTION, choice(TARGET_INSTRUCTIONS, candidates.targetCriteria()));
+        Map<String, Object> question = new LinkedHashMap<>();
+        question.put("type", "choice");
+        question.put("instructions", PLAY_INSTRUCTIONS);
+        question.put("criteria", candidates.criteria());
 
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("model", model);
         body.put("state", candidates.state());
-        body.put("questions", questions);
+        body.put("questions", Map.of(PLAY_QUESTION, question));
         try {
             return JSON.writeValueAsString(body);
         } catch (JsonProcessingException e) {
             throw new LlmCallFailure("jev request could not be written: " + e.getOriginalMessage());
         }
-    }
-
-    private static Map<String, Object> choice(String instructions, Map<String, String> criteria) {
-        Map<String, Object> question = new LinkedHashMap<>();
-        question.put("type", "choice");
-        question.put("instructions", instructions);
-        question.put("criteria", criteria);
-        return question;
     }
 
     @Override
@@ -90,14 +87,12 @@ public final class JevProviderClient implements LlmProviderClient {
         } catch (Exception e) {
             throw new LlmCallFailure("jev answer is not JSON");
         }
-        JsonNode magic = answers.path(MAGIC_QUESTION);
-        String magicKey = LlmProviderClient.text(magic.get("choice"));
-        if (magicKey == null) {
-            throw new LlmCallFailure("jev answer has no magic choice");
+        JsonNode play = answers.path(PLAY_QUESTION);
+        String playKey = LlmProviderClient.text(play.get("choice"));
+        if (playKey == null) {
+            throw new LlmCallFailure("jev answer has no play choice");
         }
-        String targetKey = LlmProviderClient.text(answers.path(TARGET_QUESTION).get("choice"));
-        JsonNode confidence = magic.get("confidence");
-        return new LlmAnswer(magicKey, targetKey, null,
-                confidence != null && confidence.isNumber() ? confidence.asDouble() : null);
+        JsonNode confidence = play.get("confidence");
+        return new LlmAnswer(playKey, null, confidence != null && confidence.isNumber() ? confidence.asDouble() : null);
     }
 }

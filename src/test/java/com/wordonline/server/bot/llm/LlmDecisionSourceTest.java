@@ -29,8 +29,7 @@ import com.wordonline.server.game.dto.Master;
 class LlmDecisionSourceTest {
 
     private static final String JEV_ANSWER = """
-            {"answers":{"magic":{"type":"choice","choice":"m3","confidence":0.9},
-                        "target":{"type":"choice","choice":"t1","confidence":0.8}}}
+            {"answers":{"play":{"type":"choice","choice":"p1","confidence":0.9}}}
             """;
     private static final long MIN_INTERVAL = 1_500;
 
@@ -62,10 +61,10 @@ class LlmDecisionSourceTest {
 
         BotBrain.InputDecision decision = think(source);
         assertThat(decision.magicId()).isEqualTo(LlmTestFixtures.FIRE_SHOT_ID);
-        assertThat(decision.target()).isEqualTo(new Vector3(12, 0, 4));
+        assertThat(decision.target()).isEqualTo(new Vector3(3.5f, 0, 4));
         assertThat(decision.ruleId()).isEqualTo("llm.jev");
         assertThat(think(source)).as("returned once, and the interval has not passed").isNull();
-        assertThat(rule.calls).hasValue(0);
+        assertThat(rule.calls).as("asked once, for the standard play").hasValue(1);
     }
 
     @Test
@@ -107,7 +106,7 @@ class LlmDecisionSourceTest {
         executor.runAll();
 
         assertThat(think(source)).isSameAs(CountingRule.DECISION);
-        assertThat(rule.calls).hasValue(1);
+        assertThat(rule.calls).as("once for the standard play, once as the fallback").hasValue(2);
         assertThat(health.consecutiveFailures()).isEqualTo(1);
     }
 
@@ -117,7 +116,7 @@ class LlmDecisionSourceTest {
                 () -> {
                     throw new LlmCallFailure("No API key is stored for JEV.");
                 },
-                health, executor, new LlmCandidateBuilder(LlmTestFixtures.lookup()), "jev-latest", MIN_INTERVAL);
+                health, executor, LlmTestFixtures.builder(), "jev-latest", MIN_INTERVAL);
         think(missingKey);
         executor.runAll();
         assertThat(think(missingKey)).isSameAs(CountingRule.DECISION);
@@ -140,12 +139,11 @@ class LlmDecisionSourceTest {
         assertThat(think(source)).isSameAs(CountingRule.DECISION);
 
         clock.addAndGet(MIN_INTERVAL);
-        nextResponse = new LlmHttpClient.Response(200,
-                "{\"answers\":{\"magic\":{\"choice\":\"wait\"},\"target\":{\"choice\":\"t0\"}}}", null);
+        nextResponse = new LlmHttpClient.Response(200, "{\"answers\":{\"play\":{\"choice\":\"wait\"}}}", null);
         think(source);
         executor.runAll();
         assertThat(think(source)).isNull();
-        assertThat(rule.calls).hasValue(1);
+        assertThat(rule.calls).as("standard, fallback, standard").hasValue(3);
         assertThat(health.consecutiveFailures()).isZero();
     }
 
@@ -203,14 +201,14 @@ class LlmDecisionSourceTest {
         think(source);
         executor.runAll();
 
-        BotEye later = new BotEye(eye.gameObjectList(), java.util.List.of(LlmTestFixtures.ROCK_GOLEM_ID), 9, 88);
+        BotEye later = LlmTestFixtures.eye(java.util.List.of(LlmTestFixtures.ROCK_GOLEM_ID), 9);
         assertThat(source.think(later, parameters, Master.LeftPlayer, false)).isNull();
     }
 
     @Test
     void onlyWaitPossibleSendsNoRequest() {
         LlmDecisionSource source = source(fakeHttp, executor);
-        BotEye poor = new BotEye(eye.gameObjectList(), eye.cardList(), 1, 88);
+        BotEye poor = LlmTestFixtures.eye(eye.cardList(), 1);
 
         assertThat(source.think(poor, parameters, Master.LeftPlayer, false)).isNull();
         assertThat(executor.pending()).isZero();
@@ -250,13 +248,70 @@ class LlmDecisionSourceTest {
         }
     }
 
+    @Test
+    void offersTheRuleBrainsPlayAndMapsItBack() {
+        nextResponse = new LlmHttpClient.Response(200, "{\"answers\":{\"play\":{\"choice\":\"p0\"}}}", null);
+        StringBuilder sent = new StringBuilder();
+        LlmDecisionSource source = source((uri, headers, body) -> {
+            sent.append(body);
+            return nextResponse;
+        }, executor);
+
+        think(source);
+        executor.runAll();
+
+        assertThat(sent).contains("\"p0\":\"STANDARD TACTIC (what the rule bot would do: rule)");
+        BotBrain.InputDecision decision = think(source);
+        assertThat(decision.target()).isEqualTo(CountingRule.DECISION.target());
+        assertThat(decision.ruleId()).isEqualTo("llm.jev");
+        assertThat(decision.reason()).startsWith("STANDARD TACTIC");
+    }
+
+    @Test
+    void aThrowingRuleBrainOnlyCostsTheStandardPlay() {
+        BotDecisionSource throwing = (botEye, parameters, botSide, overdue) -> {
+            throw new IllegalStateException("boom");
+        };
+        LlmDecisionSource source = new LlmDecisionSource(throwing, client(), fakeHttp, () -> "sk-test", health,
+                executor, LlmTestFixtures.builder(), "jev-latest", MIN_INTERVAL);
+
+        assertThat(think(source)).isNull();
+        assertThat(executor.pending()).isEqualTo(1);
+    }
+
+    @Test
+    void aSinglePlayWithoutWaitIsCastWithoutAsking() {
+        BotEye lone = new BotEye(java.util.List.of(
+                new com.wordonline.server.game.domain.bot.BotVisibleObject(11, Master.RightPlayer,
+                        com.wordonline.server.game.domain.object.prefab.PrefabType.FireSlime,
+                        new Vector3(4, 0, 5), 25, true, true)),
+                java.util.List.of(LlmTestFixtures.FIRE_SHOT_ID), 5, 88);
+        LlmDecisionSource source = new LlmDecisionSource((botEye, parameters, botSide, overdue) -> null, client(),
+                fakeHttp, () -> "sk-test", health, executor, LlmTestFixtures.builder(), "jev-latest", MIN_INTERVAL);
+
+        BotBrain.InputDecision decision = source.think(lone, parameters, Master.LeftPlayer, false);
+
+        assertThat(decision.target()).isEqualTo(new Vector3(4, 0, 5));
+        assertThat(decision.reason()).startsWith("Only play: fire_shot");
+        assertThat(executor.pending()).isZero();
+        assertThat(httpCalls).hasValue(0);
+    }
+
+    @Test
+    void logsTheBodyOnTheFirstRequestAndEveryTwentiethAfterIt() {
+        assertThat(LlmDecisionSource.shouldLogBody(1)).isTrue();
+        assertThat(LlmDecisionSource.shouldLogBody(2)).isFalse();
+        assertThat(LlmDecisionSource.shouldLogBody(20)).isFalse();
+        assertThat(LlmDecisionSource.shouldLogBody(21)).isTrue();
+    }
+
     private BotBrain.InputDecision think(LlmDecisionSource source) {
         return source.think(eye, parameters, Master.LeftPlayer, false);
     }
 
     private LlmDecisionSource source(LlmHttpClient http, java.util.concurrent.Executor executor) {
         return new LlmDecisionSource(rule, client(), http, () -> "sk-test", health, executor,
-                new LlmCandidateBuilder(LlmTestFixtures.lookup()), "jev-latest", MIN_INTERVAL);
+                LlmTestFixtures.builder(), "jev-latest", MIN_INTERVAL);
     }
 
     private static JevProviderClient client() {
@@ -264,8 +319,9 @@ class LlmDecisionSourceTest {
     }
 
     private static final class CountingRule implements BotDecisionSource {
+        // Lands next to the best blast at (6, 6), so it takes that play's place as p0.
         static final BotBrain.InputDecision DECISION =
-                new BotBrain.InputDecision(LlmTestFixtures.FIRE_SHOT_ID, new Vector3(4, 0, 5), "rule.test", "rule");
+                new BotBrain.InputDecision(LlmTestFixtures.FIRE_SHOT_ID, new Vector3(6, 0, 6.5f), "rule.test", "rule");
         final AtomicInteger calls = new AtomicInteger();
 
         @Override

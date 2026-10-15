@@ -11,8 +11,8 @@ import com.wordonline.server.bot.domain.BotBrainType;
 
 /**
  * OpenRouter chat completions: a system prompt that explains the game and the answer format, and a
- * user message with the state and both option lists. The answer is read from
- * {@code choices[0].message.content}, code fences tolerated.
+ * user message with the state and the play options. The answer is read from
+ * {@code choices[0].message.content}, code fences and stray text around the JSON tolerated.
  */
 public final class OpenRouterProviderClient implements LlmProviderClient {
 
@@ -21,10 +21,13 @@ public final class OpenRouterProviderClient implements LlmProviderClient {
             has a base at one end; the match is won by bringing the enemy base hp to zero. Mana refills over \
             time and every magic costs mana. Summons put units on the board that walk toward the enemy base; \
             damage spells hit enemy units around the target point.
-            Every turn you get the board state, the magic options you can afford right now and the target \
-            options. Pick exactly one magic option key (or "wait" to save mana) and exactly one target option key.
+            Every turn you get the board state and a list of plays. Each play is one magic and where it lands, \
+            described in words. Goal: win the lane battle. Defend first when enemy units are close to our base; \
+            prefer plays that kill units or are strong against the enemy units on the field; do not waste mana on \
+            a play that hits nothing. The STANDARD TACTIC play is what a solid rule bot would do. "wait" (when \
+            offered) casts nothing and saves mana; never wait while enemy units are close to our base.
             Reply with a single JSON object and nothing else:
-            {"magic": "<magic option key>", "target": "<target option key>", "reason": "<at most 15 words>"}""";
+            {"play": "<play key, or wait>", "reason": "<at most 15 words>"}""";
 
     private final URI uri;
     private final String defaultModel;
@@ -66,8 +69,7 @@ public final class OpenRouterProviderClient implements LlmProviderClient {
     public String requestBody(LlmCandidates candidates, String model) throws LlmCallFailure {
         try {
             String user = "State:\n" + JSON.writeValueAsString(candidates.state())
-                    + "\n\nMagic options:\n" + JSON.writeValueAsString(candidates.magicCriteria())
-                    + "\n\nTarget options:\n" + JSON.writeValueAsString(candidates.targetCriteria());
+                    + "\n\nPlays:\n" + JSON.writeValueAsString(candidates.criteria());
 
             Map<String, Object> body = new LinkedHashMap<>();
             body.put("model", model);
@@ -102,12 +104,21 @@ public final class OpenRouterProviderClient implements LlmProviderClient {
             throw new LlmCallFailure("OpenRouter answer has no message content");
         }
         JsonNode answer = parseContent(content);
-        String magicKey = LlmProviderClient.text(answer.get("magic"));
-        if (magicKey == null) {
-            throw new LlmCallFailure("OpenRouter answer has no magic key");
+        String playKey = firstText(answer, "play", "choice", "option");
+        if (playKey == null) {
+            throw new LlmCallFailure("OpenRouter answer has no play key");
         }
-        return new LlmAnswer(magicKey, LlmProviderClient.text(answer.get("target")),
-                LlmProviderClient.text(answer.get("reason")), null);
+        return new LlmAnswer(playKey, LlmProviderClient.text(answer.get("reason")), null);
+    }
+
+    private static String firstText(JsonNode answer, String... fields) {
+        for (String field : fields) {
+            String text = LlmProviderClient.text(answer.get(field));
+            if (text != null && !text.isEmpty()) {
+                return text;
+            }
+        }
+        return null;
     }
 
     /** The JSON object in the content, with any code fence or text around it ignored. */

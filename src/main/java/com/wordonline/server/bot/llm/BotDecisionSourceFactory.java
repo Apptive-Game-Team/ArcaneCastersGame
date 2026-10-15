@@ -119,9 +119,14 @@ public class BotDecisionSourceFactory {
                 () -> keyProvider.requireKey(type),
                 health.get(type),
                 executor,
-                new LlmCandidateBuilder(databaseMagicParser::getMagic),
+                new LlmCandidateBuilder(databaseMagicParser::getMagic, counterEvaluator),
                 model,
-                properties.minIntervalMs());
+                minIntervalMillis(type));
+    }
+
+    /** jev answers in about 0.2 seconds, so it gets its own, shorter spacing between requests. */
+    long minIntervalMillis(BotBrainType type) {
+        return type == BotBrainType.JEV ? properties.jevMinIntervalMs() : properties.minIntervalMs();
     }
 
     private static ThreadPoolExecutor newExecutor(int poolSize) {

@@ -82,11 +82,13 @@ bot:
   # Bot personas whose brain_type is JEV or OPENROUTER. key-secret decrypts the provider API keys the
   # admin server stores in llm_api_keys; both servers need the same LLM_KEY_SECRET, and when it is
   # blank every LLM persona plays with the rule brain. Requests run on their own pool of pool-size
-  # threads, at most one per bot every min-interval-ms, and give up after timeout-ms.
+  # threads, at most one per bot every min-interval-ms (jev-min-interval-ms for JEV), and give up
+  # after timeout-ms.
   llm:
     key-secret: ${LLM_KEY_SECRET:}
     timeout-ms: ${BOT_LLM_TIMEOUT_MS:4000}
     min-interval-ms: ${BOT_LLM_MIN_INTERVAL_MS:1500}
+    jev-min-interval-ms: ${BOT_LLM_JEV_MIN_INTERVAL_MS:500}
     pool-size: ${BOT_LLM_POOL_SIZE:4}
     jev-url: ${BOT_LLM_JEV_URL:https://api.typesafe.ai/v1/systemone}
     jev-default-model: ${BOT_LLM_JEV_DEFAULT_MODEL:jev-latest}
