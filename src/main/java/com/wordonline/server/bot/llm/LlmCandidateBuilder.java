@@ -193,6 +193,7 @@ public final class LlmCandidateBuilder {
             StringBuilder text = new StringBuilder(magic.name);
             Vector3 target;
             Impact impact = Impact.NONE;
+            Map<String, LlmCandidates.Aim> aims;
             boolean summon = magic instanceof ObjectSummoningMagic;
             if (magic instanceof ObjectSummoningMagic summoning) {
                 target = PlacementPlanner.plan(
@@ -202,26 +203,32 @@ public final class LlmCandidateBuilder {
                 text.append(" Puts ").append(summoning.summonedQuantity()).append(' ').append(unit)
                         .append(". It ").append(turn.guide.role(unit)).append(". ");
                 text.append("Right now: ").append(turn.summonNow(unit, target)).append('.');
+                aims = turn.summonAims(magic, unit, target);
             } else {
+                double radius = turn.stats.blastRadius(magic);
+                double damage = turn.stats.damagePerTarget(magic);
                 Optional<BlastTargetSelector.Impact> best = BlastTargetSelector.bestImpact(
-                        turn.threats.threats(), turn.ownBase, turn.stats.castRange(magic),
-                        turn.stats.blastRadius(magic), turn.stats.damagePerTarget(magic));
+                        turn.threats.threats(), turn.ownBase, turn.stats.castRange(magic), radius, damage);
                 if (best.isEmpty()) {
                     continue;
                 }
                 target = best.get().center();
-                impact = turn.impact(target, turn.stats.blastRadius(magic), turn.stats.damagePerTarget(magic));
+                impact = turn.impact(target, radius, damage);
                 if (impact.hit().isEmpty() && !impact.baseHit()) {
                     continue;
                 }
                 text.append(" (spell, ").append(cost).append(" mana, range ")
-                        .append(number(turn.stats.castRange(magic))).append("): ").append(cardText(magic))
-                        .append(" Right now its best target ");
+                        .append(number(turn.stats.castRange(magic))).append(", radius ").append(number(radius))
+                        .append(", ").append(number(damage)).append(" damage to each target in the radius): ")
+                        .append(cardText(magic)).append(" Right now its best target ");
                 turn.appendImpact(text, impact, cost);
                 text.append('.');
+                // Spells stay aimed by code: asked where to cast, jev hit units instead of the enemy
+                // base and won 5 of 24 against 28 of 48 with the code's aim.
+                aims = Map.of();
             }
             plays.put(magic.name, new LlmCandidates.Play(magic.id, magic.name, cost, new Vector3(target),
-                    text.toString(), summon, impact.baseDamage(), impact.unitDamage()));
+                    text.toString(), summon, impact.baseDamage(), impact.unitDamage(), aims));
         }
         String wait = plays.isEmpty() ? null : turn.keepManaDescription();
         return new LlmCandidates(plays, wait, turn.state());
@@ -376,6 +383,59 @@ public final class LlmCandidateBuilder {
 
         long copiesInHand(Magic magic) {
             return eye.cardList().stream().filter(id -> id != null && id == magic.id).count();
+        }
+
+        /** Lanes a summon may be put in, as z coordinates across the 10-wide field: one side, the middle, the other side. */
+        static final float[] LANES = {2f, 5f, 8f};
+        /** How far in front of our base a summon put "near our base" stands. */
+        static final float NEAR_OFFSET = 3f;
+
+        /**
+         * Where a summon or building may stand: blocking the incoming enemies, near our base or as
+         * far forward as it reaches in each of three lanes, or next to our most advanced unit. Each
+         * says which enemies are near that spot, and for a unit that never moves, how many it reaches.
+         */
+        Map<String, LlmCandidates.Aim> summonAims(Magic magic, PrefabType unit, Vector3 block) {
+            double range = stats.castRange(magic);
+            Map<String, LlmCandidates.Aim> aims = new LinkedHashMap<>();
+            aims.put("block", new LlmCandidates.Aim(
+                    "Between our base and the incoming enemies: " + summonNow(unit, block), block));
+            float forward = Math.signum(enemyBase.getX() - ownBase.getX());
+            for (float lane : LANES) {
+                String laneName = laneName(lane);
+                Vector3 near = withinRange(new Vector3(ownBase.getX() + forward * NEAR_OFFSET, ownBase.getY(), lane), range);
+                addSpot(aims, "near_" + laneName, "Near our base in the " + laneName + " lane (z=" + number(lane) + "): ",
+                        unit, near);
+                double depth = Math.sqrt(Math.max(0, range * range - Math.pow(lane - ownBase.getZ(), 2))) * 0.95;
+                Vector3 far = new Vector3(ownBase.getX() + forward * (float) depth, ownBase.getY(), lane);
+                addSpot(aims, "forward_" + laneName, "As far toward the enemy base as it reaches in the " + laneName
+                        + " lane (z=" + number(lane) + "): ", unit, far);
+            }
+            ownUnits.stream()
+                    .filter(ally -> ally.position().distance(ownBase) <= range)
+                    .findFirst()
+                    .ifPresent(ally -> addSpot(aims, "ally",
+                            "Next to our " + typeName(ally) + " (" + ally.hp() + " hp): ", unit, ally.position()));
+            return aims;
+        }
+
+        private void addSpot(Map<String, LlmCandidates.Aim> aims, String key, String label, PrefabType unit, Vector3 spot) {
+            boolean taken = aims.values().stream().anyMatch(aim -> aim.target().distance(spot) <= SAME_TARGET_DISTANCE);
+            if (!taken) {
+                aims.put(key, new LlmCandidates.Aim(label + summonNow(unit, spot), spot));
+            }
+        }
+
+        private Vector3 withinRange(Vector3 spot, double range) {
+            double distance = spot.distance(ownBase);
+            if (distance <= range || distance == 0) {
+                return spot;
+            }
+            return ownBase.plus(spot.subtract(ownBase).normalize().multiply((float) range));
+        }
+
+        private static String laneName(float lane) {
+            return lane < 4 ? "low" : lane > 6 ? "high" : "middle";
         }
 
         /** Where a summon would stand and which enemies are near that spot. */

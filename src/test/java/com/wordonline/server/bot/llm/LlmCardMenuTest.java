@@ -38,7 +38,7 @@ class LlmCardMenuTest {
     void aSpellSaysWhatTheCardDoesAndWhatItWouldHitNow() {
         String fireShot = builder.build(LlmTestFixtures.eye(), parameters, Master.LeftPlayer).describe("fire_shot");
 
-        assertThat(fireShot).startsWith("fire_shot (spell, 3 mana, range 10): Fires a test bolt.")
+        assertThat(fireShot).startsWith("fire_shot (spell, 3 mana, range 10, radius 1.5, 20 damage to each target in the radius): Fires a test bolt.")
                 .contains("Right now its best target hits");
     }
 
@@ -96,5 +96,40 @@ class LlmCardMenuTest {
         assertThat(MagicDescriptions.bundled().describe("wind_totem"))
                 .isEqualTo("Places a wind spirit's tailwind totem that blows enemies in a fixed direction.");
         assertThat(MagicDescriptions.bundled().describe("no_such_magic")).isNull();
+    }
+
+    @Test
+    void aSpellIsAimedByCodeAndAsksNoAimQuestion() {
+        LlmCandidates.Play fireShot = builder.build(LlmTestFixtures.eye(), parameters, Master.LeftPlayer)
+                .plays().get("fire_shot");
+
+        assertThat(fireShot.aims()).isEmpty();
+    }
+
+    @Test
+    void aSummonOffersLanesAtTwoDepthsAndBlocking() {
+        LlmCandidates.Play slime = builder.build(
+                        LlmTestFixtures.quietEye(List.of(LlmTestFixtures.SLIME_SUMMON_ID), 5), parameters, Master.LeftPlayer)
+                .plays().get("wind_slime_summon");
+
+        assertThat(slime.aims()).containsKeys("block", "near_low", "near_high");
+        assertThat(slime.aims().get("near_low").target().getZ()).isEqualTo(2f);
+        assertThat(slime.aims().get("near_low").description()).startsWith("Near our base in the low lane (z=2)");
+        assertThat(slime.aims().values()).allMatch(aim -> aim.target().distance(new Vector3(1, 0, 5)) <= 6.01);
+    }
+
+    @Test
+    void theChosenAimNamesThePointTheSummonIsPut() {
+        LlmCandidates cards = builder.build(
+                LlmTestFixtures.quietEye(List.of(LlmTestFixtures.SLIME_SUMMON_ID), 5), parameters, Master.LeftPlayer);
+        LlmCandidates.Play slime = cards.plays().get("wind_slime_summon");
+
+        BotBrain.InputDecision decision =
+                new LlmAnswer("wind_slime_summon", null, 0.9, "near_high").toDecision(cards, "llm.jev");
+
+        assertThat(decision.target()).isEqualTo(slime.aims().get("near_high").target());
+        assertThat(new LlmAnswer("wind_slime_summon", null, 0.9, "nowhere").toDecision(cards, "llm.jev").target())
+                .as("an unknown aim falls back to the card's own point")
+                .isEqualTo(slime.target());
     }
 }

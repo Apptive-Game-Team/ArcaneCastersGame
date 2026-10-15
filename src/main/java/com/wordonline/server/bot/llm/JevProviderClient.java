@@ -49,12 +49,12 @@ public final class JevProviderClient implements LlmProviderClient {
             + "120. The state lists both base hp values, our mana, every unit on the field with its distance to "
             + "the base it walks toward and the seconds until it starts hitting that base, and a unitGuide. "
             + "Each option is one card in our hand: what the card does, what the unit it leaves behind does, and "
-            + "what it would do on this board right now. Code aims the card for you; you decide which card to "
-            + "play, or to keep the mana. The hand holds at most 6 cards (handSlotsUsed, and copies per card); a card "
-            + "stays in the hand until it is played, and every second a free slot draws the next card of the deck, "
-            + "so a card we never play keeps blocking a slot, and playing a weak card frees its slot for a better "
-            + "one. Think about what each card is for. A unit that never moves only helps "
-            + "where enemies will come; a unit that walks or flies to the enemy base can hit it; a spell is wasted "
+            + "what it would do on this board right now. You decide which card to play, or to keep the mana; a "
+            + "separate question for each summon asks where to put it, and spells are aimed by code. The hand "
+            + "holds at most 6 cards (handSlotsUsed, and copies per card); a card stays in the hand until it is "
+            + "played, and every second a free slot draws the next card of the deck, so a card we never play keeps "
+            + "blocking a slot, and playing a weak card frees its slot for a better one. Think about what each card "
+            + "is for. A unit that never moves only helps where enemies will come; a unit that walks or flies to the enemy base can hit it; a spell is wasted "
             + "on a target that does not matter. Pick the card that does the most for winning on this board now.";
 
     private final URI uri;
@@ -97,9 +97,29 @@ public final class JevProviderClient implements LlmProviderClient {
         return Map.of("Authorization", "Bearer " + apiKey, "Content-Type", "application/json");
     }
 
+    static final String AIM_PREFIX = "aim_";
+    static final String AIM_INSTRUCTIONS = "If %s is the card played, where should it be put? Each option is a "
+            + "spot in one of three lanes or in front of the incoming enemies, with which enemy units are near it "
+            + "and, for a unit or building that never moves, how many it reaches from there. Pick the spot where "
+            + "what it does helps most.";
+
+    /**
+     * The {@value #PLAY_QUESTION} question, plus one {@code aim_<card>} question for each card with
+     * more than one place to land. jev answers all of them at once and without seeing each other, so
+     * each aim question is asked as "if this card is played"; only the chosen card's aim is used.
+     */
     @Override
     public String requestBody(LlmCandidates candidates, String model) throws LlmCallFailure {
-        return choiceBody(PLAY_QUESTION, playInstructions, candidates.criteria(), candidates.state(), model);
+        Map<String, Object> questions = new LinkedHashMap<>();
+        questions.put(PLAY_QUESTION, question(playInstructions, candidates.criteria()));
+        candidates.plays().forEach((key, play) -> {
+            if (play.aims().size() > 1) {
+                Map<String, String> criteria = new LinkedHashMap<>();
+                play.aims().forEach((aimKey, aim) -> criteria.put(aimKey, aim.description()));
+                questions.put(AIM_PREFIX + key, question(String.format(AIM_INSTRUCTIONS, key), criteria));
+            }
+        });
+        return body(questions, candidates.state(), model);
     }
 
     /** One {@value #STANCE_QUESTION} question whose options are the plans in {@code criteria}. */
@@ -110,15 +130,23 @@ public final class JevProviderClient implements LlmProviderClient {
 
     private static String choiceBody(String questionId, String instructions, Map<String, String> criteria,
                                      Map<String, Object> state, String model) throws LlmCallFailure {
+        return body(Map.of(questionId, question(instructions, criteria)), state, model);
+    }
+
+    private static Map<String, Object> question(String instructions, Map<String, String> criteria) {
         Map<String, Object> question = new LinkedHashMap<>();
         question.put("type", "choice");
         question.put("instructions", instructions);
         question.put("criteria", criteria);
+        return question;
+    }
 
+    private static String body(Map<String, Object> questions, Map<String, Object> state, String model)
+            throws LlmCallFailure {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("model", model);
         body.put("state", state);
-        body.put("questions", Map.of(questionId, question));
+        body.put("questions", questions);
         try {
             return JSON.writeValueAsString(body);
         } catch (JsonProcessingException e) {
@@ -149,6 +177,8 @@ public final class JevProviderClient implements LlmProviderClient {
             throw new LlmCallFailure("jev answer has no " + questionId + " choice");
         }
         JsonNode confidence = play.get("confidence");
-        return new LlmAnswer(playKey, null, confidence != null && confidence.isNumber() ? confidence.asDouble() : null);
+        String aimKey = LlmProviderClient.text(answers.path(AIM_PREFIX + playKey).get("choice"));
+        return new LlmAnswer(playKey, null, confidence != null && confidence.isNumber() ? confidence.asDouble() : null,
+                aimKey);
     }
 }

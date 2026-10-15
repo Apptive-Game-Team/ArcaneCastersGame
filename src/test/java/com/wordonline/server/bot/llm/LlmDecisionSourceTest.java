@@ -8,6 +8,7 @@ import java.net.http.HttpTimeoutException;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -325,6 +326,24 @@ class LlmDecisionSourceTest {
         assertThat(LlmDecisionSource.shouldLogBody(2)).isFalse();
         assertThat(LlmDecisionSource.shouldLogBody(20)).isFalse();
         assertThat(LlmDecisionSource.shouldLogBody(21)).isTrue();
+    }
+
+    @Test
+    void aSpotTheModelChoseForASummonIsKeptAtCastTime() {
+        nextResponse = new LlmHttpClient.Response(200, """
+                {"answers":{"play":{"choice":"wind_slime_summon","confidence":0.9},
+                 "aim_wind_slime_summon":{"choice":"near_high"}}}""", null);
+        BotEye hand = LlmTestFixtures.eye(List.of(LlmTestFixtures.SLIME_SUMMON_ID), 5);
+        LlmCandidateBuilder cards = LlmCandidateBuilder.cards(LlmTestFixtures.lookup(), LlmTestFixtures.neutralCounters());
+        Vector3 nearHigh = cards.build(hand, parameters, Master.LeftPlayer)
+                .plays().get("wind_slime_summon").aims().get("near_high").target();
+        LlmDecisionSource source = new LlmDecisionSource(rule, client(), fakeHttp, () -> "sk-test", health, executor,
+                cards, "jev-latest", MIN_INTERVAL);
+
+        source.think(hand, parameters, Master.LeftPlayer, false);
+        executor.runAll();
+
+        assertThat(source.think(hand, parameters, Master.LeftPlayer, false).target()).isEqualTo(nearHigh);
     }
 
     private BotBrain.InputDecision think(LlmDecisionSource source) {
