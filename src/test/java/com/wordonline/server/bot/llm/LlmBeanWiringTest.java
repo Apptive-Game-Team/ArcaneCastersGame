@@ -29,15 +29,20 @@ class LlmBeanWiringTest {
     @Autowired
     private LlmKeyCipher cipher;
 
+    @Autowired
+    private LlmKeyUnavailabilityRecorder recorder;
+
     @Test
     void buildsTheFactoryAndItsCollaborators() {
         assertThat(factory).isNotNull();
+        assertThat(recorder).isNotNull();
         assertThat(cipher.decrypt("JEV", cipher.encrypt("JEV", "sk-wiring"))).isEqualTo("sk-wiring");
     }
 
     @Configuration
     @ConfigurationPropertiesScan("com.wordonline.server.bot.llm")
-    @Import({LlmKeyCipher.class, LlmApiKeyProvider.class, BotDecisionSourceFactory.class})
+    @Import({LlmKeyCipher.class, LlmKeyUnavailabilityRecorder.class, LlmApiKeyProvider.class,
+            BotDecisionSourceFactory.class})
     static class WiringConfig {
     }
 }

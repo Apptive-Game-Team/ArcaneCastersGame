@@ -35,6 +35,7 @@ import static org.mockito.Mockito.when;
 @TestPropertySource(properties = {
         "bot.auto-match.enabled=true",
         "bot.auto-match.target-games=1",
+        "bot.auto-match.source=GAME_SERVER",
         "bot.auto-match.check-interval-ms=25",
         "bot.auto-match.max-sessions-per-sweep=5",
         "server.max-sessions=100",
@@ -63,7 +64,7 @@ class BotGameSchedulerSchedulingTest {
     void scheduledTaskCreatesBotGameWhenServerIsIdle() {
         when(serverStatusService.getCurrentState()).thenReturn(ServerState.ACTIVE);
         when(sessionService.getActiveSessions()).thenReturn(0L);
-        when(botPersonaService.findEnabled()).thenReturn(List.of(
+        when(botPersonaService.findMatchable()).thenReturn(List.of(
                 bot(-1, "Intro Bot A"),
                 bot(-2, "Beginner Bot A")
         ));

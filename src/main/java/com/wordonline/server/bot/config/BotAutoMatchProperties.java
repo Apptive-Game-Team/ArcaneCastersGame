@@ -15,7 +15,18 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "bot.auto-match")
 public record BotAutoMatchProperties(
         Boolean enabled,
-        Integer targetGames) {
+        Integer targetGames,
+        Source source) {
+
+    /**
+     * Who creates the bot-versus-bot games. {@code LOBBY}: the lobby feeds bot tickets through
+     * matchmaking and this server creates nothing on its own. {@code GAME_SERVER}: the scheduler
+     * on this server creates them, for capacity tests and local runs without a lobby.
+     */
+    public enum Source {
+        LOBBY,
+        GAME_SERVER
+    }
 
     private static final boolean FALLBACK_ENABLED = true;
     private static final int FALLBACK_TARGET_GAMES = 1;
@@ -23,5 +34,6 @@ public record BotAutoMatchProperties(
     public BotAutoMatchProperties {
         enabled = enabled == null ? FALLBACK_ENABLED : enabled;
         targetGames = targetGames == null ? FALLBACK_TARGET_GAMES : targetGames;
+        source = source == null ? Source.LOBBY : source;
     }
 }

@@ -1,5 +1,6 @@
 package com.wordonline.server.bot.llm;
 
+import java.util.function.Consumer;
 import java.util.function.LongSupplier;
 
 import com.wordonline.server.bot.domain.BotBrainType;
@@ -23,14 +24,25 @@ public final class LlmProviderHealth {
 
     private final BotBrainType provider;
     private final LongSupplier clock;
+    private final Consumer<LlmCallFailure> keyRejectedListener;
 
     private int consecutiveFailures;
     private long backoffUntilMillis = Long.MIN_VALUE;
     private long nextWarnAtMillis = Long.MIN_VALUE;
 
     public LlmProviderHealth(BotBrainType provider, LongSupplier clock) {
+        this(provider, clock, failure -> { });
+    }
+
+    /**
+     * {@code keyRejectedListener} hears every failure with HTTP status 401, 402 or 403, outside
+     * this object's lock, because it writes to the database. A listener that throws is logged and
+     * ignored.
+     */
+    public LlmProviderHealth(BotBrainType provider, LongSupplier clock, Consumer<LlmCallFailure> keyRejectedListener) {
         this.provider = provider;
         this.clock = clock;
+        this.keyRejectedListener = keyRejectedListener;
     }
 
     public long now() {
@@ -45,7 +57,19 @@ public final class LlmProviderHealth {
         consecutiveFailures = 0;
     }
 
-    public synchronized void recordFailure(LlmCallFailure failure) {
+    public void recordFailure(LlmCallFailure failure) {
+        countFailure(failure);
+        int status = failure.status();
+        if (status == 401 || status == 402 || status == 403) {
+            try {
+                keyRejectedListener.accept(failure);
+            } catch (RuntimeException e) {
+                log.warn("[LlmBot {}] Handling the rejected key failed: {}", provider, e.getClass().getSimpleName());
+            }
+        }
+    }
+
+    private synchronized void countFailure(LlmCallFailure failure) {
         long now = now();
         consecutiveFailures++;
         long until = backoffUntilMillis;

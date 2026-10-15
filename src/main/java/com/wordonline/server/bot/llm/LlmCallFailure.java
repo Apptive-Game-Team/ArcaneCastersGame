@@ -11,15 +11,26 @@ public class LlmCallFailure extends Exception {
 
     private final int status;
     private final long retryAfterMillis;
+    private final String providerMessage;
 
     public LlmCallFailure(String message) {
         this(message, 0, -1);
     }
 
     public LlmCallFailure(String message, int status, long retryAfterMillis) {
+        this(message, status, retryAfterMillis, null);
+    }
+
+    /** {@code providerMessage} is the error text the provider itself returned, or null. */
+    public LlmCallFailure(String message, int status, long retryAfterMillis, String providerMessage) {
         super(message, null, false, false);
         this.status = status;
         this.retryAfterMillis = retryAfterMillis;
+        this.providerMessage = providerMessage;
+    }
+
+    public String providerMessage() {
+        return providerMessage;
     }
 
     public int status() {

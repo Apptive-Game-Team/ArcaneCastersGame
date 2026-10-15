@@ -41,7 +41,7 @@ class BotGameSchedulerTest {
         BotPersona beginner = bot(-1, "Beginner Bot");
         BotPersona advanced = bot(-2, "Advanced Bot");
         when(sessionService.getActiveSessions()).thenReturn(0L);
-        when(botPersonaService.findEnabled()).thenReturn(List.of(beginner, advanced));
+        when(botPersonaService.findMatchable()).thenReturn(List.of(beginner, advanced));
 
         scheduler(defaultProperties()).ensureBotGameWhenIdle();
 
@@ -64,7 +64,7 @@ class BotGameSchedulerTest {
     void skipsWhenOnlyOneEnabledBotPersonaExists() {
         BotPersona beginner = bot(-1, "Beginner Bot");
         when(sessionService.getActiveSessions()).thenReturn(0L);
-        when(botPersonaService.findEnabled()).thenReturn(List.of(beginner));
+        when(botPersonaService.findMatchable()).thenReturn(List.of(beginner));
 
         scheduler(defaultProperties()).ensureBotGameWhenIdle();
 
@@ -83,7 +83,7 @@ class BotGameSchedulerTest {
     @Test
     void skipsWhenNoEnabledBotsExist() {
         when(sessionService.getActiveSessions()).thenReturn(0L);
-        when(botPersonaService.findEnabled()).thenReturn(List.of());
+        when(botPersonaService.findMatchable()).thenReturn(List.of());
 
         scheduler(defaultProperties()).ensureBotGameWhenIdle();
 
@@ -101,9 +101,9 @@ class BotGameSchedulerTest {
 
     @Test
     void skipsWhenAutoMatchIsDisabled() {
-        when(botPersonaService.findEnabled()).thenReturn(List.of(bot(-1, "Beginner Bot"), bot(-2, "Advanced Bot")));
+        when(botPersonaService.findMatchable()).thenReturn(List.of(bot(-1, "Beginner Bot"), bot(-2, "Advanced Bot")));
 
-        scheduler(new BotAutoMatchProperties(false, 5)).ensureBotGameWhenIdle();
+        scheduler(new BotAutoMatchProperties(false, 5, BotAutoMatchProperties.Source.GAME_SERVER)).ensureBotGameWhenIdle();
 
         verify(sessionService, never()).createSession(org.mockito.ArgumentMatchers.any());
     }
@@ -111,9 +111,9 @@ class BotGameSchedulerTest {
     @Test
     void fillsUpToTargetGamesWhenMoreAreRequested() {
         when(sessionService.getActiveSessions()).thenReturn(2L);
-        when(botPersonaService.findEnabled()).thenReturn(List.of(bot(-1, "Beginner Bot"), bot(-2, "Advanced Bot")));
+        when(botPersonaService.findMatchable()).thenReturn(List.of(bot(-1, "Beginner Bot"), bot(-2, "Advanced Bot")));
 
-        scheduler(new BotAutoMatchProperties(true, 5)).ensureBotGameWhenIdle();
+        scheduler(new BotAutoMatchProperties(true, 5, BotAutoMatchProperties.Source.GAME_SERVER)).ensureBotGameWhenIdle();
 
         verify(sessionService, times(3)).createSession(org.mockito.ArgumentMatchers.any());
     }
@@ -121,9 +121,9 @@ class BotGameSchedulerTest {
     @Test
     void createsDistinctSessionIdsWhenFillingSeveralGames() {
         when(sessionService.getActiveSessions()).thenReturn(0L);
-        when(botPersonaService.findEnabled()).thenReturn(List.of(bot(-1, "Beginner Bot"), bot(-2, "Advanced Bot")));
+        when(botPersonaService.findMatchable()).thenReturn(List.of(bot(-1, "Beginner Bot"), bot(-2, "Advanced Bot")));
 
-        scheduler(new BotAutoMatchProperties(true, 4)).ensureBotGameWhenIdle();
+        scheduler(new BotAutoMatchProperties(true, 4, BotAutoMatchProperties.Source.GAME_SERVER)).ensureBotGameWhenIdle();
 
         ArgumentCaptor<SessionDto> captor = ArgumentCaptor.forClass(SessionDto.class);
         verify(sessionService, times(4)).createSession(captor.capture());
@@ -134,7 +134,7 @@ class BotGameSchedulerTest {
     void skipsWhenActiveSessionsAlreadyReachTargetGames() {
         when(sessionService.getActiveSessions()).thenReturn(3L);
 
-        scheduler(new BotAutoMatchProperties(true, 3)).ensureBotGameWhenIdle();
+        scheduler(new BotAutoMatchProperties(true, 3, BotAutoMatchProperties.Source.GAME_SERVER)).ensureBotGameWhenIdle();
 
         verify(sessionService, never()).createSession(org.mockito.ArgumentMatchers.any());
     }
@@ -143,9 +143,9 @@ class BotGameSchedulerTest {
     void adminOverrideOnServerRowWinsOverConfiguredTargetGames() {
         when(sessionService.getActiveSessions()).thenReturn(0L);
         when(serverStatusService.findTargetBotSessions()).thenReturn(Optional.of(3));
-        when(botPersonaService.findEnabled()).thenReturn(List.of(bot(-1, "Beginner Bot"), bot(-2, "Advanced Bot")));
+        when(botPersonaService.findMatchable()).thenReturn(List.of(bot(-1, "Beginner Bot"), bot(-2, "Advanced Bot")));
 
-        scheduler(new BotAutoMatchProperties(true, 1)).ensureBotGameWhenIdle();
+        scheduler(new BotAutoMatchProperties(true, 1, BotAutoMatchProperties.Source.GAME_SERVER)).ensureBotGameWhenIdle();
 
         verify(sessionService, times(3)).createSession(org.mockito.ArgumentMatchers.any());
     }
@@ -155,7 +155,7 @@ class BotGameSchedulerTest {
         when(sessionService.getActiveSessions()).thenReturn(0L);
         when(serverStatusService.findTargetBotSessions()).thenReturn(Optional.of(0));
 
-        scheduler(new BotAutoMatchProperties(true, 5)).ensureBotGameWhenIdle();
+        scheduler(new BotAutoMatchProperties(true, 5, BotAutoMatchProperties.Source.GAME_SERVER)).ensureBotGameWhenIdle();
 
         verify(sessionService, never()).createSession(org.mockito.ArgumentMatchers.any());
     }
@@ -164,9 +164,9 @@ class BotGameSchedulerTest {
     void fallsBackToConfiguredTargetGamesWhenNoOverrideIsSet() {
         when(sessionService.getActiveSessions()).thenReturn(0L);
         when(serverStatusService.findTargetBotSessions()).thenReturn(Optional.empty());
-        when(botPersonaService.findEnabled()).thenReturn(List.of(bot(-1, "Beginner Bot"), bot(-2, "Advanced Bot")));
+        when(botPersonaService.findMatchable()).thenReturn(List.of(bot(-1, "Beginner Bot"), bot(-2, "Advanced Bot")));
 
-        scheduler(new BotAutoMatchProperties(true, 2)).ensureBotGameWhenIdle();
+        scheduler(new BotAutoMatchProperties(true, 2, BotAutoMatchProperties.Source.GAME_SERVER)).ensureBotGameWhenIdle();
 
         verify(sessionService, times(2)).createSession(org.mockito.ArgumentMatchers.any());
     }
@@ -175,9 +175,9 @@ class BotGameSchedulerTest {
     void fallsBackToConfiguredTargetGamesWhenTheOverrideReadFails() {
         when(sessionService.getActiveSessions()).thenReturn(0L);
         when(serverStatusService.findTargetBotSessions()).thenThrow(new RuntimeException("database is down"));
-        when(botPersonaService.findEnabled()).thenReturn(List.of(bot(-1, "Beginner Bot"), bot(-2, "Advanced Bot")));
+        when(botPersonaService.findMatchable()).thenReturn(List.of(bot(-1, "Beginner Bot"), bot(-2, "Advanced Bot")));
 
-        scheduler(new BotAutoMatchProperties(true, 2)).ensureBotGameWhenIdle();
+        scheduler(new BotAutoMatchProperties(true, 2, BotAutoMatchProperties.Source.GAME_SERVER)).ensureBotGameWhenIdle();
 
         verify(sessionService, times(2)).createSession(org.mockito.ArgumentMatchers.any());
     }
@@ -188,9 +188,9 @@ class BotGameSchedulerTest {
         // otherwise, and falls over.
         when(sessionService.getActiveSessions()).thenReturn(0L);
         when(serverStatusService.findTargetBotSessions()).thenReturn(Optional.of(200));
-        when(botPersonaService.findEnabled()).thenReturn(List.of(bot(-1, "Beginner Bot"), bot(-2, "Advanced Bot")));
+        when(botPersonaService.findMatchable()).thenReturn(List.of(bot(-1, "Beginner Bot"), bot(-2, "Advanced Bot")));
 
-        scheduler(new BotAutoMatchProperties(true, 1), 6, new BotGameScheduler.SweepProperties(1000))
+        scheduler(new BotAutoMatchProperties(true, 1, BotAutoMatchProperties.Source.GAME_SERVER), 6, new BotGameScheduler.SweepProperties(1000))
                 .ensureBotGameWhenIdle();
 
         verify(sessionService, times(6)).createSession(org.mockito.ArgumentMatchers.any());
@@ -199,9 +199,9 @@ class BotGameSchedulerTest {
     @Test
     void theConfiguredTargetIsClampedToMaxSessionsToo() {
         when(sessionService.getActiveSessions()).thenReturn(2L);
-        when(botPersonaService.findEnabled()).thenReturn(List.of(bot(-1, "Beginner Bot"), bot(-2, "Advanced Bot")));
+        when(botPersonaService.findMatchable()).thenReturn(List.of(bot(-1, "Beginner Bot"), bot(-2, "Advanced Bot")));
 
-        scheduler(new BotAutoMatchProperties(true, 50), 5, new BotGameScheduler.SweepProperties(1000))
+        scheduler(new BotAutoMatchProperties(true, 50, BotAutoMatchProperties.Source.GAME_SERVER), 5, new BotGameScheduler.SweepProperties(1000))
                 .ensureBotGameWhenIdle();
 
         verify(sessionService, times(3)).createSession(org.mockito.ArgumentMatchers.any());
@@ -210,9 +210,9 @@ class BotGameSchedulerTest {
     @Test
     void atMostOneSweepsWorthOfSessionsIsCreatedPerSweep() {
         when(sessionService.getActiveSessions()).thenReturn(0L);
-        when(botPersonaService.findEnabled()).thenReturn(List.of(bot(-1, "Beginner Bot"), bot(-2, "Advanced Bot")));
+        when(botPersonaService.findMatchable()).thenReturn(List.of(bot(-1, "Beginner Bot"), bot(-2, "Advanced Bot")));
 
-        scheduler(new BotAutoMatchProperties(true, 50), 100, new BotGameScheduler.SweepProperties(4))
+        scheduler(new BotAutoMatchProperties(true, 50, BotAutoMatchProperties.Source.GAME_SERVER), 100, new BotGameScheduler.SweepProperties(4))
                 .ensureBotGameWhenIdle();
 
         verify(sessionService, times(4)).createSession(org.mockito.ArgumentMatchers.any());
@@ -222,7 +222,7 @@ class BotGameSchedulerTest {
     void aServerAtCapacityCreatesNothingAndDoesNotReadTheOverride() {
         when(sessionService.getActiveSessions()).thenReturn(8L);
 
-        scheduler(new BotAutoMatchProperties(true, 50), 8, new BotGameScheduler.SweepProperties(1000))
+        scheduler(new BotAutoMatchProperties(true, 50, BotAutoMatchProperties.Source.GAME_SERVER), 8, new BotGameScheduler.SweepProperties(1000))
                 .ensureBotGameWhenIdle();
 
         verify(sessionService, never()).createSession(org.mockito.ArgumentMatchers.any());
@@ -232,9 +232,9 @@ class BotGameSchedulerTest {
     @Test
     void anAbsentMaxSessionsDoesNotClamp() {
         when(sessionService.getActiveSessions()).thenReturn(0L);
-        when(botPersonaService.findEnabled()).thenReturn(List.of(bot(-1, "Beginner Bot"), bot(-2, "Advanced Bot")));
+        when(botPersonaService.findMatchable()).thenReturn(List.of(bot(-1, "Beginner Bot"), bot(-2, "Advanced Bot")));
 
-        scheduler(new BotAutoMatchProperties(true, 3), null, new BotGameScheduler.SweepProperties(1000))
+        scheduler(new BotAutoMatchProperties(true, 3, BotAutoMatchProperties.Source.GAME_SERVER), null, new BotGameScheduler.SweepProperties(1000))
                 .ensureBotGameWhenIdle();
 
         verify(sessionService, times(3)).createSession(org.mockito.ArgumentMatchers.any());
@@ -249,10 +249,23 @@ class BotGameSchedulerTest {
 
     @Test
     void fallsBackToOneGameWhenPropertiesAreMissing() {
-        BotAutoMatchProperties properties = new BotAutoMatchProperties(null, null);
+        BotAutoMatchProperties properties = new BotAutoMatchProperties(null, null, null);
 
         assertThat(properties.enabled()).isTrue();
         assertThat(properties.targetGames()).isEqualTo(1);
+        assertThat(properties.source()).isEqualTo(BotAutoMatchProperties.Source.LOBBY);
+    }
+
+    @Test
+    void lobbySourceCreatesNoSessionsAndReadsNothing() {
+        when(sessionService.getActiveSessions()).thenReturn(0L);
+        when(botPersonaService.findMatchable()).thenReturn(List.of(bot(-1, "Beginner Bot"), bot(-2, "Advanced Bot")));
+
+        scheduler(new BotAutoMatchProperties(true, 5, BotAutoMatchProperties.Source.LOBBY)).ensureBotGameWhenIdle();
+
+        verify(sessionService, never()).createSession(org.mockito.ArgumentMatchers.any());
+        verify(botPersonaService, never()).findMatchable();
+        verify(serverStatusService, never()).findTargetBotSessions();
     }
 
     private BotGameScheduler scheduler(BotAutoMatchProperties properties) {
@@ -273,7 +286,7 @@ class BotGameSchedulerTest {
     }
 
     private BotAutoMatchProperties defaultProperties() {
-        return new BotAutoMatchProperties(true, 1);
+        return new BotAutoMatchProperties(true, 1, BotAutoMatchProperties.Source.GAME_SERVER);
     }
 
     private BotPersona bot(long id, String name) {

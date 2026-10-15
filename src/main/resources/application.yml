@@ -68,6 +68,9 @@ bot:
   auto-match:
     enabled: ${BOT_AUTO_MATCH_ENABLED:true}
     target-games: ${BOT_AUTO_MATCH_TARGET_GAMES:1}
+    # LOBBY: the lobby creates the bot games through matchmaking and this server creates none.
+    # GAME_SERVER: the scheduler here creates them (capacity tests, local runs without a lobby).
+    source: ${BOT_AUTO_MATCH_SOURCE:LOBBY}
     check-interval-ms: ${BOT_AUTO_MATCH_CHECK_INTERVAL_MS:60000}
     max-sessions-per-sweep: ${BOT_AUTO_MATCH_MAX_SESSIONS_PER_SWEEP:5}
   # Threads the bot ticks run on. pool-size 0 means one thread per available processor; the pool
@@ -89,6 +92,8 @@ bot:
     jev-default-model: ${BOT_LLM_JEV_DEFAULT_MODEL:jev-latest}
     openrouter-url: ${BOT_LLM_OPENROUTER_URL:https://openrouter.ai/api/v1/chat/completions}
     openrouter-default-model: ${BOT_LLM_OPENROUTER_DEFAULT_MODEL:openrouter/auto}
+    # How long a key stays unavailable after HTTP 402 or 403 (401 and an undecryptable key: 30 days).
+    unavailable-minutes: ${BOT_LLM_UNAVAILABLE_MINUTES:60}
 
 # account mints every JWT this server verifies; the JwtDecoder fetches account's JSON Web
 # Key Set from url + /.well-known/jwks (see AccountProperties). No local public key is kept

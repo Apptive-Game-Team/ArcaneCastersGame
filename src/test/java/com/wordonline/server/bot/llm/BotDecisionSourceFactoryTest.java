@@ -30,8 +30,10 @@ class BotDecisionSourceFactoryTest {
 
     @Test
     void withoutTheSecretAnLlmPersonaPlaysAsRule() {
-        LlmApiKeyProvider keys = new LlmApiKeyProvider(mock(LlmApiKeyRepository.class), new LlmKeyCipher(""));
-        BotDecisionSourceFactory factory = new BotDecisionSourceFactory(LlmBotProperties.defaults(), keys);
+        LlmApiKeyProvider keys = new LlmApiKeyProvider(mock(LlmApiKeyRepository.class), new LlmKeyCipher(""),
+                mock(LlmKeyUnavailabilityRecorder.class));
+        BotDecisionSourceFactory factory = new BotDecisionSourceFactory(LlmBotProperties.defaults(), keys,
+                mock(LlmKeyUnavailabilityRecorder.class));
 
         assertThat(factory.create(persona(BotBrainType.JEV), magicParser, counterEvaluator, 0.5))
                 .isInstanceOf(RuleDecisionSource.class);
@@ -42,9 +44,11 @@ class BotDecisionSourceFactoryTest {
 
     @Test
     void withTheSecretAnLlmPersonaGetsTheLlmSource() {
-        LlmApiKeyProvider keys = new LlmApiKeyProvider(mock(LlmApiKeyRepository.class), new LlmKeyCipher("secret"));
+        LlmApiKeyProvider keys = new LlmApiKeyProvider(mock(LlmApiKeyRepository.class), new LlmKeyCipher("secret"),
+                mock(LlmKeyUnavailabilityRecorder.class));
         ThreadPoolExecutor executor = new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS, new ArrayBlockingQueue<>(1));
         BotDecisionSourceFactory factory = new BotDecisionSourceFactory(LlmBotProperties.defaults(), keys,
+                mock(LlmKeyUnavailabilityRecorder.class),
                 (uri, headers, body) -> new LlmHttpClient.Response(500, "", null), executor);
 
         assertThat(factory.create(persona(BotBrainType.OPENROUTER), magicParser, counterEvaluator, 0.5))
