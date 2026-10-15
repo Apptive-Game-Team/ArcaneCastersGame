@@ -172,8 +172,19 @@ CREATE TABLE bot_personas (
     enabled BOOLEAN NOT NULL DEFAULT TRUE,
     hospitality BOOLEAN NOT NULL DEFAULT FALSE,
     temperament VARCHAR(20) NOT NULL DEFAULT 'WARM',
+    -- Mirrors database migration V044: which brain plays the persona and the provider model.
+    brain_type VARCHAR(20) NOT NULL DEFAULT 'RULE' CHECK (brain_type IN ('RULE', 'JEV', 'OPENROUTER')),
+    llm_model VARCHAR(100),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Mirrors database migration V044: one encrypted API key per LLM provider.
+CREATE TABLE llm_api_keys (
+    provider VARCHAR(20) NOT NULL PRIMARY KEY CHECK (provider IN ('JEV', 'OPENROUTER')),
+    encrypted_key TEXT NOT NULL,
+    key_hint VARCHAR(16) NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 CREATE TABLE tags (
