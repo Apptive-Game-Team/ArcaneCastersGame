@@ -29,6 +29,13 @@ class UnitGuideTest {
     }
 
     @Test
+    void theRoleSaysInWordsWhereTheUnitGoesAndWhatItHits() {
+        assertThat(guide.role(PrefabType.WindSpirit)).isEqualTo(
+                "flies toward the enemy base at speed 1.5, fighting what it meets; 50 hp; "
+                        + "hits for 300 every 3s (100 dps) at range 1.5");
+    }
+
+    @Test
     void aTypeWithNoRowsIsUnknownRatherThanGuessed() {
         assertThat(guide.describe(PrefabType.FireSlime)).isEqualTo("no stats known");
     }

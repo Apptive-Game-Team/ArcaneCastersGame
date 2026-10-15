@@ -43,6 +43,18 @@ class JevProviderClientTest {
     }
 
     @Test
+    void theCardClientAsksWithTheCardInstructions() throws Exception {
+        JevProviderClient cards = new JevProviderClient(LlmBotProperties.DEFAULT_JEV_URL, "jev-latest",
+                JevProviderClient.CARD_INSTRUCTIONS);
+
+        JsonNode play = JSON.readTree(cards.requestBody(LlmTestFixtures.candidates(), "jev-latest"))
+                .path("questions").path("play");
+
+        assertThat(play.path("instructions").asText()).contains("you decide which card to play",
+                "a card we never play keeps blocking a slot");
+    }
+
+    @Test
     void asksOneStanceQuestionAndReadsItsChoice() throws Exception {
         JsonNode body = JSON.readTree(client.stanceBody(
                 java.util.Map.of("attack", "Attack: a", "defend", "Defend: d"), java.util.Map.of("mana", 5), "jev-latest"));

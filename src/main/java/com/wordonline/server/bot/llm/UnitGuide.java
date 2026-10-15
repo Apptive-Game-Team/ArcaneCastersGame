@@ -85,6 +85,49 @@ final class UnitGuide {
         return text.toString();
     }
 
+    /**
+     * What the unit does on the field, in words: whether it walks or stays put, what it hits and
+     * how hard, and whether it pushes. "flies toward the enemy base at speed 1.5, fighting what it
+     * meets; 50 hp; hits for 300 every 3s (100 dps) at range 1.5".
+     */
+    String role(PrefabType type) {
+        Stats stats = stats(type);
+        if (!stats.known()) {
+            return "no stats known";
+        }
+        StringBuilder text = new StringBuilder();
+        if (stats.speed() > 0) {
+            text.append(stats.flying() ? "flies" : "walks").append(" toward the enemy base at speed ")
+                    .append(number(stats.speed())).append(", fighting what it meets");
+        } else {
+            text.append("stays where it is placed and never moves, so it only acts on enemies that come to it");
+        }
+        text.append("; ").append(number(stats.hp())).append(" hp");
+        if (stats.damage() > 0) {
+            text.append("; hits for ").append(number(stats.damage()));
+            if (stats.attackInterval() > 0) {
+                text.append(" every ").append(number(stats.attackInterval())).append("s (")
+                        .append(number(stats.damagePerSecond())).append(" dps)");
+            }
+            if (stats.attackRange() > 0) {
+                text.append(" at range ").append(number(stats.attackRange()));
+            }
+        }
+        if (stats.pushForce() > 0) {
+            text.append("; blows enemy units back");
+        }
+        return text.toString();
+    }
+
+    /** How far from where it stands the unit acts: its attack range or its push reach, whichever is longer. */
+    double reach(PrefabType type) {
+        if (type == null) {
+            return 0;
+        }
+        String object = objectName(type);
+        return Math.max(value(object, "attack_range"), value(object, "push_range_x"));
+    }
+
     static String objectName(PrefabType type) {
         String bean = type.getBeanName();
         return bean.endsWith(PREFAB_SUFFIX) ? bean.substring(0, bean.length() - PREFAB_SUFFIX.length()) : bean;
