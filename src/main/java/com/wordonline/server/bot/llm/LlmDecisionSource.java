@@ -2,6 +2,7 @@ package com.wordonline.server.bot.llm;
 
 import java.io.IOException;
 import java.net.http.HttpTimeoutException;
+import java.util.Comparator;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -11,6 +12,7 @@ import com.wordonline.server.game.domain.Parameters;
 import com.wordonline.server.game.domain.bot.BotBrain;
 import com.wordonline.server.game.domain.bot.BotDecisionSource;
 import com.wordonline.server.game.domain.bot.BotEye;
+import com.wordonline.server.game.domain.object.Vector3;
 import com.wordonline.server.game.dto.Master;
 
 import lombok.extern.slf4j.Slf4j;
@@ -93,7 +95,9 @@ public final class LlmDecisionSource implements BotDecisionSource {
             if (outcome.failed()) {
                 return fallback.think(botEye, parameters, botSide, overdue);
             }
-            return stillInHand(outcome.decision(), botEye) ? outcome.decision() : null;
+            return stillInHand(outcome.decision(), botEye)
+                    ? reaim(outcome, botEye, parameters, botSide, overdue)
+                    : null;
         }
         if (inFlight.get()) {
             return null;
@@ -163,7 +167,7 @@ public final class LlmDecisionSource implements BotDecisionSource {
             BotBrain.InputDecision decision = answer.toDecision(candidates, client.ruleId());
             log.debug("[LlmBot {}] Answer play={} confidence={} -> {}", client.type(),
                     answer.playKey(), answer.confidence(), candidates.describe(answer.playKey()));
-            completed.set(Outcome.decided(decision));
+            completed.set(Outcome.decided(decision, candidates.plays().get(answer.playKey())));
         } catch (LlmCallFailure failure) {
             fail(failure);
         } catch (HttpTimeoutException e) {
@@ -215,11 +219,49 @@ public final class LlmDecisionSource implements BotDecisionSource {
         return inFlight.get();
     }
 
-    private record Outcome(BotBrain.InputDecision decision, boolean failed) {
-        static final Outcome FAILED = new Outcome(null, true);
+    /**
+     * The answer was given for the snapshot the request was built from, at least one reaction
+     * interval ago. Units have walked since, and a small blast aimed at where they were hits
+     * nothing. The model chose the magic and the kind of play; the point is recomputed from the
+     * current snapshot: the rule brain's fresh pick for a standard play, otherwise the fresh play of
+     * the same magic nearest the old point. A damage spell with no target left is dropped rather
+     * than cast into empty ground; a summon keeps its old point.
+     */
+    private BotBrain.InputDecision reaim(Outcome outcome, BotEye botEye, Parameters parameters,
+                                         Master botSide, boolean overdue) {
+        BotBrain.InputDecision decision = outcome.decision();
+        LlmCandidates.Play chosen = outcome.play();
+        if (decision == null || chosen == null) {
+            return decision;
+        }
+        try {
+            BotBrain.InputDecision standard = standardDecision(botEye, parameters, botSide, overdue);
+            if (chosen.description().startsWith(LlmCandidateBuilder.STANDARD_TACTIC)
+                    && standard != null && standard.magicId() == decision.magicId()) {
+                return withTarget(decision, standard.target());
+            }
+            LlmCandidates fresh = candidateBuilder.build(botEye, parameters, botSide, standard);
+            return fresh.plays().values().stream()
+                    .filter(play -> play.magicId() == decision.magicId())
+                    .min(Comparator.comparingDouble(play -> play.target().distance(chosen.target())))
+                    .map(play -> withTarget(decision, play.target()))
+                    .orElse(chosen.summon() ? decision : null);
+        } catch (RuntimeException e) {
+            log.debug("[LlmBot {}] Re-aiming failed, casting at the answered point", client.type(), e);
+            return decision;
+        }
+    }
 
-        static Outcome decided(BotBrain.InputDecision decision) {
-            return new Outcome(decision, false);
+    private static BotBrain.InputDecision withTarget(BotBrain.InputDecision decision, Vector3 target) {
+        return new BotBrain.InputDecision(decision.magicId(), new Vector3(target), decision.ruleId(),
+                decision.reason());
+    }
+
+    private record Outcome(BotBrain.InputDecision decision, LlmCandidates.Play play, boolean failed) {
+        static final Outcome FAILED = new Outcome(null, null, true);
+
+        static Outcome decided(BotBrain.InputDecision decision, LlmCandidates.Play play) {
+            return new Outcome(decision, play, false);
         }
     }
 }

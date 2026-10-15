@@ -23,6 +23,7 @@ import com.wordonline.server.game.domain.Parameters;
 import com.wordonline.server.game.domain.bot.BotBrain;
 import com.wordonline.server.game.domain.bot.BotDecisionSource;
 import com.wordonline.server.game.domain.bot.BotEye;
+import com.wordonline.server.game.domain.bot.BotVisibleObject;
 import com.wordonline.server.game.domain.object.Vector3;
 import com.wordonline.server.game.dto.Master;
 
@@ -64,7 +65,28 @@ class LlmDecisionSourceTest {
         assertThat(decision.target()).isEqualTo(new Vector3(3.5f, 0, 4));
         assertThat(decision.ruleId()).isEqualTo("llm.jev");
         assertThat(think(source)).as("returned once, and the interval has not passed").isNull();
-        assertThat(rule.calls).as("asked once, for the standard play").hasValue(1);
+        assertThat(rule.calls).as("asked for the standard play, then again to re-aim at cast time").hasValue(2);
+    }
+
+    @Test
+    void reaimsTheAnsweredPlayAtTheCurrentSnapshot() {
+        LlmDecisionSource source = source(fakeHttp, executor);
+        think(source);
+        executor.runAll();
+
+        // The answered play aims at the FireSlime at (3.5, 4); it has walked on by the time the
+        // answer is cast.
+        BotEye moved = new BotEye(eye.gameObjectList().stream()
+                .map(object -> object.id() == 14
+                        ? new BotVisibleObject(14, object.master(), object.type(), new Vector3(2.5f, 0, 4.5f),
+                                object.hp(), object.mob(), object.targetable())
+                        : object)
+                .toList(), eye.cardList(), eye.mana(), eye.enemyPlayerHp());
+
+        BotBrain.InputDecision decision = source.think(moved, parameters, Master.LeftPlayer, false);
+
+        assertThat(decision.magicId()).isEqualTo(LlmTestFixtures.FIRE_SHOT_ID);
+        assertThat(decision.target().distance(new Vector3(2.5f, 0, 4.5f))).isLessThan(0.01);
     }
 
     @Test
