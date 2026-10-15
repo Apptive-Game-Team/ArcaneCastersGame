@@ -22,7 +22,7 @@ class LlmBotPropertiesScanTest {
         assertThat(properties.timeoutMs()).isEqualTo(2500);
         assertThat(properties.minIntervalMs()).isEqualTo(LlmBotProperties.DEFAULT_MIN_INTERVAL_MS);
         assertThat(properties.poolSize()).isEqualTo(LlmBotProperties.DEFAULT_POOL_SIZE);
-        assertThat(properties.jevUrl()).isEqualTo("https://jev-ai.pro/api/v1/systemone");
+        assertThat(properties.jevUrl()).isEqualTo("https://api.typesafe.ai/v1/systemone");
         assertThat(properties.jevDefaultModel()).isEqualTo("jev-latest");
         assertThat(properties.openrouterUrl()).isEqualTo("https://openrouter.ai/api/v1/chat/completions");
         assertThat(properties.openrouterDefaultModel()).isEqualTo("openrouter/auto");

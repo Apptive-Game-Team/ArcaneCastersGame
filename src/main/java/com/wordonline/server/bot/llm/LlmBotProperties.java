@@ -22,7 +22,7 @@ public record LlmBotProperties(
     public static final int DEFAULT_TIMEOUT_MS = 4_000;
     public static final int DEFAULT_MIN_INTERVAL_MS = 1_500;
     public static final int DEFAULT_POOL_SIZE = 4;
-    public static final String DEFAULT_JEV_URL = "https://jev-ai.pro/api/v1/systemone";
+    public static final String DEFAULT_JEV_URL = "https://api.typesafe.ai/v1/systemone";
     public static final String DEFAULT_JEV_MODEL = "jev-latest";
     public static final String DEFAULT_OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
     public static final String DEFAULT_OPENROUTER_MODEL = "openrouter/auto";
