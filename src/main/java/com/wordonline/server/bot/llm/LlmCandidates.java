@@ -30,7 +30,11 @@ public record LlmCandidates(
     }
 
     /** One magic cast at one point, described in words the model reads without the code. */
-    public record Play(long magicId, String magicName, int manaCost, Vector3 target, String description) {
+    public record Play(long magicId, String magicName, int manaCost, Vector3 target, String description,
+                       boolean summon) {
+        public Play(long magicId, String magicName, int manaCost, Vector3 target, String description) {
+            this(magicId, magicName, manaCost, target, description, false);
+        }
     }
 
     public boolean offersWait() {

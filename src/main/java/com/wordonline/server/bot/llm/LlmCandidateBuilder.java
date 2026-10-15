@@ -143,7 +143,8 @@ public final class LlmCandidateBuilder {
             }
             kept.add(draft);
             plays.put("p" + plays.size(), new LlmCandidates.Play(draft.magic().id, draft.magic().name,
-                    turn.stats.manaCost(draft.magic()), new Vector3(draft.target()), draft.description()));
+                    turn.stats.manaCost(draft.magic()), new Vector3(draft.target()), draft.description(),
+                    draft.magic() instanceof ObjectSummoningMagic));
         }
         return new LlmCandidates(plays, turn.waitDescription(), turn.state());
     }
