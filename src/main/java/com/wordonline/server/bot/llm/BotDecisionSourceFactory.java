@@ -112,6 +112,18 @@ public class BotDecisionSourceFactory {
         LlmProviderClient client = clients.get(type);
         String model = persona.normalizedLlmModel() != null ? persona.normalizedLlmModel() : client.defaultModel();
         log.debug("[LlmBot {}] Persona {} plays with model {}", type, persona.name(), model);
+        if (type == BotBrainType.JEV && properties.jevStance()) {
+            return new StanceDecisionSource(
+                    rule,
+                    (JevProviderClient) client,
+                    httpClient,
+                    () -> keyProvider.requireKey(type),
+                    health.get(type),
+                    executor,
+                    new LlmCandidateBuilder(databaseMagicParser::getMagic, counterEvaluator),
+                    model,
+                    minIntervalMillis(type));
+        }
         return new LlmDecisionSource(
                 rule,
                 client,

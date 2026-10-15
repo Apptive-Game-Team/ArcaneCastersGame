@@ -106,9 +106,10 @@ public final class LlmCandidateBuilder {
                     .findFirst()
                     .orElse(null);
             if (magic != null && standard.target() != null) {
+                Draft plain = turn.draft(magic, standard.target());
                 drafts.add(new Draft(magic, standard.target(),
                         STANDARD_TACTIC + " (what the rule bot would do: " + shorten(standard.reason()) + "): "
-                                + turn.describe(magic, standard.target())));
+                                + plain.description(), plain.impact()));
             }
         }
         List<Draft> alternatives = new ArrayList<>();
@@ -145,12 +146,18 @@ public final class LlmCandidateBuilder {
             kept.add(draft);
             plays.put("p" + plays.size(), new LlmCandidates.Play(draft.magic().id, draft.magic().name,
                     turn.stats.manaCost(draft.magic()), new Vector3(draft.target()), draft.description(),
-                    draft.magic() instanceof ObjectSummoningMagic));
+                    draft.magic() instanceof ObjectSummoningMagic, draft.impact().baseDamage(),
+                    draft.impact().unitDamage()));
         }
         return new LlmCandidates(plays, turn.waitDescription(), turn.state());
     }
 
-    private record Draft(Magic magic, Vector3 target, String description) {
+    /** What a damage spell lands where it is aimed; all zero for a summon. */
+    private record Impact(List<String> hit, double unitDamage, double baseDamage, int kills, boolean baseHit) {
+        static final Impact NONE = new Impact(List.of(), 0, 0, 0, false);
+    }
+
+    private record Draft(Magic magic, Vector3 target, String description, Impact impact) {
         boolean sameAs(Draft other) {
             return magic.id == other.magic.id && target.distance(other.target) <= SAME_TARGET_DISTANCE;
         }
@@ -198,10 +205,13 @@ public final class LlmCandidateBuilder {
         }
 
         Draft draft(Magic magic, Vector3 target) {
-            return new Draft(magic, target, describe(magic, target));
+            Impact impact = magic instanceof ObjectSummoningMagic
+                    ? Impact.NONE
+                    : impact(target, stats.blastRadius(magic), stats.damagePerTarget(magic));
+            return new Draft(magic, target, describe(magic, target, impact), impact);
         }
 
-        String describe(Magic magic, Vector3 target) {
+        private String describe(Magic magic, Vector3 target, Impact impact) {
             int cost = stats.manaCost(magic);
             String where = " at " + coordinates(target) + ", " + number(target.distance(ownBase)) + " from our base";
             StringBuilder text = new StringBuilder(magic.name);
@@ -225,16 +235,17 @@ public final class LlmCandidateBuilder {
                 double damage = stats.damagePerTarget(magic);
                 text.append(" (damage spell, cost ").append(cost).append(", ").append(number(damage))
                         .append(" damage in radius ").append(number(radius)).append(')').append(where).append(": ");
-                appendImpact(text, target, radius, damage, cost);
+                appendImpact(text, impact, cost);
                 text.append(". ");
             }
             text.append(counter(magic));
             return text.toString();
         }
 
-        private void appendImpact(StringBuilder text, Vector3 target, double radius, double damage, int cost) {
+        private Impact impact(Vector3 target, double radius, double damage) {
             List<String> hit = new ArrayList<>();
-            double total = 0;
+            double unitDamage = 0;
+            double baseDamage = 0;
             int kills = 0;
             boolean baseHit = false;
             for (EnemyThreat threat : threats.threats()) {
@@ -243,7 +254,7 @@ public final class LlmCandidateBuilder {
                 }
                 if (threat.playerCore()) {
                     baseHit = true;
-                    total += Math.min(damage, threat.hp());
+                    baseDamage += Math.min(damage, threat.hp());
                     continue;
                 }
                 // Projectiles in flight count as threats for the rule brain but are not units to
@@ -253,12 +264,17 @@ public final class LlmCandidateBuilder {
                     continue;
                 }
                 hit.add(threatName(object));
-                total += Math.min(damage, threat.hp());
+                unitDamage += Math.min(damage, threat.hp());
                 if (damage >= threat.hp()) {
                     kills++;
                 }
             }
-            if (hit.isEmpty() && !baseHit) {
+            return new Impact(hit, unitDamage, baseDamage, kills, baseHit);
+        }
+
+        private void appendImpact(StringBuilder text, Impact impact, int cost) {
+            List<String> hit = impact.hit();
+            if (hit.isEmpty() && !impact.baseHit()) {
                 text.append("hits no enemy unit");
                 return;
             }
@@ -266,11 +282,13 @@ public final class LlmCandidateBuilder {
                 text.append("hits ").append(hit.size()).append(" enemy unit").append(hit.size() == 1 ? "" : "s")
                         .append(" (").append(String.join(", ", hit)).append(')');
             }
-            if (baseHit) {
+            if (impact.baseHit()) {
                 text.append(hit.isEmpty() ? "hits the enemy base" : " and the enemy base");
             }
+            double total = impact.unitDamage() + impact.baseDamage();
             text.append(" for ").append(number(total)).append(" total damage (")
-                    .append(number(cost > 0 ? total / cost : total)).append(" per mana), kills ").append(kills);
+                    .append(number(cost > 0 ? total / cost : total)).append(" per mana), kills ")
+                    .append(impact.kills());
         }
 
         /** The most advanced enemy unit and the enemy base, when in range and not under the best blast. */
