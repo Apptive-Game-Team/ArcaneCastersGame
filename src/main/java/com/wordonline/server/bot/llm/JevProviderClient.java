@@ -9,9 +9,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.wordonline.server.bot.domain.BotBrainType;
 
 /**
- * jev-ai.pro decision API: one call with two {@code choice} questions, {@code magic} and
- * {@code target}. The body carries only {@code model}, {@code state} and {@code questions}; the
- * API rejects unknown fields.
+ * TypeSafe Jev decision API (api.typesafe.ai; jev-ai.pro relays the same schema with its own
+ * keys): one call with two {@code choice} questions, {@code magic} and {@code target}. The body
+ * carries only {@code model}, {@code state} and {@code questions}; the API rejects unknown fields.
  */
 public final class JevProviderClient implements LlmProviderClient {
 
