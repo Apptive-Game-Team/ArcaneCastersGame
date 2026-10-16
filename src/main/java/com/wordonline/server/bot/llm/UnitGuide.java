@@ -86,9 +86,9 @@ final class UnitGuide {
     }
 
     /**
-     * What the unit does on the field, in words: whether it walks or stays put, what it hits and
-     * how hard, and whether it pushes. "flies toward the enemy base at speed 1.5, fighting what it
-     * meets; 50 hp; hits for 300 every 3s (100 dps) at range 1.5".
+     * The unit's numbers in words: whether it moves or stays put, how hard it hits and whether it
+     * pushes. "flies at speed 1.5; 50 hp; hits for 300 every 3s (100 dps) at range 1.5". What it
+     * attacks comes from the card text, not from here.
      */
     String role(PrefabType type) {
         Stats stats = stats(type);
@@ -97,8 +97,9 @@ final class UnitGuide {
         }
         StringBuilder text = new StringBuilder();
         if (stats.speed() > 0) {
-            text.append(stats.flying() ? "flies" : "walks").append(" toward the enemy base at speed ")
-                    .append(number(stats.speed())).append(", fighting what it meets");
+            // Only how it moves: what a unit goes after differs per unit (wind_spirit only dives at
+            // flyers), and the card text says that.
+            text.append(stats.flying() ? "flies" : "walks").append(" at speed ").append(number(stats.speed()));
         } else {
             text.append("stays where it is placed and never moves, so it only acts on enemies that come to it");
         }

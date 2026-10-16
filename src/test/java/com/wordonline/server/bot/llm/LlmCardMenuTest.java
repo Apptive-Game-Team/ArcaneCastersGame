@@ -94,7 +94,7 @@ class LlmCardMenuTest {
     @Test
     void theBundledCardTextCoversTheMagicBook() {
         assertThat(MagicDescriptions.bundled().describe("wind_totem"))
-                .isEqualTo("Places a wind spirit's tailwind totem that blows enemies in a fixed direction.");
+                .startsWith("Places a wind totem that repeatedly pushes enemy ground units");
         assertThat(MagicDescriptions.bundled().describe("no_such_magic")).isNull();
     }
 
