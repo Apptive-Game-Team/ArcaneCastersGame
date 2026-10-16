@@ -102,7 +102,8 @@ public class WordOnlineLoop extends GameLoop {
                 side,
                 persona,
                 botDecisionSourceFactory.create(
-                        persona, magicParser, botCounterEvaluator, opponentNoviceProgress(sessionObject, side))
+                        persona, magicParser, botCounterEvaluator, opponentNoviceProgress(sessionObject, side),
+                        BotAgent.deckCards(sessionObject, side))
         );
     }
 

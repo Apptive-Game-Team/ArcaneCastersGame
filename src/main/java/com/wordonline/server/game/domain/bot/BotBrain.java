@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Supplier;
 
 /**
  * Decides what the bot casts and where.
@@ -86,6 +87,9 @@ public class BotBrain {
     private final BotPersona persona;
     private final BotSkill skill;
     private final MotionTracker motionTracker = new MotionTracker();
+    private final Supplier<List<Long>> deckCards;
+    // Read once per match on the first think that needs it; the deck does not change.
+    private volatile DeckProfile deckProfile;
 
     /** Non-null only for the tutorial opponent; every other tier scores plays the ordinary way. */
     private final HospitalityDirector hospitalityDirector;
@@ -113,6 +117,20 @@ public class BotBrain {
                     BotPersona persona,
                     double opponentNoviceProgress,
                     BotSkill skill) {
+        this(magicParser, counterEvaluator, persona, opponentNoviceProgress, skill, List::of);
+    }
+
+    /**
+     * @param deckCards every card of the bot's deck, copies included, as the session dealt it; an
+     *                  empty list when it is unknown
+     */
+    public BotBrain(MagicParser magicParser,
+                    BotCounterEvaluator counterEvaluator,
+                    BotPersona persona,
+                    double opponentNoviceProgress,
+                    BotSkill skill,
+                    Supplier<List<Long>> deckCards) {
+        this.deckCards = deckCards;
         this.magicParser = magicParser;
         this.counterEvaluator = counterEvaluator;
         this.persona = persona;
@@ -220,6 +238,23 @@ public class BotBrain {
             }
 
             int maxMana = maxMana(parameters);
+            if (hospitalityDirector == null && skill.has(BotCapability.GAME_PLAN) && !overdue
+                    && threats.pressure() < CALM_PRESSURE) {
+                GamePlanner.Plan plan = GamePlanner.plan(context, maxMana, parameters,
+                        deckProfile(dbParser, spellStats),
+                        magic -> PlacementPlanner.plan(playerPos, spellStats.castRange(magic), botSide, threats,
+                                placementOptions(magic, units), random));
+                if (plan.saving()) {
+                    log.debug("[Bot {}] Saving mana for a wave of fighters. mana={}", botSide, mana);
+                    return null;
+                }
+                if (plan.play().isPresent()) {
+                    ScoredPlay chosen = plan.play().get();
+                    log.debug("[Bot {}] Chose plan {}: {}", botSide, chosen.ruleId(), chosen.reason());
+                    return chosen.toDecision();
+                }
+            }
+
             List<ScoredPlay> plays = new ArrayList<>();
             List<ScoredPlay> worthSavingFor = new ArrayList<>();
             boolean hasAffordableCard = false;
@@ -242,6 +277,13 @@ public class BotBrain {
                         buildPlay(magic, cost, aggression, context, aimedThreats, units, enemies)
                                 .ifPresent(worthSavingFor::add);
                     }
+                    continue;
+                }
+                // A summon with nothing to do is mana for nothing, unless mana is about to overflow
+                // anyway, when casting it at least frees its hand slot.
+                if (skill.has(BotCapability.SUMMON_RELEVANCE) && isSummon(magic)
+                        && !SummonRelevance.relevant(magic, context, parameters)
+                        && !(maxMana > 0 && mana >= maxMana - GamePlanner.CAP_MARGIN)) {
                     continue;
                 }
                 hasAffordableCard = true;
@@ -407,6 +449,15 @@ public class BotBrain {
     private static int maxMana(Parameters parameters) {
         return (int) parameters.getValueOrDefault(
                 GameObjectKey.PLAYER.dbName(), ParameterKey.MAX_MANA.dbName(), 0.0);
+    }
+
+    private DeckProfile deckProfile(DatabaseMagicParser dbParser, BotSpellStats spellStats) {
+        DeckProfile profile = deckProfile;
+        if (profile == null) {
+            profile = DeckProfile.of(deckCards.get(), dbParser, spellStats);
+            deckProfile = profile;
+        }
+        return profile;
     }
 
     private double leadSeconds() {

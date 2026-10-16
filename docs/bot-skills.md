@@ -17,7 +17,7 @@ knows everything the tier below it knows.
 | INTRO | 0.50 | `SEED_SPIRIT_COMBO`, `MOB_CLUSTER_COMBO` (the play every tier had before capabilities) |
 | BEGINNER | 0.30 | `STRONGEST_LANE` |
 | INTERMEDIATE | 0.18 | `LETHAL`, `SUMMON_STRENGTH`, `THREAT_STRENGTH` |
-| ADVANCED | 0.08 | `ALLY_COVER`, `MANA_DISCIPLINE`, `ROLE_PLACEMENT` |
+| ADVANCED | 0.08 | `ALLY_COVER`, `MANA_DISCIPLINE`, `ROLE_PLACEMENT`, `SUMMON_RELEVANCE`, `GAME_PLAN` |
 | ELITE | 0 | `LEAD_TARGETING` |
 
 ## What each capability changes
@@ -39,12 +39,32 @@ knows everything the tier below it knows.
   at max mana.
 - `ROLE_PLACEMENT`: summons whose prefab `attack_range` is at least
   `UnitCatalogue.RANGED_ATTACK_RANGE` are placed behind the blocker line.
+- `SUMMON_RELEVANCE`: `SummonRelevance` skips a summon that has nothing to
+  do right now, by its `CardRole`: an anti-air unit with no enemy flyer, a
+  defence or push building with no enemy on our half, a support building
+  with fewer than two allies to support. Mana within `GamePlanner.CAP_MARGIN`
+  of the cap may still go to one, so a dead card does not block a hand slot
+  forever.
+- `GAME_PLAN`: `GamePlanner` saves for a wave of fighters while calm and not
+  overdue. With a fighter of at least `WAVE_CARD_COST` mana in hand it saves
+  until every fighter in hand is affordable together, then releases them on
+  one spot one tick after another; our fighter still near our base is a wave
+  being released, and the next one joins it. It only does this when the whole
+  deck is built for it (`DeckProfile.wavesPayOff`: three or more such fighter
+  cards). A deck of cheap fighters loses by any saving, so it casts on sight.
 - `LEAD_TARGETING`: `MotionTracker` measures velocities between two
   `BotEye` snapshots, using game time. Blasts aim where enemies will be after
   the persona's thinking time plus `CAST_RESOLUTION_SECONDS`.
 
 Every unit stat comes from the same prefab parameters the initializers read.
 A unit whose parameters cannot judge it counts as average.
+
+What a summon is for cannot be read from parameters: who a unit attacks is set
+by `TargetMask` in its prefab initializer, and `wind_spirit` has a 300 damage
+row while only diving at flyers. `CardRole` writes the role of each summon
+down by magic name, read from the code. A summon with no row is played as if
+roles did not exist, and the first bot to hold one logs a WARN naming it. Add
+the row when a summon magic is added.
 
 ## Adding a capability
 
