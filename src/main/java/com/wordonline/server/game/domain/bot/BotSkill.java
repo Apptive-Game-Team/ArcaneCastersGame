@@ -67,7 +67,8 @@ public record BotSkill(double noiseAmplitude, Set<BotCapability> capabilities) {
                     .with(BotCapability.LETHAL, BotCapability.SUMMON_STRENGTH, BotCapability.THREAT_STRENGTH);
             case ADVANCED -> forTier(BotTier.INTERMEDIATE)
                     .withNoise(0.08)
-                    .with(BotCapability.ALLY_COVER, BotCapability.MANA_DISCIPLINE, BotCapability.ROLE_PLACEMENT);
+                    .with(BotCapability.ALLY_COVER, BotCapability.MANA_DISCIPLINE, BotCapability.ROLE_PLACEMENT,
+                            BotCapability.SUMMON_RELEVANCE, BotCapability.GAME_PLAN);
             case ELITE -> forTier(BotTier.ADVANCED)
                     .withNoise(0.0)
                     .with(BotCapability.LEAD_TARGETING);
