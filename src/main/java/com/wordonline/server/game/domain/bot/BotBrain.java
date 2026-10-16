@@ -6,6 +6,7 @@ import com.wordonline.server.game.domain.magic.Magic;
 import com.wordonline.server.game.domain.magic.ObjectSummoningMagic;
 import com.wordonline.server.game.domain.magic.parser.DatabaseMagicParser;
 import com.wordonline.server.game.domain.Parameters;
+import com.wordonline.server.game.domain.PlayerData;
 import com.wordonline.server.game.domain.magic.parser.MagicParser;
 import com.wordonline.server.game.domain.object.Vector3;
 import com.wordonline.server.game.domain.object.prefab.PrefabType;
@@ -23,6 +24,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Supplier;
 
 /**
  * Decides what the bot casts and where.
@@ -86,6 +88,9 @@ public class BotBrain {
     private final BotPersona persona;
     private final BotSkill skill;
     private final MotionTracker motionTracker = new MotionTracker();
+    private final Supplier<List<Long>> deckCards;
+    // Read once per match on the first think that needs it; the deck does not change.
+    private volatile DeckProfile deckProfile;
 
     /** Non-null only for the tutorial opponent; every other tier scores plays the ordinary way. */
     private final HospitalityDirector hospitalityDirector;
@@ -113,6 +118,20 @@ public class BotBrain {
                     BotPersona persona,
                     double opponentNoviceProgress,
                     BotSkill skill) {
+        this(magicParser, counterEvaluator, persona, opponentNoviceProgress, skill, List::of);
+    }
+
+    /**
+     * @param deckCards every card of the bot's deck, copies included, as the session dealt it; an
+     *                  empty list when it is unknown
+     */
+    public BotBrain(MagicParser magicParser,
+                    BotCounterEvaluator counterEvaluator,
+                    BotPersona persona,
+                    double opponentNoviceProgress,
+                    BotSkill skill,
+                    Supplier<List<Long>> deckCards) {
+        this.deckCards = deckCards;
         this.magicParser = magicParser;
         this.counterEvaluator = counterEvaluator;
         this.persona = persona;
@@ -220,6 +239,23 @@ public class BotBrain {
             }
 
             int maxMana = maxMana(parameters);
+            if (hospitalityDirector == null && skill.has(BotCapability.GAME_PLAN) && !overdue
+                    && threats.pressure() < CALM_PRESSURE) {
+                GamePlanner.Plan plan = GamePlanner.plan(context, maxMana, parameters,
+                        deckProfile(dbParser, spellStats),
+                        magic -> PlacementPlanner.plan(playerPos, spellStats.castRange(magic), botSide, threats,
+                                placementOptions(magic, units), random));
+                if (plan.saving()) {
+                    log.debug("[Bot {}] Saving mana for a wave of fighters. mana={}", botSide, mana);
+                    return null;
+                }
+                if (plan.play().isPresent()) {
+                    ScoredPlay chosen = plan.play().get();
+                    log.debug("[Bot {}] Chose plan {}: {}", botSide, chosen.ruleId(), chosen.reason());
+                    return chosen.toDecision();
+                }
+            }
+
             List<ScoredPlay> plays = new ArrayList<>();
             List<ScoredPlay> worthSavingFor = new ArrayList<>();
             boolean hasAffordableCard = false;
@@ -244,6 +280,14 @@ public class BotBrain {
                     }
                     continue;
                 }
+                // A summon with nothing to do is mana for nothing, unless the hand is full or mana is
+                // about to overflow anyway: then casting it frees its slot for a card that does.
+                if (skill.has(BotCapability.SUMMON_RELEVANCE) && isSummon(magic)
+                        && !SummonRelevance.relevant(magic, context, parameters)
+                        && !handFull(cardList)
+                        && !(maxMana > 0 && mana >= maxMana - GamePlanner.CAP_MARGIN)) {
+                    continue;
+                }
                 hasAffordableCard = true;
 
                 // 이번 소환이 놓인 뒤에도 봇 보드가 플레이어 보드보다 약해야 한다. 지킬 수 없으면
@@ -264,7 +308,9 @@ public class BotBrain {
 
             if (!plays.isEmpty()) {
                 ScoredPlay chosen = choosePlay(plays);
-                Optional<ScoredPlay> saving = savingFor(chosen, worthSavingFor, threats.pressure(), overdue);
+                Optional<ScoredPlay> saving = handFull(cardList)
+                        ? Optional.empty()
+                        : savingFor(chosen, worthSavingFor, threats.pressure(), overdue);
                 if (saving.isPresent()) {
                     log.debug("[Bot {}] Saving mana for {} (score={}) over {} (score={}), pressure={}",
                             botSide, saving.get().magicId(), saving.get().score(),
@@ -403,10 +449,30 @@ public class BotBrain {
                 .max(Comparator.comparingDouble(ScoredPlay::score));
     }
 
+    /**
+     * Whether every hand slot is taken. A card leaves the hand only when it is played, and a slot
+     * draws the next card only once it is free, so holding cards back with a full hand stops the
+     * draw. Measured on the Skies deck: saving for thunder_bird_swarm instead of casting
+     * wind_totem kept totems in hand, the bot cast chain_lightning at the enemy base 8 times a game
+     * instead of 12, and won 5 of 24 instead of 16.
+     */
+    private static boolean handFull(List<Long> cardList) {
+        return cardList.size() >= PlayerData.MAX_CARD_NUM;
+    }
+
     /** Most the bot can ever hold, or 0 when the parameters do not say, which disables saving. */
     private static int maxMana(Parameters parameters) {
         return (int) parameters.getValueOrDefault(
                 GameObjectKey.PLAYER.dbName(), ParameterKey.MAX_MANA.dbName(), 0.0);
+    }
+
+    private DeckProfile deckProfile(DatabaseMagicParser dbParser, BotSpellStats spellStats) {
+        DeckProfile profile = deckProfile;
+        if (profile == null) {
+            profile = DeckProfile.of(deckCards.get(), dbParser, spellStats);
+            deckProfile = profile;
+        }
+        return profile;
     }
 
     private double leadSeconds() {

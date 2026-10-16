@@ -56,7 +56,9 @@ public final class BotAgent {
                     BotCounterEvaluator counterEvaluator,
                     double opponentNoviceProgress) {
         this.botAction = new BotAction();
-        this.botBrain = new BotBrain(magicParser, counterEvaluator, persona, opponentNoviceProgress);
+        this.botBrain = new BotBrain(magicParser, counterEvaluator, persona, opponentNoviceProgress,
+                BotSkill.forTier(persona.tier()),
+                () -> botSide == Master.LeftPlayer ? sessionObject.getLeftDeckCardIds() : sessionObject.getRightDeckCardIds());
         this.sessionObject = sessionObject;
         this.gameLoop = sessionObject.getGameLoop();
         this.botSide = botSide;

@@ -47,5 +47,18 @@ public enum BotCapability {
     ROLE_PLACEMENT,
 
     /** Aim blasts where moving enemies will be once the cast actually goes out. */
-    LEAD_TARGETING
+    LEAD_TARGETING,
+
+    /**
+     * Skip a summon that has nothing to do on the field ({@link SummonRelevance}): an anti-air unit
+     * with no enemy flyer, a building that waits for enemies when none is coming. Mana near the cap
+     * may still go to one, so a dead card does not block a hand slot forever.
+     */
+    SUMMON_RELEVANCE,
+
+    /**
+     * Play a plan across casts ({@link GamePlanner}): save for a wave of fighters and release it on
+     * one spot, or swarm the lane with cheap fighters, instead of spending each tick's mana at once.
+     */
+    GAME_PLAN
 }
