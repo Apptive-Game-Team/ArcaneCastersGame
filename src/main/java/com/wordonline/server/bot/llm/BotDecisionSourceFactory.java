@@ -50,6 +50,7 @@ public class BotDecisionSourceFactory {
     private final Map<BotBrainType, LlmProviderClient> clients = new EnumMap<>(BotBrainType.class);
     private final Map<BotBrainType, LlmProviderHealth> health = new EnumMap<>(BotBrainType.class);
     private final AtomicBoolean secretWarned = new AtomicBoolean();
+    private final JevProviderClient cardClient;
 
     @Autowired
     public BotDecisionSourceFactory(LlmBotProperties properties, LlmApiKeyProvider keyProvider,
@@ -67,6 +68,8 @@ public class BotDecisionSourceFactory {
         this.httpClient = httpClient;
         this.executor = executor;
         clients.put(BotBrainType.JEV, new JevProviderClient(properties.jevUrl(), properties.jevDefaultModel()));
+        cardClient = new JevProviderClient(properties.jevUrl(), properties.jevDefaultModel(),
+                JevProviderClient.CARD_INSTRUCTIONS);
         clients.put(BotBrainType.OPENROUTER,
                 new OpenRouterProviderClient(properties.openrouterUrl(), properties.openrouterDefaultModel()));
         for (BotBrainType type : clients.keySet()) {
@@ -112,6 +115,30 @@ public class BotDecisionSourceFactory {
         LlmProviderClient client = clients.get(type);
         String model = persona.normalizedLlmModel() != null ? persona.normalizedLlmModel() : client.defaultModel();
         log.debug("[LlmBot {}] Persona {} plays with model {}", type, persona.name(), model);
+        if (type == BotBrainType.JEV && properties.jevCard()) {
+            return new LlmDecisionSource(
+                    rule,
+                    cardClient,
+                    httpClient,
+                    () -> keyProvider.requireKey(type),
+                    health.get(type),
+                    executor,
+                    LlmCandidateBuilder.cards(databaseMagicParser::getMagic, counterEvaluator),
+                    model,
+                    minIntervalMillis(type));
+        }
+        if (type == BotBrainType.JEV && properties.jevStance()) {
+            return new StanceDecisionSource(
+                    rule,
+                    (JevProviderClient) client,
+                    httpClient,
+                    () -> keyProvider.requireKey(type),
+                    health.get(type),
+                    executor,
+                    new LlmCandidateBuilder(databaseMagicParser::getMagic, counterEvaluator),
+                    model,
+                    minIntervalMillis(type));
+        }
         return new LlmDecisionSource(
                 rule,
                 client,
@@ -119,9 +146,14 @@ public class BotDecisionSourceFactory {
                 () -> keyProvider.requireKey(type),
                 health.get(type),
                 executor,
-                new LlmCandidateBuilder(databaseMagicParser::getMagic),
+                new LlmCandidateBuilder(databaseMagicParser::getMagic, counterEvaluator),
                 model,
-                properties.minIntervalMs());
+                minIntervalMillis(type));
+    }
+
+    /** jev answers in about 0.2 seconds, so it gets its own, shorter spacing between requests. */
+    long minIntervalMillis(BotBrainType type) {
+        return type == BotBrainType.JEV ? properties.jevMinIntervalMs() : properties.minIntervalMs();
     }
 
     private static ThreadPoolExecutor newExecutor(int poolSize) {

@@ -53,6 +53,25 @@ class BotDecisionSourceFactoryTest {
 
         assertThat(factory.create(persona(BotBrainType.OPENROUTER), magicParser, counterEvaluator, 0.5))
                 .isInstanceOf(LlmDecisionSource.class);
+        assertThat(factory.create(persona(BotBrainType.JEV), magicParser, counterEvaluator, 0.5))
+                .as("jev plays in stance mode by default")
+                .isInstanceOf(StanceDecisionSource.class);
+        factory.shutdown();
+    }
+
+    @Test
+    void inCardModeAJevPersonaGetsTheLlmSourceWithTheCardMenu() {
+        LlmApiKeyProvider keys = new LlmApiKeyProvider(mock(LlmApiKeyRepository.class), new LlmKeyCipher("secret"),
+                mock(LlmKeyUnavailabilityRecorder.class));
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS, new ArrayBlockingQueue<>(1));
+        LlmBotProperties card = new LlmBotProperties(null, null, null, null, null, null, null, null, null, null, "card");
+        BotDecisionSourceFactory factory = new BotDecisionSourceFactory(card, keys,
+                mock(LlmKeyUnavailabilityRecorder.class),
+                (uri, headers, body) -> new LlmHttpClient.Response(500, "", null), executor);
+
+        assertThat(card.jevMode()).isEqualTo(LlmBotProperties.JEV_MODE_CARD);
+        assertThat(factory.create(persona(BotBrainType.JEV), magicParser, counterEvaluator, 0.5))
+                .isInstanceOf(LlmDecisionSource.class);
         factory.shutdown();
     }
 

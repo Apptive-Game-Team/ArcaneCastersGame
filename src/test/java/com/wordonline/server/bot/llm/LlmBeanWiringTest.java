@@ -3,6 +3,7 @@ package com.wordonline.server.bot.llm;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
+import com.wordonline.server.bot.domain.BotBrainType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 import org.springframework.context.annotation.Configuration;
@@ -17,7 +18,7 @@ import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
  * unit tests that call {@code new} never see.
  */
 @SpringJUnitConfig(classes = LlmBeanWiringTest.WiringConfig.class)
-@TestPropertySource(properties = "bot.llm.key-secret=s3cret")
+@TestPropertySource(properties = {"bot.llm.key-secret=s3cret", "bot.llm.jev-min-interval-ms=300"})
 class LlmBeanWiringTest {
 
     @MockitoBean
@@ -37,6 +38,13 @@ class LlmBeanWiringTest {
         assertThat(factory).isNotNull();
         assertThat(recorder).isNotNull();
         assertThat(cipher.decrypt("JEV", cipher.encrypt("JEV", "sk-wiring"))).isEqualTo("sk-wiring");
+    }
+
+    @Test
+    void spacesJevRequestsWithItsOwnInterval() {
+        assertThat(factory.minIntervalMillis(BotBrainType.JEV)).isEqualTo(300);
+        assertThat(factory.minIntervalMillis(BotBrainType.OPENROUTER))
+                .isEqualTo(LlmBotProperties.DEFAULT_MIN_INTERVAL_MS);
     }
 
     @Configuration
