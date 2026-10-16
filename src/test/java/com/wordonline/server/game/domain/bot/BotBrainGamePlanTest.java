@@ -75,6 +75,18 @@ class BotBrainGamePlanTest {
     }
 
     @Test
+    void aFullHandCastsAUselessSummonToFreeItsSlot() {
+        Magic windSpirit = summon(1, "wind_spirit", PrefabType.WindSpirit, 15);
+        catalogue(windSpirit);
+        List<Long> sixCards = List.of(windSpirit.id, windSpirit.id, windSpirit.id, windSpirit.id, windSpirit.id,
+                windSpirit.id);
+        BotEye fullHand = new BotEye(List.of(), sixCards, 20, 1000);
+
+        assertThat(brain(skill(BotCapability.SUMMON_RELEVANCE)).think(fullHand, parameters, Master.LeftPlayer)
+                .magicId()).isEqualTo(windSpirit.id);
+    }
+
+    @Test
     void aDearFighterInHandMakesTheBotSaveForTheWholeWave() {
         Magic ent = summon(1, "evil_ent", PrefabType.EvilEnt, 80);
         Magic embers = summon(2, "ember_spirit_swarm", PrefabType.FireSlime, 15);

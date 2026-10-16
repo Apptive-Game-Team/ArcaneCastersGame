@@ -36,15 +36,16 @@ knows everything the tier below it knows.
   finishes the enemy player.
 - `MANA_DISCIPLINE`: while calm and not overdue, the bot waits for a card
   that scores clearly better per mana. It only waits for cards it can afford
-  at max mana.
+  at max mana, and never with a full hand: a card leaves the hand only when
+  played, so holding back with six cards stops the draw.
 - `ROLE_PLACEMENT`: summons whose prefab `attack_range` is at least
   `UnitCatalogue.RANGED_ATTACK_RANGE` are placed behind the blocker line.
 - `SUMMON_RELEVANCE`: `SummonRelevance` skips a summon that has nothing to
   do right now, by its `CardRole`: an anti-air unit with no enemy flyer, a
   defence or push building with no enemy on our half, a support building
-  with fewer than two allies to support. Mana within `GamePlanner.CAP_MARGIN`
-  of the cap may still go to one, so a dead card does not block a hand slot
-  forever.
+  with fewer than two allies to support. With a full hand, or mana within
+  `GamePlanner.CAP_MARGIN` of the cap, it is cast anyway, so a dead card does
+  not block a hand slot.
 - `GAME_PLAN`: `GamePlanner` saves for a wave of fighters while calm and not
   overdue. With a fighter of at least `WAVE_CARD_COST` mana in hand it saves
   until every fighter in hand is affordable together, then releases them on
