@@ -61,7 +61,9 @@ public enum ParameterKey {
     SUB_ATTACK_INTERVAL("sub_attack_interval"),
 
     TRIGGER_DELAY("trigger_delay"),
-    STUN_DURATION("stun_duration");
+    STUN_DURATION("stun_duration"),
+    SETUP_DURATION("setup_duration"),
+    RECOVERY_DURATION("recovery_duration");
 
     private final String dbName;
 
