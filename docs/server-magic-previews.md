@@ -32,6 +32,13 @@ intervals that truncate to zero when an initializer requests an integer. These
 guards belong to the capture's parameter source, never to ordinary gameplay.
 Unknown constructor dependencies, prefabs and scenarios produce unavailable entries.
 
+Adding a magic also requires a scenario in `RemainingPreviewScenarios` (or the
+representative registry) and the independent offline test registry. The production
+recorder test enumerates Spring magic beans, so adding just a new bean leaves its
+book preview unavailable. Supply new parameter keys in the offline fixture as well;
+its strict parameter source intentionally has no generic fallback. Arcane Infantry
+and Crater Carrier bring the verified catalog to 88 magics / 132 scenarios.
+
 Only passive target creation replaces an initializer, in that context. Production
 prefabs resolve by Spring bean name and read the snapshot, including constructor
 parameters. Death-field suppression is an explicit preview opt-in; trails, landing

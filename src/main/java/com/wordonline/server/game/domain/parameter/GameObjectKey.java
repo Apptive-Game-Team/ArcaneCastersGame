@@ -137,7 +137,10 @@ public enum GameObjectKey {
     WIND_SUMMON("wind_summon"),
     WIND_SPIRIT("wind_spirit"),
     WIND_TOTEM("wind_totem"),
-    ZAP_MOUSE("zap_mouse");
+    ZAP_MOUSE("zap_mouse"),
+    ARCANE_INFANTRY("arcane_infantry"),
+    CRATER_CARRIER("crater_carrier"),
+    CRATER_SHELL("crater_shell");
 
     private final String dbName;
 

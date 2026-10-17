@@ -172,6 +172,11 @@ public enum PrefabType {
     RiverWater("river_water_prefab"),
     RiverBridge("river_bridge_prefab"),
 
+    ArcaneInfantry("arcane_infantry_prefab"),
+    CraterCarrier("crater_carrier_prefab"),
+    CraterShell("crater_shell_prefab"),
+    CraterExplosion("crater_explosion_prefab"),
+
     Player("player_prefab");
 
     private final String beanName;
