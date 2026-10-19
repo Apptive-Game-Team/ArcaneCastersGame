@@ -42,7 +42,7 @@ public class PveVineWitchPrefabInitializer extends SimplePveBossInitializer {
 
     @Override
     protected PVEBossMob createBossMob(GameObject gameObject, int maxHp, List<Magic> magics) {
-        Magic vineFanMagic = parseMagic("vinefan");
+        Magic vineFanMagic = parseMagic("vine_fan");
         return new VineWitchMob(
                 gameObject,
                 maxHp,

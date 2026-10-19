@@ -24,7 +24,7 @@ public class PveVineColonyPrefabInitializer extends SimplePveBossInitializer {
                         new SpawnConfig(PrefabType.WaterSlime, BOSS_SPAWN_INTERVAL, BOSS_SPAWN_COUNT),
                         new SpawnConfig(PrefabType.VineSpirit, BOSS_SPAWN_INTERVAL, BOSS_SPAWN_COUNT)
                 ),
-                List.of("vine")
+                List.of("vine_toss")
         );
     }
 }
