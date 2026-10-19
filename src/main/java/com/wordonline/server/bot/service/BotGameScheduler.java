@@ -8,7 +8,6 @@ import com.wordonline.server.server.entity.ServerState;
 import com.wordonline.server.server.service.ServerStatusService;
 import com.wordonline.server.session.dto.SessionDto;
 import com.wordonline.server.session.service.SessionService;
-import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -34,18 +33,8 @@ public class BotGameScheduler {
     private final ServerIdentityProperties serverIdentityProperties;
     private final SweepProperties sweepProperties;
 
-    @PostConstruct
-    void logSource() {
-        log.info("[BotGameScheduler] Bot games come from {} (bot.auto-match.source); enabled={}",
-                botAutoMatchProperties.source(), botAutoMatchProperties.enabled());
-    }
-
     @Scheduled(fixedDelayString = "${bot.auto-match.check-interval-ms:60000}")
     public void ensureBotGameWhenIdle() {
-        if (botAutoMatchProperties.source() == BotAutoMatchProperties.Source.LOBBY) {
-            // The lobby feeds bot tickets through matchmaking; this server creates nothing itself.
-            return;
-        }
         if (!botAutoMatchProperties.enabled() || serverStatusService.getCurrentState() != ServerState.ACTIVE) {
             return;
         }
