@@ -24,9 +24,11 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow;
 import java.util.concurrent.SubmissionPublisher;
@@ -336,6 +338,16 @@ public class SessionService {
         long activeSessions = getActiveSessions();
         String joined = String.join("\n", sessions.values().stream().map(Object::toString).toList());
         return "Sessions: num :" + activeSessions + " | " + joined;
+    }
+
+    /** User ids on either side of a session this server holds right now. */
+    public Set<Long> getParticipantUserIds() {
+        Set<Long> userIds = new HashSet<>();
+        for (SessionObject sessionObject : sessions.values()) {
+            userIds.add(sessionObject.getLeftUserId());
+            userIds.add(sessionObject.getRightUserId());
+        }
+        return userIds;
     }
 
     public Optional<SessionObject> findByUserId(long userId) {

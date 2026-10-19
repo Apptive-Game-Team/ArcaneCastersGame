@@ -38,12 +38,25 @@ class BotPersonaRepositoryTest {
         // The production queries cast to the Postgres enum types; H2 gets same-named domains.
         jdbcClient.sql("CREATE DOMAIN bot_tier AS VARCHAR(20)").update();
         jdbcClient.sql("CREATE DOMAIN bot_temperament AS VARCHAR(20)").update();
-        jdbcClient.sql("CREATE TABLE users (id BIGINT PRIMARY KEY)").update();
+        jdbcClient.sql("CREATE TABLE users (id BIGINT PRIMARY KEY, mmr SMALLINT NOT NULL DEFAULT 1000)").update();
         jdbcClient.sql(tableDdl("bot_personas")).update();
         jdbcClient.sql(tableDdl("llm_api_keys")).update();
         jdbcClient.sql("INSERT INTO users(id) VALUES (-7)").update();
         repository = new BotPersonaRepository(jdbcClient);
         service = new BotPersonaService(repository);
+    }
+
+    @Test
+    void findsMmrOnlyForUsersThatHaveARow() {
+        jdbcClient.sql("INSERT INTO users(id, mmr) VALUES (-8, 1234)").update();
+        jdbcClient.sql("INSERT INTO users(id, mmr) VALUES (-9, 800)").update();
+
+        assertThat(repository.findMmrByUserIds(java.util.List.of(-7L, -8L, -9L, -10L)))
+                .containsOnly(
+                        java.util.Map.entry(-7L, 1000),
+                        java.util.Map.entry(-8L, 1234),
+                        java.util.Map.entry(-9L, 800));
+        assertThat(repository.findMmrByUserIds(java.util.List.of())).isEmpty();
     }
 
     @Test

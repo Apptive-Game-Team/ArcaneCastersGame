@@ -10,7 +10,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -37,6 +39,12 @@ public class BotPersonaService {
     @Transactional(readOnly = true)
     public List<BotPersona> findMatchable() {
         return botPersonaRepository.findMatchable();
+    }
+
+    /** Mmr per user id for the ids that have a {@code users} row; the others are left out. */
+    @Transactional(readOnly = true)
+    public Map<Long, Integer> findMmrByUserIds(Collection<Long> userIds) {
+        return botPersonaRepository.findMmrByUserIds(userIds);
     }
 
     @Transactional(readOnly = true)

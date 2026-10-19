@@ -9,7 +9,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Repository
@@ -39,6 +42,12 @@ public class BotPersonaRepository {
                               WHERE k.provider = bp.brain_type
                                 AND (k.unavailable_until IS NULL OR k.unavailable_until <= CURRENT_TIMESTAMP)))
             ORDER BY bp.user_id;
+            """;
+
+    private static final String FIND_MMR_BY_USER_IDS = """
+            SELECT id, mmr
+            FROM users
+            WHERE id IN (:userIds);
             """;
 
     private static final String FIND_BY_ID = """
@@ -88,6 +97,22 @@ public class BotPersonaRepository {
         return jdbcClient.sql(FIND_MATCHABLE)
                 .query(this::map)
                 .list();
+    }
+
+    /** Mmr per user id for the ids that have a {@code users} row; the others are left out. */
+    public Map<Long, Integer> findMmrByUserIds(Collection<Long> userIds) {
+        if (userIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, Integer> mmrByUserId = new HashMap<>();
+        jdbcClient.sql(FIND_MMR_BY_USER_IDS)
+                .param("userIds", userIds)
+                .query((rs, rowNum) -> {
+                    mmrByUserId.put(rs.getLong("id"), rs.getInt("mmr"));
+                    return null;
+                })
+                .list();
+        return mmrByUserId;
     }
 
     public Optional<BotPersona> findByUserId(long userId) {
