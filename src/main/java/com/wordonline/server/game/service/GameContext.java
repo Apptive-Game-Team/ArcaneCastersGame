@@ -21,6 +21,7 @@ import com.wordonline.server.game.dto.Master;
 import com.wordonline.server.game.dto.frame.GameEventDto;
 import com.wordonline.server.game.dto.frame.ObjectsInfoDto;
 import com.wordonline.server.game.util.Physics;
+import com.wordonline.server.game.util.RaycastHit;
 import com.wordonline.server.game.util.SimplePhysics;
 
 import lombok.Getter;
@@ -134,6 +135,10 @@ public class GameContext {
 
     public List<GameObject> overlapSphereAll(Vector3 position, float distance) {
         return physics.overlapSphereAll(position, distance);
+    }
+
+    public List<RaycastHit> raycastAll(Vector3 origin, Vector3 direction, float maxDistance) {
+        return physics.raycastAll(origin, direction, maxDistance);
     }
 
     public ObjectsInfoDto getObjectsInfoDto() {

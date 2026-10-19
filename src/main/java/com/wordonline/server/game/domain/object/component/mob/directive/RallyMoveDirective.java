@@ -3,21 +3,22 @@ package com.wordonline.server.game.domain.object.component.mob.directive;
 import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.Vector3;
 import com.wordonline.server.game.domain.object.component.Component;
+import com.wordonline.server.game.domain.object.component.mob.statemachine.attacker.BehaviorMob;
 import com.wordonline.server.game.dto.Status;
+import com.wordonline.server.game.util.CombatRange;
 
 import java.util.Optional;
 
 public class RallyMoveDirective extends Component implements MovementDirective {
     private static final int PRIORITY = 100;
-    private static final float ARRIVAL_DISTANCE = 0.8f;
 
     private final GameObject rallyTarget;
-    private final float combatRange;
+    private final float zoneRadius;
 
-    public RallyMoveDirective(GameObject gameObject, GameObject rallyTarget, float combatRange) {
+    public RallyMoveDirective(GameObject gameObject, GameObject rallyTarget, float zoneRadius) {
         super(gameObject);
         this.rallyTarget = rallyTarget;
-        this.combatRange = combatRange;
+        this.zoneRadius = zoneRadius;
     }
 
     @Override
@@ -51,7 +52,7 @@ public class RallyMoveDirective extends Component implements MovementDirective {
 
     @Override
     public float getArrivalDistance() {
-        return ARRIVAL_DISTANCE;
+        return zoneRadius;
     }
 
     @Override
@@ -61,8 +62,18 @@ public class RallyMoveDirective extends Component implements MovementDirective {
 
     @Override
     public boolean allowsCombatTarget(GameObject self, GameObject target) {
-        return rallyTarget != null
-                && rallyTarget.getStatus() != Status.Destroyed
-                && rallyTarget.getPosition().distance(target.getPosition()) <= combatRange;
+        if (rallyTarget == null || rallyTarget.getStatus() == Status.Destroyed) {
+            return false;
+        }
+
+        BehaviorMob mob = self.getComponent(BehaviorMob.class);
+        if (mob == null) {
+            return false;
+        }
+
+        double targetDistanceFromTotem = rallyTarget.getPosition().grounded()
+                .distance(target.getPosition().grounded());
+        double reachFromZoneEdge = zoneRadius + CombatRange.reachFrom(self, mob.getAttackRange());
+        return targetDistanceFromTotem - CombatRange.radiusOf(target) <= reachFromZoneEdge;
     }
 }

@@ -8,6 +8,8 @@ import com.wordonline.server.game.domain.object.Vector3;
 import com.wordonline.server.game.domain.object.component.magic.SpiritBombChannel;
 import com.wordonline.server.game.domain.object.component.mob.Mob;
 import com.wordonline.server.game.domain.object.prefab.PrefabType;
+import com.wordonline.server.game.domain.parameter.GameObjectKey;
+import com.wordonline.server.game.domain.parameter.ParameterKey;
 import com.wordonline.server.game.dto.Master;
 import com.wordonline.server.game.service.GameContext;
 
@@ -31,7 +33,7 @@ public class SpiritBombMagic extends Magic {
             return;
         }
 
-        Vector3 direction = position.grounded().subtract(player.getPosition().grounded());
+        Vector3 direction = position.subtract(player.getPosition());
         if (direction.equals(Vector3.ZERO)) {
             return;
         }
@@ -64,6 +66,8 @@ public class SpiritBombMagic extends Magic {
         }
 
         int totalDamage = Math.round(absorbedHp * DAMAGE_FRACTION);
-        player.addComponent(new SpiritBombChannel(player, position, totalDamage));
+        // 클릭은 방향만 정한다. 빔은 클릭 거리와 상관없이 마법 사거리 끝까지 뻗는다.
+        float beamLength = (float) gameContext.getParameters().getValue(GameObjectKey.SPIRIT_BOMB, ParameterKey.RANGE);
+        player.addComponent(new SpiritBombChannel(player, position, totalDamage, beamLength));
     }
 }

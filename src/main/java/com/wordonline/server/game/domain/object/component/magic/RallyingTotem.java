@@ -1,31 +1,37 @@
 package com.wordonline.server.game.domain.object.component.magic;
 
 import com.wordonline.server.game.domain.object.GameObject;
-import com.wordonline.server.game.domain.object.component.Item;
+import com.wordonline.server.game.domain.object.component.GaugeComponent;
 import com.wordonline.server.game.domain.object.component.effect.receiver.EffectReceiver;
 import com.wordonline.server.game.domain.object.component.mob.directive.RallyMoveDirective;
 import com.wordonline.server.game.domain.object.component.mob.statemachine.attacker.BehaviorMob;
 import com.wordonline.server.game.dto.Effect;
 import com.wordonline.server.game.dto.Master;
+import com.wordonline.server.game.dto.frame.GaugeCategory;
+import com.wordonline.server.game.dto.frame.GaugeDto;
 
-public class RallyingTotem extends MagicComponent {
+public class RallyingTotem extends MagicComponent implements GaugeComponent {
+    private final float fallSpeed;
     private final float duration;
-    private final float buffRadius;
+    private final float zoneRadius;
+    private final float detectionRange;
     private final float buffDuration;
-    private final float rallyCombatRange;
     private float elapsedTime;
+    private boolean landed;
 
     public RallyingTotem(
             GameObject gameObject,
+            float fallSpeed,
             float duration,
-            float buffRadius,
-            float buffDuration,
-            float rallyCombatRange) {
+            float zoneRadius,
+            float detectionRange,
+            float buffDuration) {
         super(gameObject);
+        this.fallSpeed = fallSpeed;
         this.duration = duration;
-        this.buffRadius = buffRadius;
+        this.zoneRadius = zoneRadius;
+        this.detectionRange = detectionRange;
         this.buffDuration = buffDuration;
-        this.rallyCombatRange = rallyCombatRange;
     }
 
     @Override
@@ -34,17 +40,25 @@ public class RallyingTotem extends MagicComponent {
 
     @Override
     public void update() {
+        if (!landed) {
+            fall();
+            return;
+        }
+
         elapsedTime += getGameContext().getDeltaTime();
         if (elapsedTime >= duration) {
             gameObject.destroy();
             return;
         }
+        // A totem lying on the ground changes neither position nor status, so nothing else
+        // sends an update for it and its TTL gauge would never move on the client.
+        gameObject.applyUpdate();
 
         getGameContext().getGameSessionData().gameObjects.stream()
                 .filter(this::canRally)
                 .forEach(this::applyRally);
 
-        getGameContext().overlapSphereAll(gameObject, buffRadius).stream()
+        getGameContext().overlapSphereAll(gameObject, zoneRadius).stream()
                 .filter(this::canInspire)
                 .forEach(this::applyInspired);
     }
@@ -53,13 +67,25 @@ public class RallyingTotem extends MagicComponent {
     public void onDestroy() {
     }
 
+    @Override
+    public GaugeDto getGauge() {
+        return new GaugeDto(Math.max(0f, duration - elapsedTime), duration, GaugeCategory.TTL);
+    }
+
+    private void fall() {
+        gameObject.setPosition(gameObject.getPosition().plus(0, -fallSpeed * getGameContext().getDeltaTime(), 0));
+        if (gameObject.getPosition().getY() < 0) {
+            gameObject.setPosition(gameObject.getPosition().grounded());
+            landed = true;
+        }
+    }
+
     private boolean canRally(GameObject target) {
         if (target == gameObject) return false;
         if (gameObject.getMaster() == Master.None) return false;
         if (target.getMaster() != gameObject.getMaster()) return false;
-        Item item = gameObject.getComponent(Item.class);
-        if (item != null && item.getParent() == target) return false;
-        return target.hasComponent(BehaviorMob.class);
+        if (!target.hasComponent(BehaviorMob.class)) return false;
+        return gameObject.getPosition().grounded().distance(target.getPosition().grounded()) <= detectionRange;
     }
 
     private void applyRally(GameObject target) {
@@ -70,7 +96,7 @@ public class RallyingTotem extends MagicComponent {
         boolean pending = target.getComponentsToAdd().stream()
                 .anyMatch(RallyMoveDirective.class::isInstance);
         if (!pending) {
-            target.addComponent(new RallyMoveDirective(target, gameObject, rallyCombatRange));
+            target.addComponent(new RallyMoveDirective(target, gameObject, zoneRadius));
         }
     }
 

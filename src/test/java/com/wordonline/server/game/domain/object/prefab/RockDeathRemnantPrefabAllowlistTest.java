@@ -17,6 +17,7 @@ import com.wordonline.server.game.domain.object.prefab.implement.misc.RockGolemP
 import com.wordonline.server.game.domain.object.prefab.implement.misc.WallGolemPrefabInitializer;
 import com.wordonline.server.game.domain.object.prefab.implement.misc.TowerbackPrefabInitializer;
 import com.wordonline.server.game.domain.object.prefab.implement.misc.RockMagePrefabInitializer;
+import com.wordonline.server.game.domain.object.prefab.implement.misc.CraterCarrierPrefabInitializer;
 import com.wordonline.server.game.domain.object.prefab.implement.rock.MiniRockPrefabInitializer;
 import com.wordonline.server.game.domain.object.prefab.implement.rock.RockRemnantPrefabInitializer;
 import com.wordonline.server.game.domain.object.prefab.implement.rock.RockRollingPrefabInitializer;
@@ -49,6 +50,7 @@ class RockDeathRemnantPrefabAllowlistTest {
                 new TitanRemnantPrefabInitializer(parameters)
         );
         List<PrefabInitializer> smallRemnantSources = List.of(
+                new CraterCarrierPrefabInitializer(parameters),
                 new RockGolemPrefabInitializer(parameters),
                 new GroundCannonPrefabInitializer(parameters),
                 new GroundTowerPrefabInitializer(parameters)

@@ -20,13 +20,14 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 
 @Getter
 @Slf4j
 public final class BotAgent {
 
     private final BotAction botAction;
-    private final BotBrain botBrain;
+    private final BotDecisionSource decisionSource;
 
     private final SessionObject sessionObject;
     private final GameLoop gameLoop;
@@ -55,15 +56,36 @@ public final class BotAgent {
                     BotPersona persona,
                     BotCounterEvaluator counterEvaluator,
                     double opponentNoviceProgress) {
+        this(sessionObject, botSide, persona,
+                new RuleDecisionSource(new BotBrain(magicParser, counterEvaluator, persona, opponentNoviceProgress,
+                        BotSkill.forTier(persona.tier()), deckCards(sessionObject, botSide))));
+    }
+
+    /** Every card of the bot's deck, copies included, as the session dealt it. */
+    public static Supplier<List<Long>> deckCards(SessionObject sessionObject, Master botSide) {
+        return () -> botSide == Master.LeftPlayer
+                ? sessionObject.getLeftDeckCardIds()
+                : sessionObject.getRightDeckCardIds();
+    }
+
+    /**
+     * A bot that takes its casts from {@code decisionSource}: the rule brain, or an LLM provider
+     * with the rule brain behind it, as the persona's brain type picks.
+     */
+    public BotAgent(SessionObject sessionObject,
+                    Master botSide,
+                    BotPersona persona,
+                    BotDecisionSource decisionSource) {
         this.botAction = new BotAction();
-        this.botBrain = new BotBrain(magicParser, counterEvaluator, persona, opponentNoviceProgress);
+        this.decisionSource = decisionSource;
         this.sessionObject = sessionObject;
         this.gameLoop = sessionObject.getGameLoop();
         this.botSide = botSide;
         this.persona = persona;
         this.castDeadline = CastDeadline.forTier(persona.tier(), System.currentTimeMillis());
         this.emoteDirector = new BotEmoteDirector(persona.normalizedTemperament());
-        log.debug("BotAgent initialized for side: {}, persona: {}", botSide, persona.name());
+        log.debug("BotAgent initialized for side: {}, persona: {}, brain: {}",
+                botSide, persona.name(), persona.normalizedBrainType());
     }
 
     /**
@@ -132,7 +154,7 @@ public final class BotAgent {
         log.debug("[BotAgent {}] State: Mana={}, Cards={}, VisibleObjects={}",
                 botSide, botEye.mana(), botEye.cardList(), botEye.gameObjectList().size());
 
-        BotBrain.InputDecision decision = botBrain.think(
+        BotBrain.InputDecision decision = decisionSource.think(
                 botEye, gameLoop.parameters, botSide, castDeadline.overdue(System.currentTimeMillis()));
 
         if(decision != null)

@@ -38,7 +38,7 @@ public class BehaviorMob extends StateMachineMob implements IntervalAttacker {
     float targetRadius;
     RigidBody rigidBody;
     @Getter Stat attackInterval;
-    protected float attackRange;
+    @Getter protected float attackRange;
     private final int targetMask;
     /**
      * Whether engagement ignores the vertical gap to the target. A mob that dives from a hover
@@ -181,6 +181,15 @@ public class BehaviorMob extends StateMachineMob implements IntervalAttacker {
     }
 
     /**
+     * The range this mob attacks {@code target} from. A mob that carries one weapon uses the same
+     * range for every target; a mob with separate ground and air weapons overrides this so the
+     * move and attack states close in to the weapon the target calls for.
+     */
+    protected float attackRangeFor(GameObject target) {
+        return attackRange;
+    }
+
+    /**
      * Progress of a dive that started at {@code startPos} and ends at {@code targetY}, in the
      * range Vector3.lerp accepts. A target at the diver's own altitude leaves nothing to descend,
      * and dividing by that zero gap yields NaN, which {@code Math.clamp} does not filter out.
@@ -274,7 +283,7 @@ public class BehaviorMob extends StateMachineMob implements IntervalAttacker {
 
             // Range is checked before the path bookkeeping: a mob that walks onto the last path
             // point would otherwise drop back to idle without ever testing whether it can attack.
-            if (withinAttackRange(Math.max(0f, attackRange - 0.1f))) {
+            if (withinAttackRange(Math.max(0f, attackRangeFor(target) - 0.1f))) {
                 setState(new AttackState());
                 return;
             }
@@ -423,7 +432,7 @@ public class BehaviorMob extends StateMachineMob implements IntervalAttacker {
             }
             float deltaTime = getGameContext().getDeltaTime();
             timer += deltaTime;
-            if (!withinAttackRange(attackRange)) {
+            if (!withinAttackRange(attackRangeFor(target))) {
                 setState(new MoveState());
             } else if (timer > attackInterval.total()) {
                 timer = IntervalTimer.carryOver(timer, attackInterval.total(), deltaTime);

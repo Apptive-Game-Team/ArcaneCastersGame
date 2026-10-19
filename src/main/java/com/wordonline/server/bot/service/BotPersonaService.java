@@ -1,5 +1,6 @@
 package com.wordonline.server.bot.service;
 
+import com.wordonline.server.bot.domain.BotBrainType;
 import com.wordonline.server.bot.domain.BotParticipant;
 import com.wordonline.server.bot.domain.BotPersona;
 import com.wordonline.server.bot.domain.BotTemperament;
@@ -9,7 +10,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -32,13 +35,25 @@ public class BotPersonaService {
                 .toList();
     }
 
+    /** Personas a match may use now: see {@link BotPersonaRepository#findMatchable()}. */
     @Transactional(readOnly = true)
-    public Optional<BotPersona> findRandomEnabled() {
-        List<BotPersona> enabled = findEnabled();
-        if (enabled.isEmpty()) {
+    public List<BotPersona> findMatchable() {
+        return botPersonaRepository.findMatchable();
+    }
+
+    /** Mmr per user id for the ids that have a {@code users} row; the others are left out. */
+    @Transactional(readOnly = true)
+    public Map<Long, Integer> findMmrByUserIds(Collection<Long> userIds) {
+        return botPersonaRepository.findMmrByUserIds(userIds);
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<BotPersona> findRandomMatchable() {
+        List<BotPersona> matchable = findMatchable();
+        if (matchable.isEmpty()) {
             return Optional.empty();
         }
-        return Optional.of(enabled.get(ThreadLocalRandom.current().nextInt(enabled.size())));
+        return Optional.of(matchable.get(ThreadLocalRandom.current().nextInt(matchable.size())));
     }
 
     @Transactional(readOnly = true)
@@ -92,7 +107,18 @@ public class BotPersonaService {
                 Math.max(-1.0, Math.min(1.0, requestDto.counterAggression())),
                 requestDto.enabled(),
                 requestDto.hospitality(),
-                requestDto.temperament() == null ? BotTemperament.WARM : requestDto.temperament()
+                requestDto.temperament() == null ? BotTemperament.WARM : requestDto.temperament(),
+                requestDto.brainType() == null ? BotBrainType.RULE : requestDto.brainType(),
+                normalizeLlmModel(requestDto.llmModel())
         );
+    }
+
+    private static String normalizeLlmModel(String llmModel) {
+        String normalized = BotPersona.normalizeLlmModel(llmModel);
+        if (normalized != null && normalized.length() > BotPersona.LLM_MODEL_MAX_LENGTH) {
+            throw new IllegalArgumentException(
+                    "LLM model name must be at most " + BotPersona.LLM_MODEL_MAX_LENGTH + " characters.");
+        }
+        return normalized;
     }
 }

@@ -1,6 +1,7 @@
 package com.wordonline.server.game.domain.object.component.magic;
 
 import com.wordonline.server.game.domain.object.GameObject;
+import com.wordonline.server.game.domain.object.component.Damageable;
 import com.wordonline.server.game.domain.object.component.effect.EffectApplyPolicy;
 import com.wordonline.server.game.domain.object.component.effect.StatusEffectKey;
 import com.wordonline.server.game.domain.object.component.effect.receiver.CommonEffectReceiver;
@@ -190,6 +191,25 @@ class ShockTrapDetectorTest {
         verify(trap, never()).destroy();
     }
 
+    @Test
+    void ignoresAnEnemyFieldWithoutHitPoints() {
+        GameObject trap = mock(GameObject.class);
+        GameContext gameContext = mock(GameContext.class);
+        GameObject field = enemyOf(trap, gameContext);
+        when(field.hasComponent(Damageable.class)).thenReturn(false);
+        when(gameContext.overlapSphereAll(trap, RADIUS)).thenReturn(List.of(field));
+        when(gameContext.getDeltaTime()).thenReturn(TRIGGER_DELAY);
+
+        ShockTrapDetector detector = new ShockTrapDetector(trap, RADIUS, TRIGGER_DELAY, STUN_DURATION);
+
+        detector.update();
+        detector.update();
+
+        verify(trap, never()).addEffect(Effect.ShockTrapArming);
+        verify(gameContext, never()).addEvent(any());
+        verify(trap, never()).destroy();
+    }
+
     private GameObject enemyOf(GameObject trap, GameContext gameContext) {
         when(trap.getGameContext()).thenReturn(gameContext);
         when(trap.getMaster()).thenReturn(Master.LeftPlayer);
@@ -197,6 +217,7 @@ class ShockTrapDetectorTest {
         GameObject enemy = mock(GameObject.class);
         when(enemy.getMaster()).thenReturn(Master.RightPlayer);
         when(enemy.isDying()).thenReturn(false);
+        when(enemy.hasComponent(Damageable.class)).thenReturn(true);
         return enemy;
     }
 }

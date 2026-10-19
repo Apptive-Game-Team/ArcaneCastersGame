@@ -1,10 +1,12 @@
 package com.wordonline.server.game.util;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.Vector3;
+import com.wordonline.server.game.domain.object.component.physic.CircleCollider;
 import com.wordonline.server.game.domain.object.component.physic.CircleCollidingHelper;
 import com.wordonline.server.game.domain.object.component.physic.Collider;
 
@@ -26,6 +28,37 @@ public class SimplePhysics implements Physics {
 
             if(circle.isCollidingWish(colliders.getFirst())) result.add(other);
         }
+        return result;
+    }
+
+    @Override
+    public List<RaycastHit> raycastAll(Vector3 origin, Vector3 direction, float maxDistance) {
+        Vector3 dirNorm = direction.normalize();
+        if (dirNorm.equals(Vector3.ZERO)) {
+            return List.of();
+        }
+
+        List<RaycastHit> result = new ArrayList<>();
+        for (GameObject other : gameObjects) {
+            List<Collider> colliders = other.getColliders();
+            if (colliders == null || colliders.isEmpty()
+                    || !(colliders.getFirst() instanceof CircleCollider circle)) continue;
+
+            Vector3 offset = circle.getPosition().subtract(origin);
+            float radius = circle.getRadius();
+            float along = offset.dot(dirNorm);
+            float perpendicularSquared = offset.dot(offset) - along * along;
+            float radiusSquared = radius * radius;
+            if (perpendicularSquared > radiusSquared) continue;
+
+            // ray 가 구의 표면에 처음 닿는 거리. 음수면 ray 가 구 안이나 구 뒤에서 시작한다.
+            float distance = along - (float) Math.sqrt(radiusSquared - perpendicularSquared);
+            if (distance < 0f || distance > maxDistance) continue;
+
+            result.add(new RaycastHit(other, distance, origin.plus(dirNorm.multiply(distance))));
+        }
+
+        result.sort(Comparator.comparingDouble(RaycastHit::distance));
         return result;
     }
 

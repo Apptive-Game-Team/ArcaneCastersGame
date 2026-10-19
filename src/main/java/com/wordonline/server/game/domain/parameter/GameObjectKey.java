@@ -2,6 +2,8 @@ package com.wordonline.server.game.domain.parameter;
 
 public enum GameObjectKey {
     AQUA_ARCHER("aqua_archer"),
+    BEAN_SHOOTER("bean_shooter"),
+    BEAN("bean"),
     BOMB_SPRITE("bomb_sprite"),
     BOMB_SPRITE_BOMB("bomb_sprite_bomb"),
     BUBBLE_GENERATOR("bubble_generator"),
@@ -45,6 +47,9 @@ public enum GameObjectKey {
     PVE_FIRE_TADPOLE("pve_fire_tadpole"),
     PVE_LIGHTNING_TADPOLE("pve_lightning_tadpole"),
     PVE_EVIL_ENT("pve_evil_ent"),
+    PVE_BRICK_GOLEM("pve_brick_golem"),
+    PVE_CORRUPTED_VINE_SPIRIT("pve_corrupted_vine_spirit"),
+    PVE_CORRUPTED_WIND_SPIRIT("pve_corrupted_wind_spirit"),
     FRENZY_TOTEM("frenzy_totem"),
     GAME("game"),
     GIANT_VINE("giant_vine"),
@@ -132,7 +137,10 @@ public enum GameObjectKey {
     WIND_SUMMON("wind_summon"),
     WIND_SPIRIT("wind_spirit"),
     WIND_TOTEM("wind_totem"),
-    ZAP_MOUSE("zap_mouse");
+    ZAP_MOUSE("zap_mouse"),
+    ARCANE_INFANTRY("arcane_infantry"),
+    CRATER_CARRIER("crater_carrier"),
+    CRATER_SHELL("crater_shell");
 
     private final String dbName;
 

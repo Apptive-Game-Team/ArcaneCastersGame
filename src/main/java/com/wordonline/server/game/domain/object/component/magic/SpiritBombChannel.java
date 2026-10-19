@@ -1,7 +1,8 @@
 package com.wordonline.server.game.domain.object.component.magic;
 
-import java.util.Comparator;
 import java.util.EnumSet;
+import java.util.HashSet;
+import java.util.Set;
 
 import com.wordonline.server.game.domain.AttackInfo;
 import com.wordonline.server.game.domain.magic.ElementType;
@@ -9,14 +10,17 @@ import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.Vector3;
 import com.wordonline.server.game.domain.object.component.Component;
 import com.wordonline.server.game.domain.object.component.Damageable;
+import com.wordonline.server.game.domain.object.component.mob.Mob;
 import com.wordonline.server.game.domain.object.component.mob.detector.TargetRelation;
+import com.wordonline.server.game.dto.frame.projectile.PositionProjectileTarget;
+import com.wordonline.server.game.dto.frame.projectile.ReferenceProjectileTarget;
+import com.wordonline.server.game.util.RaycastHit;
 
 public class SpiritBombChannel extends Component {
 
     public static final float CHARGE_DURATION = 0.4f;
     public static final float BEAM_DURATION = 4f;
     public static final float TICK_INTERVAL = 1f;
-    public static final float BEAM_WIDTH = 0.75f;
     public static final String BEAM_PROJECTILE = "SpiritBombBeam";
 
     private static final int TICK_COUNT = 4;
@@ -28,8 +32,7 @@ public class SpiritBombChannel extends Component {
      * 천 단위까지 벌어진다. 그래서 굵기를 피해량에 그대로 비례시키지 않고 이 구간 안에서만 늘린다 —
      * 작은 한 방도 눈에 보이고, 큰 한 방도 화면을 덮지 않는다.
      *
-     * <p>{@link #BEAM_WIDTH} 와 다른 값이라는 점에 주의하라. 그쪽은 대상을 고르는 <b>판정</b> 폭이고
-     * 피해량과 무관하게 고정이다. 여기 값은 보이는 굵기일 뿐이라 둘은 일부러 갈라져 있다.
+     * <p>보이는 굵기일 뿐이고 판정과는 무관하다. 판정은 두께 없는 ray 로 한다.
      */
     private static final int MIN_WIDTH_DAMAGE = 100;
     private static final int MAX_WIDTH_DAMAGE = 1000;
@@ -42,12 +45,16 @@ public class SpiritBombChannel extends Component {
     private float elapsed;
     private int ticksApplied;
 
-    public SpiritBombChannel(GameObject player, Vector3 targetPosition, int totalDamage) {
+    /**
+     * 클릭한 위치는 방향만 정한다. 빔은 클릭 거리와 상관없이 {@code beamLength}(마법 사거리)만큼 뻗는다.
+     * 높이도 방향에 들어간다. 비행 유닛을 찍으면 client 가 그 유닛의 높이를 실어 보내므로 빔이 위로 간다.
+     */
+    public SpiritBombChannel(GameObject player, Vector3 targetPosition, int totalDamage, float beamLength) {
         super(player);
-        Vector3 origin = player.getPosition().grounded();
-        Vector3 offset = targetPosition.grounded().subtract(origin);
+        Vector3 origin = player.getPosition();
+        Vector3 offset = targetPosition.subtract(origin);
         this.direction = offset.normalize();
-        this.beamLength = (float) offset.distance(Vector3.ZERO);
+        this.beamLength = beamLength;
         this.totalDamage = totalDamage;
     }
 
@@ -77,28 +84,69 @@ public class SpiritBombChannel extends Component {
     }
 
     private void applyTick(int tickIndex) {
-        GameObject target = findClosestTarget();
-        if (target == null) {
+        Set<GameObject> hitTargets = new HashSet<>();
+        RaycastHit hit = findClosestHit(hitTargets);
+        if (hit == null) {
+            sendBeam(beamLength);
             return;
         }
 
         int baseDamage = totalDamage / TICK_COUNT;
         int remainder = totalDamage % TICK_COUNT;
-        int tickDamage = baseDamage + (tickIndex < remainder ? 1 : 0);
+        int remaining = baseDamage + (tickIndex < remainder ? 1 : 0);
 
-        getGameContext().getObjectsInfoDtoBuilder()
-                .createProjection(gameObject, target, BEAM_PROJECTILE, VISUAL_TICK_DURATION, visualWidth());
-
-        if (tickDamage == 0) {
+        if (remaining == 0) {
+            sendBeam(hit.distance());
             return;
         }
 
-        AttackInfo attackInfo = new AttackInfo(
-                tickDamage,
-                EnumSet.of(ElementType.LIGHTNING, ElementType.NATURE)
-        ).withAttacker(gameObject);
-        target.getComponents(Damageable.class)
-                .forEach(damageable -> damageable.onDamaged(attackInfo));
+        // 대상이 죽으면 남은 피해를 같은 tick 안에서 ray 위 다음으로 가까운 적에게 넘긴다.
+        while (hit != null && remaining > 0) {
+            GameObject target = hit.gameObject();
+            hitTargets.add(target);
+            sendBeam(hit.distance());
+
+            Mob mob = target.getComponent(Mob.class);
+            int hpBefore = mob == null ? 0 : mob.getHp();
+
+            AttackInfo attackInfo = new AttackInfo(
+                    remaining,
+                    EnumSet.of(ElementType.LIGHTNING, ElementType.NATURE)
+            ).withAttacker(gameObject);
+            target.getComponents(Damageable.class)
+                    .forEach(damageable -> damageable.onDamaged(attackInfo));
+
+            // Mob 이 없으면 잃은 체력을 알 수 없다. 면역이나 interceptor 로 체력이 안 깎여도 마찬가지라
+            // 여기서 멈춘다. 그래야 같은 tick 안에서 루프가 돌지 않는다.
+            if (mob == null) {
+                return;
+            }
+            int hpAfter = mob.getHp();
+            int hpLost = hpBefore - hpAfter;
+            boolean killed = hpAfter <= 0 || target.isDying() || target.isDestroyed();
+            if (hpLost <= 0 || !killed) {
+                return;
+            }
+
+            // 속성 배율을 거친 뒤라 잃은 체력과 피해량이 다르다. 넘치는 체력의 비율만큼 피해를 남긴다.
+            int overkillHp = Math.max(0, -hpAfter);
+            remaining = Math.round((float) remaining * overkillHp / hpLost);
+            hit = findClosestHit(hitTargets);
+        }
+    }
+
+    /**
+     * 빔은 조준선을 벗어나지 않는다. 맞은 적의 중심으로 꺾지 않고, ray 가 그 적의 몸에 닿은 거리에서 끝낸다.
+     */
+    private void sendBeam(float length) {
+        Vector3 end = gameObject.getPosition().plus(direction.multiply(length));
+        getGameContext().getObjectsInfoDtoBuilder().createProjection(
+                new ReferenceProjectileTarget(gameObject.getId()),
+                new PositionProjectileTarget(end),
+                BEAM_PROJECTILE,
+                VISUAL_TICK_DURATION,
+                visualWidth()
+        );
     }
 
     /**
@@ -121,34 +169,15 @@ public class SpiritBombChannel extends Component {
         return visualWidth(totalDamage);
     }
 
-    private GameObject findClosestTarget() {
-        Vector3 origin = gameObject.getPosition().grounded();
-        Vector3 end = origin.plus(direction.multiply(beamLength));
-
-        return getGameContext().getActiveGameObjects().stream()
-                .filter(target -> TargetRelation.canAttack(gameObject, target))
-                .filter(target -> target.hasComponent(Damageable.class))
-                .filter(target -> {
-                    float targetRadius = target.getFirstCircleCollider()
-                            .map(collider -> collider.getRadius())
-                            .orElse(0f);
-                    return distanceToSegment(target.getPosition().grounded(), origin, end)
-                            <= BEAM_WIDTH + targetRadius;
-                })
-                .min(Comparator.comparingDouble(target -> target.getPosition().distance(origin)))
+    private RaycastHit findClosestHit(Set<GameObject> excluded) {
+        return getGameContext()
+                .raycastAll(gameObject.getPosition(), direction, beamLength)
+                .stream()
+                .filter(hit -> !excluded.contains(hit.gameObject()))
+                .filter(hit -> TargetRelation.canAttack(gameObject, hit.gameObject()))
+                .filter(hit -> hit.gameObject().hasComponent(Damageable.class))
+                .findFirst()
                 .orElse(null);
-    }
-
-    static double distanceToSegment(Vector3 point, Vector3 start, Vector3 end) {
-        Vector3 segment = end.subtract(start);
-        float lengthSquared = segment.dot(segment);
-        if (lengthSquared == 0f) {
-            return point.distance(start);
-        }
-
-        float progress = Math.clamp(point.subtract(start).dot(segment) / lengthSquared, 0f, 1f);
-        Vector3 closest = start.plus(segment.multiply(progress));
-        return point.distance(closest);
     }
 
     @Override

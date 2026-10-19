@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import com.wordonline.server.bot.llm.BotDecisionSourceFactory;
 import com.wordonline.server.bot.service.BotPersonaService;
 import com.wordonline.server.game.domain.Parameters;
 import com.wordonline.server.game.domain.magic.parser.DatabaseMagicParser;
@@ -80,7 +81,8 @@ class SnapshotBuildFrequencyTest {
                 mock(FeverTimeSystem.class), mock(GameObjectStateInitialSystem.class),
                 mock(ComponentUpdateSystem.class), mock(PhysicSystem.class),
                 mock(GameObjectAddRemoteSystem.class), mock(DatabaseMagicParser.class),
-                mock(BotPersonaService.class), mock(BotCounterEvaluator.class)) {
+                mock(BotPersonaService.class), mock(BotCounterEvaluator.class),
+                BotDecisionSourceFactory.ruleOnly()) {
             @Override
             protected void buildSnapshot() {
                 snapshotsBuilt.incrementAndGet();

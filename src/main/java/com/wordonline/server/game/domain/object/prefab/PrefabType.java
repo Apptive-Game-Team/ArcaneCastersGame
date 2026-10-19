@@ -114,6 +114,9 @@ public enum PrefabType {
     PveFireTadpole("pve_fire_tadpole_prefab"),
     PveLightningTadpole("pve_lightning_tadpole_prefab"),
     PveEvilEnt("pve_evil_ent_prefab"),
+    PveBrickGolem("pve_brick_golem_prefab"),
+    PveCorruptedVineSpirit("pve_corrupted_vine_spirit_prefab"),
+    PveCorruptedWindSpirit("pve_corrupted_wind_spirit_prefab"),
 
     // New 2 card Magic
     EmberSpirit("fire_slime_prefab"),
@@ -124,6 +127,8 @@ public enum PrefabType {
     BombSprite("bomb_sprite_prefab"),
     BombSpriteBomb("bomb_sprite_bomb_prefab"),
     BombSpriteExplosion("bomb_sprite_explosion_prefab"),
+    BeanShooter("bean_shooter_prefab"),
+    Bean("bean_prefab"),
     MiniRock("mini_rock_prefab"),
     RockRemnant("rock_remnant_prefab"),
     MediumRockRemnant("medium_rock_remnant_prefab"),
@@ -166,6 +171,11 @@ public enum PrefabType {
     Wall("wall_prefab"),
     RiverWater("river_water_prefab"),
     RiverBridge("river_bridge_prefab"),
+
+    ArcaneInfantry("arcane_infantry_prefab"),
+    CraterCarrier("crater_carrier_prefab"),
+    CraterShell("crater_shell_prefab"),
+    CraterExplosion("crater_explosion_prefab"),
 
     Player("player_prefab");
 

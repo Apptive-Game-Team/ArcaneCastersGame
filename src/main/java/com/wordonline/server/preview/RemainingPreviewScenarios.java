@@ -44,7 +44,7 @@ final class RemainingPreviewScenarios {
             Map.entry("sea_serpent", "SeaSerpent"), Map.entry("electric_tower", "ElectricTower"),
             Map.entry("dragon_tower", "DragonFlame"), Map.entry("bomb_sprite", "BombSpriteBomb"),
             Map.entry("firework_tower", "FireworkShell"), Map.entry("magma_spirit", "MagmaFist"),
-            Map.entry("titan_remnant", "TitanFist"));
+            Map.entry("crater_carrier", "CraterCarrier"), Map.entry("titan_remnant", "TitanFist"));
 
 
     private static Magic magic(String name, PreviewCapture c) { return c.magic(name); }
@@ -57,7 +57,7 @@ final class RemainingPreviewScenarios {
             attack(clips, name, true);
         }
         for (String name : List.of("tower", "bubble_spirit")) attack(clips, name, true);
-        for (String name : List.of("cannon", "rock_turret", "fire_spirit", "thunder_spirit", "magma_spirit", "wall_golem", "tree_golem", "storm_rider", "storm_stag", "zap_mouse", "chicken_commando", "bomb_sprite", "ember_spirit_swarm", "seed_spirit_swarm", "fire_slime_nest", "rock_slime_nest", "lightning_slime_nest", "wind_slime_nest", "seed_nest", "vine_colony", "titan_remnant", "nature_slime_nest", "pve_water_slime_nest", "dimension_toad", "firework_tower", "crater")) attack(clips, name, false);
+        for (String name : List.of("cannon", "rock_turret", "fire_spirit", "thunder_spirit", "magma_spirit", "wall_golem", "tree_golem", "storm_rider", "storm_stag", "zap_mouse", "chicken_commando", "bomb_sprite", "bean_shooter", "arcane_infantry", "crater_carrier", "ember_spirit_swarm", "seed_spirit_swarm", "fire_slime_nest", "rock_slime_nest", "lightning_slime_nest", "wind_slime_nest", "seed_nest", "vine_colony", "titan_remnant", "nature_slime_nest", "pve_water_slime_nest", "dimension_toad", "firework_tower", "crater")) attack(clips, name, false);
         for (String name : List.of("rock_drop", "nature_drop", "lightning_drop", "meteor_shower", "leafair", "magma_explosion", "overgrowth", "razor_gale", "shock_overload", "vine_world", "boulder_strike", "chain_lightning", "tidal_warhead", "tide_call", "vine_fan", "vine_toss", "tornado_strike")) attack(clips, name, false);
         attack(clips, "dragon_tower", false); // Fixed ground-level forward flame, not target-seeking anti-air.
 

@@ -48,7 +48,7 @@ class RemainingMagicPreviewTest {
             Map.entry("sea_serpent", "SeaSerpent"), Map.entry("electric_tower", "ElectricTower"),
             Map.entry("dragon_tower", "DragonFlame"), Map.entry("bomb_sprite", "BombSpriteBomb"),
             Map.entry("firework_tower", "FireworkShell"), Map.entry("magma_spirit", "MagmaFist"),
-            Map.entry("titan_remnant", "TitanFist"));
+            Map.entry("crater_carrier", "CraterCarrier"), Map.entry("titan_remnant", "TitanFist"));
 
     static java.util.stream.Stream<String> remainingNames() {
         return MAGICS.keySet().stream().filter(name -> !PREVIOUS.contains(name));
@@ -95,9 +95,15 @@ class RemainingMagicPreviewTest {
         if (key.equals("speed") && Set.of("storm_stag", "zap_mouse").contains(object)) return 4;
         if (key.equals("detection_range") && Set.of("storm_stag", "zap_mouse").contains(object)) return 0.6;
         if (key.equals("sub_attack_range") && object.equals("evil_ent")) return 6;
+        // 정령 폭탄 빔은 클릭 거리와 상관없이 사거리 끝까지 뻗는다. 운영 값 18 을 따른다.
+        if (key.equals("range") && object.equals("spirit_bomb")) return 18;
+        if (object.equals("crater_shell") && key.equals("radius")) return 1.4;
+        if (object.equals("crater_shell") && key.equals("speed")) return 6;
         if (key.equals("attack_offset")) return 3;
         if (key.equals("radius") && Set.of("meteor_shower", "magma_explosion", "overgrowth", "shock_overload", "razor_gale", "leafair").contains(object)) return 2;
         if (key.equals("duration") && object.equals("repair_totem")) return 5;
+        if (key.equals("speed") && object.equals("rallying_totem")) return 5;
+        if (key.equals("detection_range") && object.equals("rallying_totem")) return 8;
         // This initializer reads an integer interval: 0.8 would truncate to zero
         // and TimedBehaviorMob's production catch-up loop would never terminate.
         if (key.equals("attack_interval") && object.equals("vine_colony")) return 1;
@@ -116,7 +122,8 @@ class RemainingMagicPreviewTest {
             case "buff_duration" -> 2;
             case "z_force", "push_force" -> 5;
             case "projectile_speed" -> 8;
-            case "chain_count", "vine_count" -> 3;
+            case "chain_count" -> 3;
+            case "vine_count" -> 9;
             case "min_damage" -> 20;
             case "max_mana" -> 100;
             case "acceleration" -> 5;
@@ -134,6 +141,8 @@ class RemainingMagicPreviewTest {
             case "shock_stun_duration", "shock_refresh_duration", "sandstorm_effect_duration" -> 1;
             case "sandstorm_effect_damage" -> 30;
             case "building_snare_heal" -> 10;
+            case "setup_duration" -> 1.2;
+            case "recovery_duration" -> 0.9;
             case "vine_spacing" -> 1;
             case "vine_spawn_interval" -> 0.12;
             default -> throw new AssertionError("Missing remaining-preview parameter: " + object + "." + key);
@@ -186,7 +195,7 @@ class RemainingMagicPreviewTest {
             attack(clips, name, true);
         }
         for (String name : List.of("tower", "bubble_spirit")) attack(clips, name, true);
-        for (String name : List.of("cannon", "rock_turret", "fire_spirit", "thunder_spirit", "magma_spirit", "wall_golem", "tree_golem", "storm_rider", "storm_stag", "zap_mouse", "chicken_commando", "bomb_sprite", "ember_spirit_swarm", "seed_spirit_swarm", "fire_slime_nest", "rock_slime_nest", "lightning_slime_nest", "wind_slime_nest", "seed_nest", "vine_colony", "titan_remnant", "nature_slime_nest", "pve_water_slime_nest", "dimension_toad", "firework_tower", "crater")) attack(clips, name, false);
+        for (String name : List.of("cannon", "rock_turret", "fire_spirit", "thunder_spirit", "magma_spirit", "wall_golem", "tree_golem", "storm_rider", "storm_stag", "zap_mouse", "chicken_commando", "bomb_sprite", "bean_shooter", "arcane_infantry", "crater_carrier", "ember_spirit_swarm", "seed_spirit_swarm", "fire_slime_nest", "rock_slime_nest", "lightning_slime_nest", "wind_slime_nest", "seed_nest", "vine_colony", "titan_remnant", "nature_slime_nest", "pve_water_slime_nest", "dimension_toad", "firework_tower", "crater")) attack(clips, name, false);
         for (String name : List.of("rock_drop", "nature_drop", "lightning_drop", "meteor_shower", "leafair", "magma_explosion", "overgrowth", "razor_gale", "shock_overload", "vine_world", "boulder_strike", "chain_lightning", "tidal_warhead", "tide_call", "vine_fan", "vine_toss", "tornado_strike")) attack(clips, name, false);
         attack(clips, "dragon_tower", false); // Fixed ground-level forward flame, not target-seeking anti-air.
         attackChecks.assertAll();
@@ -273,10 +282,10 @@ class RemainingMagicPreviewTest {
             }
         }
         if (selectedName.equals("rallying_totem")) try (Capture c = new Capture(true)) {
-            GameObject ally = new GameObject(Master.LeftPlayer, PrefabType.AquaArcher, new Vector3(3, 0, 5), c.context);
+            GameObject ally = new GameObject(Master.LeftPlayer, PrefabType.AquaArcher, new Vector3(0, 0, 5), c.context);
             c.record(clips, "rallying_totem", "rally", "집결 이동·고무", "Rally movement and Inspired", 5,
                     tick -> { if (tick == 12) c.cast(magic("rallying_totem", c), new Vector3(6, 0, 5)); });
-            assertThat(ally.getPosition().getX()).isGreaterThan(3);
+            assertThat(ally.getPosition().getX()).isGreaterThan(2.5f);
             assertThat(c.seenEffects).contains("Inspired");
         }
         if (selectedName.equals("repair_totem")) try (Capture c = new Capture(true)) {

@@ -9,6 +9,8 @@ import com.wordonline.server.game.domain.pve.PveScenario;
 import com.wordonline.server.game.domain.pve.PveScenarioAction;
 import com.wordonline.server.game.domain.pve.PveScenarioEvent;
 import com.wordonline.server.game.domain.pve.PveScenarioRules;
+import com.wordonline.server.game.domain.pve.PveSetBgmAction;
+import com.wordonline.server.game.domain.pve.PvePullPlayerUnitsAction;
 import com.wordonline.server.game.domain.pve.PveSetSpawnerAction;
 import com.wordonline.server.game.domain.pve.PveShield;
 import com.wordonline.server.game.domain.pve.PveSpawnWaveAction;
@@ -59,7 +61,7 @@ public class PveScenarioRepository {
 
     private static final String FIND_EVENT_ACTIONS = """
             SELECT action_type, installer_id, prefab_type, count, interval_seconds,
-                   position_x, position_z, max_hp
+                   position_x, position_z, max_hp, bgm_key
             FROM pve_scenario_event_actions
             WHERE event_row_id = :eventRowId
             ORDER BY action_order
@@ -100,14 +102,20 @@ public class PveScenarioRepository {
 
     public Optional<PveScenario> findById(Long scenarioId) {
         List<PveInstallObject> installers = findInstallers(scenarioId);
-        if (installers.isEmpty()) {
+        List<String> objectives = findObjectives(scenarioId);
+        PveScenarioRules rules = findRules(scenarioId);
+        // A scenario may start with no structure: a Survive scenario only has to outlast the
+        // timer, and a scenario with objectives installs them later through InstallObject. With
+        // no installer, no objective and no Survive rule, the id is treated as unknown.
+        if (installers.isEmpty() && objectives.isEmpty()
+                && rules.winCondition() != PveWinCondition.Survive) {
             return Optional.empty();
         }
         return Optional.of(new PveScenario(
-                        findObjectives(scenarioId),
+                        objectives,
                         installers,
                         findEvents(scenarioId),
-                        findRules(scenarioId),
+                        rules,
                         findShields(scenarioId)
                 ));
     }
@@ -182,7 +190,8 @@ public class PveScenarioRepository {
                         getNullableFloat(rs, "interval_seconds"),
                         getNullableInt(rs, "position_x"),
                         getNullableInt(rs, "position_z"),
-                        getNullableInt(rs, "max_hp")
+                        getNullableInt(rs, "max_hp"),
+                        rs.getString("bgm_key")
                 ))
                 .list();
 
@@ -212,6 +221,8 @@ public class PveScenarioRepository {
                     row.prefabType() == null ? null : PrefabType.valueOf(row.prefabType()),
                     row.intervalSeconds()
             );
+            case "PullPlayerUnits" -> new PvePullPlayerUnitsAction(row.installerId());
+            case "PlayBgm" -> new PveSetBgmAction(row.bgmKey());
             default -> throw new IllegalArgumentException("Unknown action_type: " + row.actionType());
         };
     }
@@ -264,7 +275,8 @@ public class PveScenarioRepository {
             Float intervalSeconds,
             Integer positionX,
             Integer positionZ,
-            Integer maxHp
+            Integer maxHp,
+            String bgmKey
     ) {
     }
 }
