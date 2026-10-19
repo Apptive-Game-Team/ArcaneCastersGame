@@ -65,6 +65,35 @@ class PlacementPlannerTest {
         assertThat(caster.distance(placement)).isLessThanOrEqualTo(18);
     }
 
+    // 원거리 유닛은 근접 유닛이 막을 자리보다 뒤에 선다.
+    @Test
+    void placesARangedUnitBehindWhereABlockerWouldStand() {
+        ThreatAssessment threats = threatsAgainstLeft(new Vector3(9, 0, 5));
+        Vector3 caster = GameConfig.LEFT_PLAYER_POSITION;
+
+        Vector3 blocker = PlacementPlanner.plan(
+                caster, 10, Master.LeftPlayer, threats, new PlacementPlanner.Options(false, false), FIXED_RANDOM);
+        Vector3 ranged = PlacementPlanner.plan(
+                caster, 10, Master.LeftPlayer, threats, new PlacementPlanner.Options(false, true), FIXED_RANDOM);
+
+        assertThat(ranged.getX()).isGreaterThan(caster.getX());
+        assertThat(ranged.getX()).isLessThan(blocker.getX());
+    }
+
+    @Test
+    void defendsTheStrongestLaneInsteadOfTheMiddleBetweenTwo() {
+        ThreatAssessment threats = threatsAgainstLeft(
+                new Vector3(4, 0, 1), new Vector3(4, 0, 1.5f), new Vector3(4, 0, 9));
+
+        Vector3 averaged = PlacementPlanner.plan(GameConfig.LEFT_PLAYER_POSITION, 10, Master.LeftPlayer, threats,
+                PlacementPlanner.Options.BASIC, FIXED_RANDOM);
+        Vector3 strongest = PlacementPlanner.plan(GameConfig.LEFT_PLAYER_POSITION, 10, Master.LeftPlayer, threats,
+                new PlacementPlanner.Options(true, false), FIXED_RANDOM);
+
+        assertThat(averaged.getZ()).isBetween(3f, 5f);
+        assertThat(strongest.getZ()).isLessThan(2f);
+    }
+
     private static ThreatAssessment threatsAgainstLeft(Vector3... enemyPositions) {
         return observe(Master.RightPlayer, GameConfig.LEFT_PLAYER_POSITION, enemyPositions);
     }

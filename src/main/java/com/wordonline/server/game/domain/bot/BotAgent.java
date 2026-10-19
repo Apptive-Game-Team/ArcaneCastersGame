@@ -20,6 +20,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 
 @Getter
 @Slf4j
@@ -56,7 +57,15 @@ public final class BotAgent {
                     BotCounterEvaluator counterEvaluator,
                     double opponentNoviceProgress) {
         this(sessionObject, botSide, persona,
-                new RuleDecisionSource(new BotBrain(magicParser, counterEvaluator, persona, opponentNoviceProgress)));
+                new RuleDecisionSource(new BotBrain(magicParser, counterEvaluator, persona, opponentNoviceProgress,
+                        BotSkill.forTier(persona.tier()), deckCards(sessionObject, botSide))));
+    }
+
+    /** Every card of the bot's deck, copies included, as the session dealt it. */
+    public static Supplier<List<Long>> deckCards(SessionObject sessionObject, Master botSide) {
+        return () -> botSide == Master.LeftPlayer
+                ? sessionObject.getLeftDeckCardIds()
+                : sessionObject.getRightDeckCardIds();
     }
 
     /**

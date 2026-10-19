@@ -2,12 +2,14 @@ package com.wordonline.server.bot.llm;
 
 import java.time.Duration;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -16,6 +18,7 @@ import com.wordonline.server.bot.domain.BotBrainType;
 import com.wordonline.server.bot.domain.BotPersona;
 import com.wordonline.server.game.domain.bot.BotBrain;
 import com.wordonline.server.game.domain.bot.BotDecisionSource;
+import com.wordonline.server.game.domain.bot.BotSkill;
 import com.wordonline.server.game.domain.bot.RuleDecisionSource;
 import com.wordonline.server.game.domain.magic.parser.DatabaseMagicParser;
 import com.wordonline.server.game.domain.magic.parser.MagicParser;
@@ -96,8 +99,19 @@ public class BotDecisionSourceFactory {
                                     MagicParser magicParser,
                                     BotCounterEvaluator counterEvaluator,
                                     double opponentNoviceProgress) {
-        RuleDecisionSource rule = new RuleDecisionSource(
-                new BotBrain(magicParser, counterEvaluator, persona, opponentNoviceProgress));
+        return create(persona, magicParser, counterEvaluator, opponentNoviceProgress, List::of);
+    }
+
+    /**
+     * @param deckCards every card of the bot's deck, which the rule brain reads its game plan from
+     */
+    public BotDecisionSource create(BotPersona persona,
+                                    MagicParser magicParser,
+                                    BotCounterEvaluator counterEvaluator,
+                                    double opponentNoviceProgress,
+                                    Supplier<List<Long>> deckCards) {
+        RuleDecisionSource rule = new RuleDecisionSource(new BotBrain(magicParser, counterEvaluator, persona,
+                opponentNoviceProgress, BotSkill.forTier(persona.tier()), deckCards));
         BotBrainType type = persona.normalizedBrainType();
         if (!type.usesLlm()) {
             return rule;
