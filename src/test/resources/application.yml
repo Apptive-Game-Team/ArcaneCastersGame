@@ -16,6 +16,6 @@ spring:
 team6515:
   server:
     account:
-      url: http://localhost:8081
+      url: http://127.0.0.1:8081
 logging:
-  discord-webhook-url: http://localhost/webhook
+  discord-webhook-url: http://127.0.0.1/webhook

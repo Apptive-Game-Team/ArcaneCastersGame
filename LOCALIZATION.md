@@ -29,10 +29,10 @@ Accept-Language: ko
 ### Example with curl:
 ```bash
 # English
-curl -H "Accept-Language: en" http://localhost:6515/api/endpoint
+curl -H "Accept-Language: en" http://127.0.0.1:6515/api/endpoint
 
 # Korean  
-curl -H "Accept-Language: ko" http://localhost:6515/api/endpoint
+curl -H "Accept-Language: ko" http://127.0.0.1:6515/api/endpoint
 ```
 
 ## Supported Error Messages

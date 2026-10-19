@@ -39,7 +39,7 @@ import static org.mockito.Mockito.when;
         "bot.auto-match.max-sessions-per-sweep=5",
         "server.max-sessions=100",
         "server.external-port=7777",
-        "server.domain=localhost",
+        "server.domain=127.0.0.1",
         "server.protocol=http"
 })
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)

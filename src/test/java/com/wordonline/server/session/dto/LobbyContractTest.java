@@ -66,7 +66,7 @@ class LobbyContractTest {
     @Test
     void 이_서버가_보내는_응답이_공유_픽스처와_일치한다() throws IOException {
         SessionReadyResponse response = new SessionReadyResponse(
-                "attempt-1", "session-1", true, "http://localhost:7777", "http://localhost:7777/ws",
+                "attempt-1", "session-1", true, "http://127.0.0.1:7777", "http://127.0.0.1:7777/ws",
                 "00000000-0000-0000-0000-000000000001", GameMap.GRASSLAND);
 
         assertThat(objectMapper.readTree(objectMapper.writeValueAsString(response)))

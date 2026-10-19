@@ -408,7 +408,7 @@ class BotGameSchedulerTest {
                 botPersonaService,
                 serverStatusService,
                 properties,
-                new ServerIdentityProperties("http", "localhost", 7777, maxSessions, ""),
+                new ServerIdentityProperties("http", "127.0.0.1", 7777, maxSessions, ""),
                 sweepProperties
         );
     }
