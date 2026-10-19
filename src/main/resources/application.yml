@@ -68,6 +68,8 @@ bot:
   auto-match:
     enabled: ${BOT_AUTO_MATCH_ENABLED:true}
     target-games: ${BOT_AUTO_MATCH_TARGET_GAMES:1}
+    # The opponent of a bot is drawn at random from this many bots closest to it in MMR.
+    nearest-opponent-count: ${BOT_AUTO_MATCH_NEAREST_OPPONENT_COUNT:3}
     check-interval-ms: ${BOT_AUTO_MATCH_CHECK_INTERVAL_MS:60000}
     max-sessions-per-sweep: ${BOT_AUTO_MATCH_MAX_SESSIONS_PER_SWEEP:5}
   # Threads the bot ticks run on. pool-size 0 means one thread per available processor; the pool
@@ -76,6 +78,26 @@ bot:
   executor:
     pool-size: ${BOT_EXECUTOR_POOL_SIZE:0}
     queue-capacity: ${BOT_EXECUTOR_QUEUE_CAPACITY:64}
+  # Bot personas whose brain_type is JEV or OPENROUTER. key-secret decrypts the provider API keys the
+  # admin server stores in llm_api_keys; both servers need the same LLM_KEY_SECRET, and when it is
+  # blank every LLM persona plays with the rule brain. Requests run on their own pool of pool-size
+  # threads, at most one per bot every min-interval-ms (jev-min-interval-ms for JEV), and give up
+  # after timeout-ms.
+  llm:
+    key-secret: ${LLM_KEY_SECRET:}
+    timeout-ms: ${BOT_LLM_TIMEOUT_MS:4000}
+    min-interval-ms: ${BOT_LLM_MIN_INTERVAL_MS:1500}
+    jev-min-interval-ms: ${BOT_LLM_JEV_MIN_INTERVAL_MS:500}
+    # PLAY: jev picks each cast. STANCE: jev picks attack, defend or save and code casts under it.
+    # CARD: jev picks the card from what each card does, and code aims it.
+    jev-mode: ${BOT_LLM_JEV_MODE:STANCE}
+    pool-size: ${BOT_LLM_POOL_SIZE:4}
+    jev-url: ${BOT_LLM_JEV_URL:https://api.typesafe.ai/v1/systemone}
+    jev-default-model: ${BOT_LLM_JEV_DEFAULT_MODEL:jev-latest}
+    openrouter-url: ${BOT_LLM_OPENROUTER_URL:https://openrouter.ai/api/v1/chat/completions}
+    openrouter-default-model: ${BOT_LLM_OPENROUTER_DEFAULT_MODEL:openrouter/auto}
+    # How long a key stays unavailable after HTTP 402 or 403 (401 and an undecryptable key: 30 days).
+    unavailable-minutes: ${BOT_LLM_UNAVAILABLE_MINUTES:60}
 
 # account mints every JWT this server verifies; the JwtDecoder fetches account's JSON Web
 # Key Set from url + /.well-known/jwks (see AccountProperties). No local public key is kept

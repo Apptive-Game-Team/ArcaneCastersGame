@@ -74,7 +74,7 @@ class DebugServiceTest {
     @Test
     void practiceResponseCarriesTheMapOfTheCreatedSession() {
         stubCreatedSessionWithMap(GameMap.RIVER);
-        when(botPersonaService.findRandomEnabled()).thenReturn(Optional.of(persona(-12)));
+        when(botPersonaService.findRandomMatchable()).thenReturn(Optional.of(persona(-12)));
 
         DebugGameResponseDto response =
                 debugService.enterPracticeSession(new DebugGameRequestDto(Master.LeftPlayer, 31, null));
@@ -94,7 +94,7 @@ class DebugServiceTest {
 
     @Test
     void practiceUsesRandomEnabledBotAndPracticeSessionType() {
-        when(botPersonaService.findRandomEnabled()).thenReturn(Optional.of(persona(-12)));
+        when(botPersonaService.findRandomMatchable()).thenReturn(Optional.of(persona(-12)));
 
         debugService.enterPracticeSession(new DebugGameRequestDto(Master.LeftPlayer, 31, null));
 
@@ -106,13 +106,13 @@ class DebugServiceTest {
     }
 
     @Test
-    void practiceFailsWhenNoEnabledBotExists() {
-        when(botPersonaService.findRandomEnabled()).thenReturn(Optional.empty());
+    void practiceFailsWhenNoMatchableBotExists() {
+        when(botPersonaService.findRandomMatchable()).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> debugService.enterPracticeSession(
                 new DebugGameRequestDto(Master.LeftPlayer, 31, null)))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("No enabled bot persona");
+                .hasMessageContaining("No matchable bot persona");
     }
 
     @Test

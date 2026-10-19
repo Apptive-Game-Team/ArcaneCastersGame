@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.wordonline.server.bot.llm.BotDecisionSourceFactory;
 import com.wordonline.server.bot.service.BotPersonaService;
 import com.wordonline.server.game.domain.Parameters;
 import com.wordonline.server.game.domain.magic.parser.DatabaseMagicParser;
@@ -35,6 +36,7 @@ class PveLoopTest {
             mock(FeverTimeSystem.class), mock(GameObjectStateInitialSystem.class),
             mock(ComponentUpdateSystem.class), mock(PhysicSystem.class), mock(GameObjectAddRemoteSystem.class),
             mock(DatabaseMagicParser.class), mock(BotPersonaService.class), mock(BotCounterEvaluator.class),
+            BotDecisionSourceFactory.ruleOnly(),
             mock(PveScenarioRegistry.class), mock(PveScenarioInstaller.class), scriptSystem);
 
     @Test

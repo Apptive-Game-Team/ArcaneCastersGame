@@ -14,10 +14,14 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.Collections;
+import java.util.HashSet;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.random.RandomGenerator;
 
 @Slf4j
 @Component
@@ -25,6 +29,8 @@ import java.util.UUID;
 public class BotGameScheduler {
 
     private static final String SESSION_PREFIX = "bot-auto-";
+    /** Same default as MmrService for a bot without a users row. */
+    private static final int DEFAULT_MMR = 1000;
 
     private final SessionService sessionService;
     private final BotPersonaService botPersonaService;
@@ -51,19 +57,57 @@ public class BotGameScheduler {
             return;
         }
 
-        List<BotPersona> bots = botPersonaService.findEnabled();
-        if (bots.size() < 2) {
-            log.warn("[BotGameScheduler] Need at least two enabled bot personas. enabledCount={}", bots.size());
+        List<BotPersona> matchable = botPersonaService.findMatchable();
+        if (matchable.size() < 2) {
+            log.warn("[BotGameScheduler] Need at least two matchable bot personas. matchableCount={}", matchable.size());
             return;
         }
+        Map<Long, Integer> mmrByUserId = botPersonaService.findMmrByUserIds(
+                matchable.stream().map(BotPersona::userId).toList());
+        Set<Long> busyUserIds = new HashSet<>(sessionService.getParticipantUserIds());
 
         // Ramp up over several sweeps instead of creating the whole shortfall in one go. Each
         // session costs a deck query, a record insert, an object graph and a Thread.start, all
         // synchronous on the scheduler thread, and the loop watchdog shares that pool.
         long sessionsThisSweep = Math.min(missingGames, sweepProperties.maxSessionsPerSweep());
         for (long i = 0; i < sessionsThisSweep; i++) {
-            createBotGame(bots);
+            // Free bots are preferred, but with fewer than two of them the pool is every matchable
+            // bot: a server asked for more bot games than it has bot pairs must still reach its target.
+            List<BotPersona> free = matchable.stream()
+                    .filter(bot -> !busyUserIds.contains(bot.userId()))
+                    .toList();
+            List<BotPersona> pool = free.size() >= 2 ? free : matchable;
+            List<BotPersona> pair = pickPair(pool, mmrByUserId,
+                    botAutoMatchProperties.nearestOpponentCount(), ThreadLocalRandom.current());
+            busyUserIds.add(pair.get(0).userId());
+            busyUserIds.add(pair.get(1).userId());
+            createBotGame(pair.get(0), pair.get(1));
         }
+    }
+
+    /**
+     * Picks the first bot at random, then its opponent at random among the {@code nearestCount}
+     * other bots closest to it in MMR. A bot without a mmr entry counts as {@value #DEFAULT_MMR}.
+     * Returns {@code [first, opponent]}; {@code candidates} needs at least two bots.
+     */
+    static List<BotPersona> pickPair(List<BotPersona> candidates,
+                                     Map<Long, Integer> mmrByUserId,
+                                     int nearestCount,
+                                     RandomGenerator random) {
+        BotPersona first = candidates.get(random.nextInt(candidates.size()));
+        int firstMmr = mmrOf(first, mmrByUserId);
+        List<BotPersona> nearest = candidates.stream()
+                .filter(bot -> bot.userId() != first.userId())
+                .sorted(Comparator
+                        .comparingInt((BotPersona bot) -> Math.abs(mmrOf(bot, mmrByUserId) - firstMmr))
+                        .thenComparingLong(BotPersona::userId))
+                .limit(nearestCount)
+                .toList();
+        return List.of(first, nearest.get(random.nextInt(nearest.size())));
+    }
+
+    private static int mmrOf(BotPersona bot, Map<Long, Integer> mmrByUserId) {
+        return mmrByUserId.getOrDefault(bot.userId(), DEFAULT_MMR);
     }
 
     /**
@@ -110,12 +154,7 @@ public class BotGameScheduler {
         }
     }
 
-    private void createBotGame(List<BotPersona> bots) {
-        List<BotPersona> shuffledBots = new ArrayList<>(bots);
-        Collections.shuffle(shuffledBots);
-
-        BotPersona leftBot = shuffledBots.get(0);
-        BotPersona rightBot = shuffledBots.get(1);
+    private void createBotGame(BotPersona leftBot, BotPersona rightBot) {
         SessionDto sessionDto = new SessionDto(
                 SESSION_PREFIX + UUID.randomUUID(),
                 leftBot.userId(),

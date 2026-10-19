@@ -1,5 +1,6 @@
 package com.wordonline.server.bot.service;
 
+import com.wordonline.server.bot.domain.BotBrainType;
 import com.wordonline.server.bot.domain.BotPersona;
 import com.wordonline.server.bot.domain.BotTemperament;
 import com.wordonline.server.bot.domain.BotTier;
@@ -61,19 +62,47 @@ class BotPersonaServiceTest {
     @Test
     void selectsTheOnlyEnabledPersona() {
         BotPersona persona = persona(-7);
-        when(repository.findAll()).thenReturn(List.of(persona));
+        when(repository.findMatchable()).thenReturn(List.of(persona));
 
-        assertThat(service.findRandomEnabled()).contains(persona);
+        assertThat(service.findRandomMatchable()).contains(persona);
     }
 
     @Test
     void returnsEmptyWhenNoPersonaIsEnabled() {
-        when(repository.findAll()).thenReturn(List.of(
-                new BotPersona(-7, "Disabled", BotTier.BEGINNER, 250, 8, 0.25, false, false,
-                        BotTemperament.WARM)
-        ));
+        when(repository.findMatchable()).thenReturn(List.of());
 
-        assertThat(service.findRandomEnabled()).isEmpty();
+        assertThat(service.findRandomMatchable()).isEmpty();
+    }
+
+    @Test
+    void normalizesTheBrainChoiceOnCreate() {
+        when(repository.create(org.mockito.ArgumentMatchers.any())).thenAnswer(invocation -> {
+            BotPersonaRequestDto saved = invocation.getArgument(0);
+            assertThat(saved.brainType()).isEqualTo(BotBrainType.RULE);
+            assertThat(saved.llmModel()).isEqualTo("jev-pro");
+            return persona(-7);
+        });
+
+        service.create(new BotPersonaRequestDto(-7, "Bot", BotTier.BEGINNER, 250, 8, 0.25, true, false,
+                BotTemperament.WARM, null, "  jev-pro "));
+
+        verify(repository).create(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void rejectsAModelNameLongerThanTheColumn() {
+        assertThatThrownBy(() -> service.create(new BotPersonaRequestDto(-7, "Bot", BotTier.BEGINNER, 250, 8,
+                0.25, true, false, BotTemperament.WARM, BotBrainType.OPENROUTER, "m".repeat(101))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("100");
+    }
+
+    @Test
+    void unknownStoredBrainTypesPlayAsRule() {
+        assertThat(BotBrainType.fromDatabase(null)).isEqualTo(BotBrainType.RULE);
+        assertThat(BotBrainType.fromDatabase(" ")).isEqualTo(BotBrainType.RULE);
+        assertThat(BotBrainType.fromDatabase("GPT")).isEqualTo(BotBrainType.RULE);
+        assertThat(BotBrainType.fromDatabase("openrouter")).isEqualTo(BotBrainType.OPENROUTER);
     }
 
     private BotPersonaRequestDto request(long userId) {
