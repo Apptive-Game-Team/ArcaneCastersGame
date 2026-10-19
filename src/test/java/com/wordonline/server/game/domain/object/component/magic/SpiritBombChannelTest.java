@@ -1,6 +1,8 @@
 package com.wordonline.server.game.domain.object.component.magic;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyFloat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -23,6 +25,7 @@ import com.wordonline.server.game.dto.frame.projectile.PositionProjectileTarget;
 import com.wordonline.server.game.dto.frame.projectile.ReferenceProjectileTarget;
 import com.wordonline.server.game.service.GameContext;
 import com.wordonline.server.game.service.ObjectsInfoDtoBuilder;
+import com.wordonline.server.game.util.SimplePhysics;
 
 class SpiritBombChannelTest {
 
@@ -38,7 +41,7 @@ class SpiritBombChannelTest {
         DummyMob nearMob = addMob(nearEnemy);
         GameObject farEnemy = object(Master.RightPlayer, PrefabType.MiniRock, new Vector3(4f, 0f, 0f), context);
         DummyMob farMob = addMob(farEnemy);
-        when(context.getActiveGameObjects()).thenReturn(List.of(player, farEnemy, nearEnemy));
+        world(context, player, farEnemy, nearEnemy);
 
         SpiritBombChannel channel = new SpiritBombChannel(
                 player,
@@ -89,7 +92,7 @@ class SpiritBombChannelTest {
         GameObject player = object(Master.LeftPlayer, PrefabType.Player, Vector3.ZERO, context);
         GameObject enemy = object(Master.RightPlayer, PrefabType.MiniRock, new Vector3(12f, 0f, 0f), context);
         DummyMob mob = addMob(enemy);
-        when(context.getActiveGameObjects()).thenReturn(List.of(player, enemy));
+        world(context, player, enemy);
 
         SpiritBombChannel channel = new SpiritBombChannel(player, new Vector3(1f, 0f, 0f), 40, 18f);
         channel.update();
@@ -105,7 +108,7 @@ class SpiritBombChannelTest {
         DummyMob offLaneMob = addMob(offLane);
         GameObject beyondRange = object(Master.RightPlayer, PrefabType.MiniRock, new Vector3(25f, 0f, 0f), context);
         DummyMob beyondRangeMob = addMob(beyondRange);
-        when(context.getActiveGameObjects()).thenReturn(List.of(player, offLane, beyondRange));
+        world(context, player, offLane, beyondRange);
 
         SpiritBombChannel channel = new SpiritBombChannel(player, new Vector3(6f, 0f, 0f), 40, 18f);
         channel.update();
@@ -123,7 +126,7 @@ class SpiritBombChannelTest {
         firstMob.applyDamage(new AttackInfo(70, ElementType.NONE));
         GameObject second = object(Master.RightPlayer, PrefabType.MiniRock, new Vector3(6f, 0f, 0f), context);
         DummyMob secondMob = addMob(second);
-        when(context.getActiveGameObjects()).thenReturn(List.of(player, second, first));
+        world(context, player, second, first);
 
         // 첫 tick 피해량 40: 첫 적은 30 만 남아 있어 10 이 넘치고, 그 10 이 다음 적에게 간다.
         SpiritBombChannel channel = new SpiritBombChannel(player, new Vector3(6f, 0f, 0f), 160, 18f);
@@ -141,7 +144,7 @@ class SpiritBombChannelTest {
         GameObject player = object(Master.LeftPlayer, PrefabType.Player, Vector3.ZERO, context);
         GameObject enemy = object(Master.RightPlayer, PrefabType.MiniRock, new Vector3(5f, 0f, 1f), context);
         DummyMob mob = addMob(enemy);
-        when(context.getActiveGameObjects()).thenReturn(List.of(player, enemy));
+        world(context, player, enemy);
 
         SpiritBombChannel channel = new SpiritBombChannel(player, new Vector3(6f, 0f, 0f), 40, 18f);
         channel.update();
@@ -155,12 +158,47 @@ class SpiritBombChannelTest {
     void beamReachesCastRangeWhenNothingIsOnTheLine() {
         GameContext context = channelContext();
         GameObject player = object(Master.LeftPlayer, PrefabType.Player, Vector3.ZERO, context);
-        when(context.getActiveGameObjects()).thenReturn(List.of(player));
+        world(context, player);
 
         SpiritBombChannel channel = new SpiritBombChannel(player, new Vector3(6f, 0f, 0f), 40, 18f);
         channel.update();
 
         verifyBeam(context, player, 18f, SpiritBombChannel.visualWidth(40));
+    }
+
+    @Test
+    void enemyJustBehindTheCasterIsNotHit() {
+        GameContext context = channelContext();
+        GameObject player = object(Master.LeftPlayer, PrefabType.Player, Vector3.ZERO, context);
+        GameObject behind = object(Master.RightPlayer, PrefabType.MiniRock, new Vector3(-0.5f, 0f, 0f), context);
+        DummyMob behindMob = addMob(behind);
+        GameObject ahead = object(Master.RightPlayer, PrefabType.MiniRock, new Vector3(8f, 0f, 0f), context);
+        DummyMob aheadMob = addMob(ahead);
+        world(context, player, behind, ahead);
+
+        SpiritBombChannel channel = new SpiritBombChannel(player, new Vector3(6f, 0f, 0f), 40, 18f);
+        channel.update();
+
+        assertThat(behindMob.getHp()).isEqualTo(100);
+        assertThat(aheadMob.getHp()).isEqualTo(90);
+    }
+
+    @Test
+    void theEnemyFurtherAlongTheAimLineIsHitLaterEvenIfItIsCloserInStraightDistance() {
+        GameContext context = channelContext();
+        GameObject player = object(Master.LeftPlayer, PrefabType.Player, Vector3.ZERO, context);
+        // 비켜 선 적은 직선 거리 약 5.14, 조준선 거리 5. 선 위의 적은 직선 거리와 조준선 거리 모두 5.1.
+        GameObject offCenter = object(Master.RightPlayer, PrefabType.MiniRock, new Vector3(5f, 0f, 1.2f), context);
+        DummyMob offCenterMob = addMob(offCenter);
+        GameObject onLine = object(Master.RightPlayer, PrefabType.MiniRock, new Vector3(5.1f, 0f, 0f), context);
+        DummyMob onLineMob = addMob(onLine);
+        world(context, player, onLine, offCenter);
+
+        SpiritBombChannel channel = new SpiritBombChannel(player, new Vector3(6f, 0f, 0f), 40, 18f);
+        channel.update();
+
+        assertThat(offCenterMob.getHp()).isEqualTo(90);
+        assertThat(onLineMob.getHp()).isEqualTo(100);
     }
 
     private void verifyBeam(GameContext context, GameObject player, float endX, float width) {
@@ -179,6 +217,18 @@ class SpiritBombChannelTest {
         when(context.getObjectsInfoDtoBuilder()).thenReturn(dtoBuilder);
         when(context.getDeltaTime()).thenReturn(SpiritBombChannel.CHARGE_DURATION);
         return context;
+    }
+
+    private void world(GameContext context, GameObject... objects) {
+        List<GameObject> gameObjects = List.of(objects);
+        SimplePhysics physics = new SimplePhysics(gameObjects);
+        when(context.getActiveGameObjects()).thenReturn(gameObjects);
+        when(context.sphereCastAll(any(Vector3.class), anyFloat(), any(Vector3.class), anyFloat()))
+                .thenAnswer(invocation -> physics.sphereCastAll(
+                        invocation.getArgument(0),
+                        invocation.getArgument(1),
+                        invocation.getArgument(2),
+                        invocation.getArgument(3)));
     }
 
     private DummyMob addMob(GameObject object) {

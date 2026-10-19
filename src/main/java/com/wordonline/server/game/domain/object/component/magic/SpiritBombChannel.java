@@ -1,6 +1,5 @@
 package com.wordonline.server.game.domain.object.component.magic;
 
-import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.Set;
@@ -180,34 +179,14 @@ public class SpiritBombChannel extends Component {
     }
 
     private GameObject findClosestTarget(Set<GameObject> excluded) {
-        Vector3 origin = gameObject.getPosition().grounded();
-        Vector3 end = origin.plus(direction.multiply(beamLength));
-
-        return getGameContext().getActiveGameObjects().stream()
+        return getGameContext()
+                .sphereCastAll(gameObject.getPosition(), BEAM_WIDTH, direction, beamLength)
+                .stream()
                 .filter(target -> !excluded.contains(target))
                 .filter(target -> TargetRelation.canAttack(gameObject, target))
                 .filter(target -> target.hasComponent(Damageable.class))
-                .filter(target -> {
-                    float targetRadius = target.getFirstCircleCollider()
-                            .map(collider -> collider.getRadius())
-                            .orElse(0f);
-                    return distanceToSegment(target.getPosition().grounded(), origin, end)
-                            <= BEAM_WIDTH + targetRadius;
-                })
-                .min(Comparator.comparingDouble(target -> target.getPosition().distance(origin)))
+                .findFirst()
                 .orElse(null);
-    }
-
-    static double distanceToSegment(Vector3 point, Vector3 start, Vector3 end) {
-        Vector3 segment = end.subtract(start);
-        float lengthSquared = segment.dot(segment);
-        if (lengthSquared == 0f) {
-            return point.distance(start);
-        }
-
-        float progress = Math.clamp(point.subtract(start).dot(segment) / lengthSquared, 0f, 1f);
-        Vector3 closest = start.plus(segment.multiply(progress));
-        return point.distance(closest);
     }
 
     @Override

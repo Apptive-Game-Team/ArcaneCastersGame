@@ -136,6 +136,10 @@ public class GameContext {
         return physics.overlapSphereAll(position, distance);
     }
 
+    public List<GameObject> sphereCastAll(Vector3 origin, float radius, Vector3 direction, float maxDistance) {
+        return physics.sphereCastAll(origin, radius, direction, maxDistance);
+    }
+
     public ObjectsInfoDto getObjectsInfoDto() {
         return objectsInfoDtoBuilder.getObjectsInfoDto();
     }

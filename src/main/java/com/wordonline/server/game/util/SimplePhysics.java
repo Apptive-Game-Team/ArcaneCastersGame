@@ -1,10 +1,12 @@
 package com.wordonline.server.game.util;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.Vector3;
+import com.wordonline.server.game.domain.object.component.physic.CircleCollider;
 import com.wordonline.server.game.domain.object.component.physic.CircleCollidingHelper;
 import com.wordonline.server.game.domain.object.component.physic.Collider;
 
@@ -26,6 +28,33 @@ public class SimplePhysics implements Physics {
 
             if(circle.isCollidingWish(colliders.getFirst())) result.add(other);
         }
+        return result;
+    }
+
+    @Override
+    public List<GameObject> sphereCastAll(Vector3 origin, float radius, Vector3 direction, float maxDistance) {
+        Vector3 groundOrigin = origin.grounded();
+        Vector3 dirNorm = direction.grounded().normalize();
+        if (dirNorm.equals(Vector3.ZERO)) {
+            return List.of();
+        }
+
+        List<GameObject> result = new ArrayList<>();
+        for (GameObject other : gameObjects) {
+            List<Collider> colliders = other.getColliders();
+            if (colliders == null || colliders.isEmpty()
+                    || !(colliders.getFirst() instanceof CircleCollider circle)) continue;
+
+            Vector3 offset = other.getPosition().grounded().subtract(groundOrigin);
+            float along = offset.dot(dirNorm);
+            if (along < 0f || along > maxDistance + circle.getRadius()) continue;
+
+            double lateral = offset.distance(dirNorm.multiply(along));
+            if (lateral <= radius + circle.getRadius()) result.add(other);
+        }
+
+        result.sort(Comparator.comparingDouble(other ->
+                other.getPosition().grounded().subtract(groundOrigin).dot(dirNorm)));
         return result;
     }
 
