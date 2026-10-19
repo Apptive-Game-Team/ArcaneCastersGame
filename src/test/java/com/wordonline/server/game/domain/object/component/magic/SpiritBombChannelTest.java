@@ -185,6 +185,38 @@ class SpiritBombChannelTest {
         assertThat(aheadMob.getHp()).isEqualTo(90);
     }
 
+    @Test
+    void clickingAFlyingEnemyAimsTheBeamUpAtIt() {
+        GameContext context = channelContext();
+        GameObject player = object(Master.LeftPlayer, PrefabType.Player, Vector3.ZERO, context);
+        GameObject flying = object(Master.RightPlayer, PrefabType.MiniRock, new Vector3(6f, 3f, 0f), context);
+        DummyMob flyingMob = addMob(flying);
+        GameObject grounded = object(Master.RightPlayer, PrefabType.MiniRock, new Vector3(3f, 0f, 0f), context);
+        DummyMob groundedMob = addMob(grounded);
+        world(context, player, grounded, flying);
+
+        // client 는 찍은 비행 유닛의 높이까지 실어 보낸다.
+        SpiritBombChannel channel = new SpiritBombChannel(player, new Vector3(6f, 3f, 0f), 40, 18f);
+        channel.update();
+
+        assertThat(flyingMob.getHp()).isEqualTo(90);
+        assertThat(groundedMob.getHp()).isEqualTo(100);
+        // ray 는 (6, 3, 0) 쪽으로 위를 향하고, 반지름 0.5 인 몸에 거리 sqrt(45) - 0.5 에서 닿는다.
+        float hitDistance = (float) Math.sqrt(45) - 0.5f;
+        float endX = 6f / (float) Math.sqrt(45) * hitDistance;
+        float endY = 3f / (float) Math.sqrt(45) * hitDistance;
+        verify(context.getObjectsInfoDtoBuilder()).createProjection(
+                eq(new ReferenceProjectileTarget(player.getId())),
+                argThat(end -> end instanceof PositionProjectileTarget position
+                        && Math.abs(position.getX() - endX) < 1e-4f
+                        && Math.abs(position.getY() - endY) < 1e-4f
+                        && position.getZ() == 0f),
+                eq(SpiritBombChannel.BEAM_PROJECTILE),
+                eq(1.05f),
+                eq(SpiritBombChannel.visualWidth(40))
+        );
+    }
+
     private void verifyBeam(GameContext context, GameObject player, float endX, float width) {
         verify(context.getObjectsInfoDtoBuilder()).createProjection(
                 eq(new ReferenceProjectileTarget(player.getId())),

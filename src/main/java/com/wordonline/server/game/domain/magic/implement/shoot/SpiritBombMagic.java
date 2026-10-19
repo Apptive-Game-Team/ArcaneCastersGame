@@ -33,7 +33,7 @@ public class SpiritBombMagic extends Magic {
             return;
         }
 
-        Vector3 direction = position.grounded().subtract(player.getPosition().grounded());
+        Vector3 direction = position.subtract(player.getPosition());
         if (direction.equals(Vector3.ZERO)) {
             return;
         }

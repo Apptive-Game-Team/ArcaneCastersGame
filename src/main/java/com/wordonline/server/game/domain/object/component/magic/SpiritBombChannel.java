@@ -47,11 +47,12 @@ public class SpiritBombChannel extends Component {
 
     /**
      * 클릭한 위치는 방향만 정한다. 빔은 클릭 거리와 상관없이 {@code beamLength}(마법 사거리)만큼 뻗는다.
+     * 높이도 방향에 들어간다. 비행 유닛을 찍으면 client 가 그 유닛의 높이를 실어 보내므로 빔이 위로 간다.
      */
     public SpiritBombChannel(GameObject player, Vector3 targetPosition, int totalDamage, float beamLength) {
         super(player);
-        Vector3 origin = player.getPosition().grounded();
-        Vector3 offset = targetPosition.grounded().subtract(origin);
+        Vector3 origin = player.getPosition();
+        Vector3 offset = targetPosition.subtract(origin);
         this.direction = offset.normalize();
         this.beamLength = beamLength;
         this.totalDamage = totalDamage;
