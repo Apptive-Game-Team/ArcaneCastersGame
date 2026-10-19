@@ -1,13 +1,16 @@
 package com.wordonline.server.game.domain.object.component.magic;
 
 import com.wordonline.server.game.domain.object.GameObject;
+import com.wordonline.server.game.domain.object.component.GaugeComponent;
 import com.wordonline.server.game.domain.object.component.effect.receiver.EffectReceiver;
 import com.wordonline.server.game.domain.object.component.mob.directive.RallyMoveDirective;
 import com.wordonline.server.game.domain.object.component.mob.statemachine.attacker.BehaviorMob;
 import com.wordonline.server.game.dto.Effect;
 import com.wordonline.server.game.dto.Master;
+import com.wordonline.server.game.dto.frame.GaugeCategory;
+import com.wordonline.server.game.dto.frame.GaugeDto;
 
-public class RallyingTotem extends MagicComponent {
+public class RallyingTotem extends MagicComponent implements GaugeComponent {
     private final float fallSpeed;
     private final float duration;
     private final float zoneRadius;
@@ -47,6 +50,9 @@ public class RallyingTotem extends MagicComponent {
             gameObject.destroy();
             return;
         }
+        // A totem lying on the ground changes neither position nor status, so nothing else
+        // sends an update for it and its TTL gauge would never move on the client.
+        gameObject.applyUpdate();
 
         getGameContext().getGameSessionData().gameObjects.stream()
                 .filter(this::canRally)
@@ -59,6 +65,11 @@ public class RallyingTotem extends MagicComponent {
 
     @Override
     public void onDestroy() {
+    }
+
+    @Override
+    public GaugeDto getGauge() {
+        return new GaugeDto(Math.max(0f, duration - elapsedTime), duration, GaugeCategory.TTL);
     }
 
     private void fall() {
