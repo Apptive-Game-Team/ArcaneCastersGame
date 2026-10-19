@@ -19,6 +19,8 @@ import com.wordonline.server.game.domain.object.component.physic.CircleCollider;
 import com.wordonline.server.game.domain.object.prefab.PrefabType;
 import com.wordonline.server.game.dto.Master;
 import com.wordonline.server.game.dto.Status;
+import com.wordonline.server.game.dto.frame.projectile.PositionProjectileTarget;
+import com.wordonline.server.game.dto.frame.projectile.ReferenceProjectileTarget;
 import com.wordonline.server.game.service.GameContext;
 import com.wordonline.server.game.service.ObjectsInfoDtoBuilder;
 
@@ -54,10 +56,10 @@ class SpiritBombChannelTest {
         assertThat(nearMob.getHp()).isEqualTo(93);
         assertThat(farMob.getHp()).isEqualTo(100);
         assertThat(player.getComponentsToRemove()).contains(channel);
-        // 굵기까지 실어 보내는 overload 로 바뀌었다. 피해량 7 은 굵기 구간의 아래 끝이라 최소 굵기다.
+        // 피해량 7 은 굵기 구간의 아래 끝이라 최소 굵기다.
         verify(dtoBuilder, times(4)).createProjection(
-                player,
-                nearEnemy,
+                new ReferenceProjectileTarget(player.getId()),
+                new PositionProjectileTarget(2f, 0f, 0f),
                 SpiritBombChannel.BEAM_PROJECTILE,
                 1.05f,
                 SpiritBombChannel.visualWidth(7)
@@ -129,10 +131,46 @@ class SpiritBombChannelTest {
 
         assertThat(firstMob.getHp()).isLessThanOrEqualTo(0);
         assertThat(secondMob.getHp()).isEqualTo(90);
+        verifyBeam(context, player, 3f, SpiritBombChannel.visualWidth(160));
+        verifyBeam(context, player, 6f, SpiritBombChannel.visualWidth(160));
+    }
+
+    @Test
+    void beamStaysOnTheAimLineAndStopsBesideAnOffCenterEnemy() {
+        GameContext context = channelContext();
+        GameObject player = object(Master.LeftPlayer, PrefabType.Player, Vector3.ZERO, context);
+        GameObject enemy = object(Master.RightPlayer, PrefabType.MiniRock, new Vector3(5f, 0f, 1f), context);
+        DummyMob mob = addMob(enemy);
+        when(context.getActiveGameObjects()).thenReturn(List.of(player, enemy));
+
+        SpiritBombChannel channel = new SpiritBombChannel(player, new Vector3(6f, 0f, 0f), 40, 18f);
+        channel.update();
+
+        // 적의 중심 (5, 0, 1) 로 꺾지 않고 조준선 위의 (5, 0, 0) 에서 끝난다.
+        assertThat(mob.getHp()).isEqualTo(90);
+        verifyBeam(context, player, 5f, SpiritBombChannel.visualWidth(40));
+    }
+
+    @Test
+    void beamReachesCastRangeWhenNothingIsOnTheLine() {
+        GameContext context = channelContext();
+        GameObject player = object(Master.LeftPlayer, PrefabType.Player, Vector3.ZERO, context);
+        when(context.getActiveGameObjects()).thenReturn(List.of(player));
+
+        SpiritBombChannel channel = new SpiritBombChannel(player, new Vector3(6f, 0f, 0f), 40, 18f);
+        channel.update();
+
+        verifyBeam(context, player, 18f, SpiritBombChannel.visualWidth(40));
+    }
+
+    private void verifyBeam(GameContext context, GameObject player, float endX, float width) {
         verify(context.getObjectsInfoDtoBuilder()).createProjection(
-                player, first, SpiritBombChannel.BEAM_PROJECTILE, 1.05f, SpiritBombChannel.visualWidth(160));
-        verify(context.getObjectsInfoDtoBuilder()).createProjection(
-                player, second, SpiritBombChannel.BEAM_PROJECTILE, 1.05f, SpiritBombChannel.visualWidth(160));
+                new ReferenceProjectileTarget(player.getId()),
+                new PositionProjectileTarget(endX, 0f, 0f),
+                SpiritBombChannel.BEAM_PROJECTILE,
+                1.05f,
+                width
+        );
     }
 
     private GameContext channelContext() {

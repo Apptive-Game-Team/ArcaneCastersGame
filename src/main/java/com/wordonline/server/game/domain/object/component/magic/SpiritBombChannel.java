@@ -13,6 +13,8 @@ import com.wordonline.server.game.domain.object.component.Component;
 import com.wordonline.server.game.domain.object.component.Damageable;
 import com.wordonline.server.game.domain.object.component.mob.Mob;
 import com.wordonline.server.game.domain.object.component.mob.detector.TargetRelation;
+import com.wordonline.server.game.dto.frame.projectile.PositionProjectileTarget;
+import com.wordonline.server.game.dto.frame.projectile.ReferenceProjectileTarget;
 
 public class SpiritBombChannel extends Component {
 
@@ -86,6 +88,7 @@ public class SpiritBombChannel extends Component {
         Set<GameObject> hitTargets = new HashSet<>();
         GameObject target = findClosestTarget(hitTargets);
         if (target == null) {
+            sendBeam(beamLength);
             return;
         }
 
@@ -132,9 +135,28 @@ public class SpiritBombChannel extends Component {
         }
     }
 
+    /**
+     * 빔은 조준선을 벗어나지 않는다. 맞은 적의 중심으로 꺾지 않고, 그 적을 조준선 위로 수직으로 내린
+     * 지점에서 끝낸다.
+     */
     private void sendBeam(GameObject target) {
-        getGameContext().getObjectsInfoDtoBuilder()
-                .createProjection(gameObject, target, BEAM_PROJECTILE, VISUAL_TICK_DURATION, visualWidth());
+        sendBeam(distanceAlongBeam(target));
+    }
+
+    private void sendBeam(float length) {
+        Vector3 end = gameObject.getPosition().grounded().plus(direction.multiply(length));
+        getGameContext().getObjectsInfoDtoBuilder().createProjection(
+                new ReferenceProjectileTarget(gameObject.getId()),
+                new PositionProjectileTarget(end),
+                BEAM_PROJECTILE,
+                VISUAL_TICK_DURATION,
+                visualWidth()
+        );
+    }
+
+    private float distanceAlongBeam(GameObject target) {
+        Vector3 offset = target.getPosition().grounded().subtract(gameObject.getPosition().grounded());
+        return Math.clamp(offset.dot(direction), 0f, beamLength);
     }
 
     /**
