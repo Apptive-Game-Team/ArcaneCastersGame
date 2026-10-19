@@ -14,7 +14,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -57,43 +57,32 @@ public class BotGameScheduler {
             return;
         }
 
-        List<BotPersona> bots = availableBots();
-        if (bots.size() < 2) {
-            log.warn("[BotGameScheduler] Need at least two matchable bot personas that are not playing. availableCount={}",
-                    bots.size());
+        List<BotPersona> matchable = botPersonaService.findMatchable();
+        if (matchable.size() < 2) {
+            log.warn("[BotGameScheduler] Need at least two matchable bot personas. matchableCount={}", matchable.size());
             return;
         }
         Map<Long, Integer> mmrByUserId = botPersonaService.findMmrByUserIds(
-                bots.stream().map(BotPersona::userId).toList());
+                matchable.stream().map(BotPersona::userId).toList());
+        Set<Long> busyUserIds = new HashSet<>(sessionService.getParticipantUserIds());
 
         // Ramp up over several sweeps instead of creating the whole shortfall in one go. Each
         // session costs a deck query, a record insert, an object graph and a Thread.start, all
         // synchronous on the scheduler thread, and the loop watchdog shares that pool.
         long sessionsThisSweep = Math.min(missingGames, sweepProperties.maxSessionsPerSweep());
-        List<BotPersona> remaining = new ArrayList<>(bots);
         for (long i = 0; i < sessionsThisSweep; i++) {
-            if (remaining.size() < 2) {
-                log.info("[BotGameScheduler] Ran out of free bots for this sweep. created={}, wanted={}",
-                        i, sessionsThisSweep);
-                return;
-            }
-            List<BotPersona> pair = pickPair(remaining, mmrByUserId,
+            // Free bots are preferred, but with fewer than two of them the pool is every matchable
+            // bot: a server asked for more bot games than it has bot pairs must still reach its target.
+            List<BotPersona> free = matchable.stream()
+                    .filter(bot -> !busyUserIds.contains(bot.userId()))
+                    .toList();
+            List<BotPersona> pool = free.size() >= 2 ? free : matchable;
+            List<BotPersona> pair = pickPair(pool, mmrByUserId,
                     botAutoMatchProperties.nearestOpponentCount(), ThreadLocalRandom.current());
-            remaining.removeAll(pair);
+            busyUserIds.add(pair.get(0).userId());
+            busyUserIds.add(pair.get(1).userId());
             createBotGame(pair.get(0), pair.get(1));
         }
-    }
-
-    /** Matchable bots that are not on either side of a session this server holds. */
-    private List<BotPersona> availableBots() {
-        List<BotPersona> matchable = botPersonaService.findMatchable();
-        if (matchable.size() < 2) {
-            return matchable;
-        }
-        Set<Long> busyUserIds = sessionService.getParticipantUserIds();
-        return matchable.stream()
-                .filter(bot -> !busyUserIds.contains(bot.userId()))
-                .toList();
     }
 
     /**

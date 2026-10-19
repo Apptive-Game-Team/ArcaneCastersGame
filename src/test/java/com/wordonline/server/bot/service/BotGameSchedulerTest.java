@@ -317,7 +317,7 @@ class BotGameSchedulerTest {
         when(sessionService.getParticipantUserIds()).thenReturn(Set.of(-1L, -2L));
         when(botPersonaService.findMatchable()).thenReturn(bots(4));
 
-        scheduler(new BotAutoMatchProperties(true, 5, null)).ensureBotGameWhenIdle();
+        scheduler(new BotAutoMatchProperties(true, 1, null)).ensureBotGameWhenIdle();
 
         ArgumentCaptor<SessionDto> captor = ArgumentCaptor.forClass(SessionDto.class);
         verify(sessionService).createSession(captor.capture());
@@ -325,24 +325,33 @@ class BotGameSchedulerTest {
     }
 
     @Test
-    void skipsWhenFewerThanTwoBotsAreFree() {
+    void stillCreatesAGameWhenFewerThanTwoBotsAreFree() {
         when(sessionService.getActiveSessions()).thenReturn(0L);
-        when(sessionService.getParticipantUserIds()).thenReturn(Set.of(-1L, -2L, -3L));
-        when(botPersonaService.findMatchable()).thenReturn(bots(4));
+        when(sessionService.getParticipantUserIds()).thenReturn(Set.of(-1L, -2L));
+        when(botPersonaService.findMatchable()).thenReturn(bots(3));
 
-        scheduler(new BotAutoMatchProperties(true, 5, null)).ensureBotGameWhenIdle();
+        scheduler(new BotAutoMatchProperties(true, 1, null)).ensureBotGameWhenIdle();
 
-        verify(sessionService, never()).createSession(org.mockito.ArgumentMatchers.any());
+        verify(sessionService, times(1)).createSession(org.mockito.ArgumentMatchers.any());
     }
 
     @Test
-    void noBotIsReusedWithinOneSweep() {
+    void reusesBotsWhenThereAreMoreGamesWantedThanBotPairs() {
         when(sessionService.getActiveSessions()).thenReturn(0L);
-        when(botPersonaService.findMatchable()).thenReturn(bots(5));
+        when(botPersonaService.findMatchable()).thenReturn(bots(2));
 
-        scheduler(new BotAutoMatchProperties(true, 10, null)).ensureBotGameWhenIdle();
+        scheduler(new BotAutoMatchProperties(true, 3, null)).ensureBotGameWhenIdle();
 
-        // Five bots make two pairs; the fifth has nobody left to play and the sweep stops.
+        verify(sessionService, times(3)).createSession(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void preferBotsNotPickedEarlierInTheSweepWhileTwoAreLeft() {
+        when(sessionService.getActiveSessions()).thenReturn(0L);
+        when(botPersonaService.findMatchable()).thenReturn(bots(4));
+
+        scheduler(new BotAutoMatchProperties(true, 2, null)).ensureBotGameWhenIdle();
+
         ArgumentCaptor<SessionDto> captor = ArgumentCaptor.forClass(SessionDto.class);
         verify(sessionService, times(2)).createSession(captor.capture());
         List<Long> used = captor.getAllValues().stream()
