@@ -32,29 +32,33 @@ public class SimplePhysics implements Physics {
     }
 
     @Override
-    public List<GameObject> sphereCastAll(Vector3 origin, float radius, Vector3 direction, float maxDistance) {
-        Vector3 groundOrigin = origin.grounded();
-        Vector3 dirNorm = direction.grounded().normalize();
+    public List<RaycastHit> raycastAll(Vector3 origin, Vector3 direction, float maxDistance) {
+        Vector3 dirNorm = direction.normalize();
         if (dirNorm.equals(Vector3.ZERO)) {
             return List.of();
         }
 
-        List<GameObject> result = new ArrayList<>();
+        List<RaycastHit> result = new ArrayList<>();
         for (GameObject other : gameObjects) {
             List<Collider> colliders = other.getColliders();
             if (colliders == null || colliders.isEmpty()
                     || !(colliders.getFirst() instanceof CircleCollider circle)) continue;
 
-            Vector3 offset = other.getPosition().grounded().subtract(groundOrigin);
+            Vector3 offset = circle.getPosition().subtract(origin);
+            float radius = circle.getRadius();
             float along = offset.dot(dirNorm);
-            if (along < 0f || along > maxDistance + circle.getRadius()) continue;
+            float perpendicularSquared = offset.dot(offset) - along * along;
+            float radiusSquared = radius * radius;
+            if (perpendicularSquared > radiusSquared) continue;
 
-            double lateral = offset.distance(dirNorm.multiply(along));
-            if (lateral <= radius + circle.getRadius()) result.add(other);
+            // ray 가 구의 표면에 처음 닿는 거리. 음수면 ray 가 구 안이나 구 뒤에서 시작한다.
+            float distance = along - (float) Math.sqrt(radiusSquared - perpendicularSquared);
+            if (distance < 0f || distance > maxDistance) continue;
+
+            result.add(new RaycastHit(other, distance, origin.plus(dirNorm.multiply(distance))));
         }
 
-        result.sort(Comparator.comparingDouble(other ->
-                other.getPosition().grounded().subtract(groundOrigin).dot(dirNorm)));
+        result.sort(Comparator.comparingDouble(RaycastHit::distance));
         return result;
     }
 
