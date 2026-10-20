@@ -336,7 +336,8 @@ public abstract class GameLoop implements Runnable {
         boolean rated = sessionObject.getSessionType() == SessionType.PVP
                 || sessionObject.getSessionType() == SessionType.Practice;
         ResultMmrDto mmrDto = rated
-                ? MmrService.computeMatchResult(left, right, outcomeLeft)
+                ? MmrService.computeMatchResult(left, right, outcomeLeft,
+                        sessionObject.getSessionType() == SessionType.PVP)
                 : new ResultMmrDto(left.rating(), right.rating(), left.rating(), right.rating());
         // The result goes out before anything is written: the player sees the numbers that are
         // about to be stored, not the ones that have been.

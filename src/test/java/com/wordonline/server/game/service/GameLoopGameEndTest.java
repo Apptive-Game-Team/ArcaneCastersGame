@@ -2,6 +2,7 @@ package com.wordonline.server.game.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
@@ -38,6 +39,7 @@ class GameLoopGameEndTest {
 
     private static final long LEFT_ID = 11L;
     private static final long RIGHT_ID = 22L;
+    private static final long BOT_ID = -7L;
 
     private final MmrService mmrService = mock(MmrService.class);
     private final UserService userService = mock(UserService.class);
@@ -82,9 +84,36 @@ class GameLoopGameEndTest {
         verify(mmrService, times(1)).resolveRatingRef(LEFT_ID);
         verify(mmrService, times(1)).resolveRatingRef(RIGHT_ID);
         verify(mmrService, never()).fetchRating(anyLong());
-        verify(mmrService, never()).updateMatchResult(anyLong(), anyLong(), any());
+        verify(mmrService, never()).updateMatchResult(anyLong(), anyLong(), any(), anyBoolean());
         verify(resultChecker).broadcastResult(
                 new ResultMmrDto((short) 1000, (short) 1000, (short) 1000, (short) 1000));
+    }
+
+    // A ranked match the lobby filled with a bot rates the human as well; practice does not.
+    @Test
+    void aPvpMatchAgainstABotMovesTheHumanRating() {
+        GameLoop loop = startedLoop(SessionType.PVP, 1000, 1000, BOT_ID);
+        when(resultChecker.getLoser()).thenReturn(Master.RightPlayer);
+
+        loop.handleGameEnd();
+        runQueuedTeardown();
+
+        ResultMmrDto expected = new ResultMmrDto((short) 1000, (short) 1000, (short) 1010, (short) 990);
+        verify(resultChecker).broadcastResult(expected);
+        verify(mmrService).saveMatchResult(rating(LEFT_ID, 1000), rating(BOT_ID, 1000), expected);
+    }
+
+    @Test
+    void aPracticeMatchAgainstABotKeepsTheHumanRating() {
+        GameLoop loop = startedLoop(SessionType.Practice, 1000, 1000, BOT_ID);
+        when(resultChecker.getLoser()).thenReturn(Master.RightPlayer);
+
+        loop.handleGameEnd();
+        runQueuedTeardown();
+
+        ResultMmrDto expected = new ResultMmrDto((short) 1000, (short) 1000, (short) 1000, (short) 990);
+        verify(resultChecker).broadcastResult(expected);
+        verify(mmrService).saveMatchResult(rating(LEFT_ID, 1000), rating(BOT_ID, 1000), expected);
     }
 
     @Test
@@ -145,15 +174,19 @@ class GameLoopGameEndTest {
     }
 
     private GameLoop startedLoop(SessionType sessionType, int leftRating, int rightRating) {
+        return startedLoop(sessionType, leftRating, rightRating, RIGHT_ID);
+    }
+
+    private GameLoop startedLoop(SessionType sessionType, int leftRating, int rightRating, long rightId) {
         when(gameContext.getParameters()).thenReturn(mock(Parameters.class));
         when(gameContext.getResultChecker()).thenReturn(resultChecker);
         when(sessionObject.getLeftUserId()).thenReturn(LEFT_ID);
-        when(sessionObject.getRightUserId()).thenReturn(RIGHT_ID);
+        when(sessionObject.getRightUserId()).thenReturn(rightId);
         when(sessionObject.getSessionType()).thenReturn(sessionType);
         when(sessionObject.getSessionId()).thenReturn("session-1");
         when(sessionObject.getMap()).thenReturn(GameMap.GRASSLAND);
         when(mmrService.resolveRatingRef(LEFT_ID)).thenReturn(rating(LEFT_ID, leftRating));
-        when(mmrService.resolveRatingRef(RIGHT_ID)).thenReturn(rating(RIGHT_ID, rightRating));
+        when(mmrService.resolveRatingRef(rightId)).thenReturn(rating(rightId, rightRating));
 
         GameLoop loop = new GameLoop(mmrService, userService, gameContext, mock(Parameters.class)) {
             @Override

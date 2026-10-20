@@ -40,10 +40,11 @@ public class MmrService {
         return new RatingRef(participantId, participantId, participantId < 0, rating);
     }
 
-    public ResultMmrDto updateMatchResult(long userIdA, long userIdB, ResultType outcomeA) {
+    public ResultMmrDto updateMatchResult(long userIdA, long userIdB, ResultType outcomeA,
+                                          boolean rateHumansAgainstBots) {
         RatingRef ratingRefA = resolveRatingRef(userIdA);
         RatingRef ratingRefB = resolveRatingRef(userIdB);
-        ResultMmrDto result = computeMatchResult(ratingRefA, ratingRefB, outcomeA);
+        ResultMmrDto result = computeMatchResult(ratingRefA, ratingRefB, outcomeA, rateHumansAgainstBots);
         saveMatchResult(ratingRefA, ratingRefB, result);
         return result;
     }
@@ -54,9 +55,12 @@ public class MmrService {
      * <p>Static so it never goes through the transactional proxy: the loop thread calls it at match
      * end, and a transaction there would take a database connection for no query.
      *
-     * <p>In a match against a bot only the bot's rating moves; the human keeps theirs.
+     * @param rateHumansAgainstBots when one side is a bot: {@code true} moves both ratings (a ranked
+     *                              match the lobby filled with a bot); {@code false} moves only the
+     *                              bot's and keeps the human's (practice).
      */
-    public static ResultMmrDto computeMatchResult(RatingRef ratingRefA, RatingRef ratingRefB, ResultType outcomeA) {
+    public static ResultMmrDto computeMatchResult(RatingRef ratingRefA, RatingRef ratingRefB, ResultType outcomeA,
+                                                  boolean rateHumansAgainstBots) {
         short ratingA = ratingRefA.rating();
         short ratingB = ratingRefB.rating();
 
@@ -70,8 +74,9 @@ public class MmrService {
         short computedA = computeNewRating(ratingA, ratingB, scoreA);
         short computedB = computeNewRating(ratingB, ratingA, scoreB);
         boolean botMatch = ratingRefA.bot() || ratingRefB.bot();
-        short newA = botMatch && !ratingRefA.bot() ? ratingA : computedA;
-        short newB = botMatch && !ratingRefB.bot() ? ratingB : computedB;
+        boolean freezeHumans = botMatch && !rateHumansAgainstBots;
+        short newA = freezeHumans && !ratingRefA.bot() ? ratingA : computedA;
+        short newB = freezeHumans && !ratingRefB.bot() ? ratingB : computedB;
 
         return new ResultMmrDto(ratingA, ratingB, newA, newB);
     }
@@ -83,27 +88,22 @@ public class MmrService {
      * so the rating read when the session started is still the stored one. A bot can play several
      * sessions at once, so its rating is moved by the difference instead; writing the computed
      * value would let the last of two overlapping matches erase the first one's change.
+     *
+     * <p>A human rating the result left unchanged is not written, which is how a practice match
+     * keeps the human's rating.
      */
     public void saveMatchResult(RatingRef ratingRefA, RatingRef ratingRefB, ResultMmrDto result) {
-        boolean botMatch = ratingRefA.bot() || ratingRefB.bot();
-        if (botMatch) {
-            saveBotRating(ratingRefA, result.newLeftMmr());
-            saveBotRating(ratingRefB, result.newRightMmr());
-        } else {
-            saveRating(ratingRefA, result.newLeftMmr());
-            saveRating(ratingRefB, result.newRightMmr());
-        }
+        saveSide(ratingRefA, result.newLeftMmr());
+        saveSide(ratingRefB, result.newRightMmr());
         log.trace("Updated match result for {}: {}, {}: {}", ratingRefA.participantId(), result.newLeftMmr(),
                 ratingRefB.participantId(), result.newRightMmr());
     }
 
-    private void saveRating(RatingRef ratingRef, short mmr) {
-        userRepository.setMmr(ratingRef.storageId(), mmr);
-    }
-
-    private void saveBotRating(RatingRef ratingRef, short mmr) {
+    private void saveSide(RatingRef ratingRef, short mmr) {
         if (ratingRef.bot()) {
             userRepository.addMmr(ratingRef.storageId(), (short) (mmr - ratingRef.rating()), DEFAULT_MMR);
+        } else if (mmr != ratingRef.rating()) {
+            userRepository.setMmr(ratingRef.storageId(), mmr);
         }
     }
 
