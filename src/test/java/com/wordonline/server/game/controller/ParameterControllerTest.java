@@ -59,6 +59,19 @@ class ParameterControllerTest {
         assertThat(tagRepository.counterWeightLoads()).hasSize(2);
     }
 
+    @Test
+    void theEndpointReloadsTheTagCachesBeforeItReturns() {
+        warmEveryTagCache();
+
+        controller.invalidateParameterCache();
+
+        // Each key the bots had asked for is read again by the endpoint itself, not left for the
+        // next bot think.
+        assertThat(tagRepository.magicTagLoads()).containsExactly(7L, 7L);
+        assertThat(tagRepository.gameObjectTagLoads()).containsExactly("rock_slime", "rock_slime");
+        assertThat(tagRepository.counterWeightLoads()).hasSize(2);
+    }
+
     private void warmEveryTagCache() {
         // Through the service, so its own memoised copy of the magic tags is covered as well as
         // the repository's.

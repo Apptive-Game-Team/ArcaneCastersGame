@@ -26,7 +26,7 @@ public class ParameterService {
      *
      * <p>{@link #invalidateCache()} swaps in a freshly read map rather than clearing this one, so a
      * game loop thread reading mid-reload sees either the old values or the new ones, never an
-     * empty map. It is {@code null} only when loading failed; lookups then fall back to
+     * empty map. It is {@code null} only when loading at startup failed; lookups then fall back to
      * {@link #parameterCaches}.
      */
     private volatile Map<String, Double> loadedParameters;
@@ -52,9 +52,10 @@ public class ParameterService {
             loadedParameters = parameterRepository.snapshot();
             log.info("[Parameter:Loaded] {} values", loadedParameters.size());
         } catch (RuntimeException e) {
-            // Starting with per-row lookups is slower but still plays; refusing to start is not.
-            loadedParameters = null;
-            log.warn("[Parameter:Loading] could not read all parameters, falling back to per-row lookups", e);
+            // At startup this leaves per-row lookups, which are slower but still play; refusing to
+            // start is not. On an admin reload it keeps the values already loaded.
+            log.warn("[Parameter:Loading] could not read all parameters; {}", loadedParameters == null
+                    ? "falling back to per-row lookups" : "keeping the values loaded before", e);
         }
     }
 

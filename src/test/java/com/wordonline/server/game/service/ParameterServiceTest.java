@@ -117,4 +117,17 @@ class ParameterServiceTest {
         assertThat(parameterService.getValue("zap_mouse", "mass")).isEqualTo(3.0);
         verify(parameterRepository).getParameterValue("zap_mouse", "mass");
     }
+
+    @Test
+    void aFailedReloadKeepsTheValuesLoadedBefore() {
+        when(parameterRepository.snapshot())
+                .thenReturn(Map.of("zap_mouse.mass", 3.0))
+                .thenThrow(new IllegalStateException("database down"));
+        parameterService.loadAll();
+
+        parameterService.invalidateCache();
+
+        assertThat(parameterService.getValue("zap_mouse", "mass")).isEqualTo(3.0);
+        verify(parameterRepository, never()).getParameterValue(anyString(), anyString());
+    }
 }
