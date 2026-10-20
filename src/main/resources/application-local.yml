@@ -42,6 +42,10 @@ logging:
   discord-webhook-url: ""
 
 bot:
+  # Never read a key on the player's machine, even if LLM_KEY_SECRET happens to be set there:
+  # every LLM persona plays with the rule brain locally.
+  llm:
+    key-secret: ""
   auto-match:
     enabled: false
 

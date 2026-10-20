@@ -138,7 +138,21 @@ CREATE TABLE bot_personas (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     hospitality BOOLEAN DEFAULT FALSE NOT NULL,
-    temperament VARCHAR DEFAULT 'WARM' NOT NULL
+    temperament VARCHAR DEFAULT 'WARM' NOT NULL,
+    brain_type VARCHAR(20) DEFAULT 'RULE' NOT NULL,
+    llm_model VARCHAR(100)
+);
+
+-- Stays empty: provider keys are secrets and never leave the shared database. With no key and no
+-- LLM_KEY_SECRET every LLM persona plays with the rule brain. The table exists because the
+-- persona query checks it.
+CREATE TABLE llm_api_keys (
+    provider VARCHAR(20) PRIMARY KEY,
+    encrypted_key VARCHAR NOT NULL,
+    key_hint VARCHAR(16) NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    unavailable_until TIMESTAMP,
+    unavailable_reason VARCHAR(200)
 );
 
 CREATE TABLE adventures (
