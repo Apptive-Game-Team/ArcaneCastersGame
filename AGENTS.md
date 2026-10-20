@@ -10,6 +10,7 @@ For cross-repo context, see [related-repositories.md](air-file://g9ubn80st39rtru
 - `./gradlew bootRun`: start the server locally with Spring Boot.
 - `java -jar build/libs/*.jar`: run the packaged application after a build.
 - `./deploy.sh` or `./remote-deploy.sh`: deploy using the project scripts.
+- `scripts/ci/boot-check.sh <image> <database-repo>/migration`: boot a built image against a freshly migrated Postgres and wait for `/actuator/health` to report UP. CI runs it before pushing, because the tests run on a JDK and the image runs on a JRE that lacks some modules (for example `jdk.random`).
 
 ## Coding Style & Naming Conventions
 Use 4-space indentation and keep files in standard Java package layout. Follow existing naming patterns: `*Controller`, `*Service`, `*Repository`, `*Dto`, `*PrefabInitializer`, and `*System`. Classes use `PascalCase`, methods and fields use `camelCase`, and constants use `UPPER_SNAKE_CASE`. Prefer the helper methods already present on domain objects, such as `addComponent(...)` and `addCollider(...)`, instead of mutating internal lists directly. Lombok is used widely; keep annotations consistent with surrounding code.
