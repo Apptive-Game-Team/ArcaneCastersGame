@@ -351,6 +351,32 @@ class SessionServiceTest {
         verify(statisticService, times(0)).saveAbandonedGameResult(any(), any());
     }
 
+    // The persona was loaded when the session was created, so the match end on the loop thread
+    // must not query bot_personas again.
+    @Test
+    void hospitalityWinAdvancesNoviceProgressWithoutQueryingBotPersonas() {
+        SessionDto dto = practiceDto("bot-2", 5L, -9L);
+        SessionObject practice = practiceSession("bot-2", 5L, -9L);
+        GameLoop practiceLoop = practice.getGameLoop();
+        GameContext gameContext = mock(GameContext.class);
+        ResultChecker resultChecker = mock(ResultChecker.class);
+        when(practice.getGameContext()).thenReturn(gameContext);
+        when(gameContext.getResultChecker()).thenReturn(resultChecker);
+        when(resultChecker.getLoser()).thenReturn(Master.RightPlayer);
+        when(resultChecker.getWinnerId()).thenReturn(5L);
+        when(practice.getBotPersona(-9L))
+                .thenReturn(new BotPersona(-9L, "Host", BotTier.HOSPITALITY, 1200, 30, -1.0, true, true,
+                        BotTemperament.WARM));
+        ArgumentCaptor<Runnable> onTerminated = ArgumentCaptor.forClass(Runnable.class);
+
+        sessionService.createSession(dto);
+        verify(practiceLoop).init(eq(practice), onTerminated.capture());
+        onTerminated.getValue().run();
+
+        verify(userService).advanceNoviceProgress(5L);
+        org.mockito.Mockito.verifyNoInteractions(botPersonaService);
+    }
+
     private ResultChecker stubTeardownCollaborators() {
         GameContext gameContext = mock(GameContext.class);
         ResultChecker resultChecker = mock(ResultChecker.class);
