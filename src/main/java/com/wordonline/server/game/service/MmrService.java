@@ -19,11 +19,11 @@ public class MmrService {
 
     private final UserRepository userRepository;
 
-    private double expectedScore(int ratingA, int ratingB) {
+    private static double expectedScore(int ratingA, int ratingB) {
         return 1.0 / (1.0 + Math.pow(10.0, (ratingB - ratingA) / 400.0));
     }
 
-    private short computeNewRating(short oldRating, short opponentRating, double score) {
+    private static short computeNewRating(short oldRating, short opponentRating, double score) {
         double expected = expectedScore(oldRating, opponentRating);
         double updated = oldRating + K * (score - expected);
         return (short) Math.round(updated);
@@ -43,6 +43,20 @@ public class MmrService {
     public ResultMmrDto updateMatchResult(long userIdA, long userIdB, ResultType outcomeA) {
         RatingRef ratingRefA = resolveRatingRef(userIdA);
         RatingRef ratingRefB = resolveRatingRef(userIdB);
+        ResultMmrDto result = computeMatchResult(ratingRefA, ratingRefB, outcomeA);
+        saveMatchResult(ratingRefA, ratingRefB, result);
+        return result;
+    }
+
+    /**
+     * The new ratings for a finished match, computed in memory from the ratings both sides had.
+     *
+     * <p>Static so it never goes through the transactional proxy: the loop thread calls it at match
+     * end, and a transaction there would take a database connection for no query.
+     *
+     * <p>In a match against a bot only the bot's rating moves; the human keeps theirs.
+     */
+    public static ResultMmrDto computeMatchResult(RatingRef ratingRefA, RatingRef ratingRefB, ResultType outcomeA) {
         short ratingA = ratingRefA.rating();
         short ratingB = ratingRefB.rating();
 
@@ -59,16 +73,28 @@ public class MmrService {
         short newA = botMatch && !ratingRefA.bot() ? ratingA : computedA;
         short newB = botMatch && !ratingRefB.bot() ? ratingB : computedB;
 
-        if (botMatch) {
-            saveBotRating(ratingRefA, newA);
-            saveBotRating(ratingRefB, newB);
-        } else {
-            saveRating(ratingRefA, newA);
-            saveRating(ratingRefB, newB);
-        }
-        log.trace("Updated match result for {}: {}, {}: {}", userIdA, newA, userIdB, newB);
-
         return new ResultMmrDto(ratingA, ratingB, newA, newB);
+    }
+
+    /**
+     * Stores a result {@link #computeMatchResult} produced from these same two references.
+     *
+     * <p>A human's rating is written as the computed value: a player is in one session at a time,
+     * so the rating read when the session started is still the stored one. A bot can play several
+     * sessions at once, so its rating is moved by the difference instead; writing the computed
+     * value would let the last of two overlapping matches erase the first one's change.
+     */
+    public void saveMatchResult(RatingRef ratingRefA, RatingRef ratingRefB, ResultMmrDto result) {
+        boolean botMatch = ratingRefA.bot() || ratingRefB.bot();
+        if (botMatch) {
+            saveBotRating(ratingRefA, result.newLeftMmr());
+            saveBotRating(ratingRefB, result.newRightMmr());
+        } else {
+            saveRating(ratingRefA, result.newLeftMmr());
+            saveRating(ratingRefB, result.newRightMmr());
+        }
+        log.trace("Updated match result for {}: {}, {}: {}", ratingRefA.participantId(), result.newLeftMmr(),
+                ratingRefB.participantId(), result.newRightMmr());
     }
 
     private void saveRating(RatingRef ratingRef, short mmr) {
@@ -77,7 +103,7 @@ public class MmrService {
 
     private void saveBotRating(RatingRef ratingRef, short mmr) {
         if (ratingRef.bot()) {
-            userRepository.setMmr(ratingRef.storageId(), mmr);
+            userRepository.addMmr(ratingRef.storageId(), (short) (mmr - ratingRef.rating()), DEFAULT_MMR);
         }
     }
 
