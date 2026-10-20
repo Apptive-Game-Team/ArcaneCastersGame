@@ -1,5 +1,6 @@
 package com.wordonline.server.game.service;
 
+import com.wordonline.server.bot.domain.BotParticipant;
 import com.wordonline.server.bot.domain.BotPersona;
 import com.wordonline.server.bot.llm.BotDecisionSourceFactory;
 import com.wordonline.server.bot.service.BotPersonaService;
@@ -81,9 +82,29 @@ public class WordOnlineLoop extends GameLoop {
     public void init(SessionObject sessionObject, Runnable onTerminated) {
         gameContext.init(sessionObject, this);
         super.init(sessionObject, onTerminated);
+        // A human can be swapped for a bot on the loop thread at any time (ping timeout), and the
+        // match end reads the bot persona there too. Both lookups hit the database, so they are
+        // done here, on the request thread, and kept on the session.
+        // Playground sessions never touch user data and close their ping checker, so nothing takes over.
+        if (sessionObject.getSessionType() != SessionType.Playground) {
+            loadBotTakeoverInfo(sessionObject);
+        }
         if(sessionObject.getSessionType() == SessionType.Practice) {
             initializeBotAgents(sessionObject);
         }
+    }
+
+    void loadBotTakeoverInfo(SessionObject sessionObject) {
+        loadBotTakeoverInfo(sessionObject, sessionObject.getLeftUserId());
+        loadBotTakeoverInfo(sessionObject, sessionObject.getRightUserId());
+    }
+
+    private void loadBotTakeoverInfo(SessionObject sessionObject, long participantId) {
+        BotPersona persona = BotParticipant.isBot(participantId)
+                ? botPersonaService.findByParticipantIdOrDefault(participantId)
+                : BotPersona.DEFAULT;
+        sessionObject.putBotPersona(participantId, persona);
+        sessionObject.putNoviceProgress(participantId, getUserService().noviceProgress(participantId));
     }
 
     private void initializeBotAgents(SessionObject sessionObject) {
@@ -96,7 +117,7 @@ public class WordOnlineLoop extends GameLoop {
     }
 
     private BotAgent newBotAgent(SessionObject sessionObject, Master side, long participantId) {
-        BotPersona persona = botPersonaService.findByParticipantIdOrDefault(participantId);
+        BotPersona persona = sessionObject.getBotPersona(participantId);
         return new BotAgent(
                 sessionObject,
                 side,
@@ -116,7 +137,7 @@ public class WordOnlineLoop extends GameLoop {
         long opponentId = botSide == Master.LeftPlayer
                 ? sessionObject.getRightUserId()
                 : sessionObject.getLeftUserId();
-        return getUserService().noviceProgress(opponentId);
+        return sessionObject.getNoviceProgress(opponentId);
     }
 
     /** The bot playing that side, or {@code null} when a human has it. */
