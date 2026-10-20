@@ -1,0 +1,65 @@
+# A server the desktop client runs as its child process (LocalLauncher). Nothing outside the
+# machine is needed: the database is in memory (LocalProfileConfiguration), the only credential is
+# the client's init token, and the client reports results to the lobby. Every value the shared
+# configuration takes from a required environment variable has a literal here.
+server:
+  # Loopback only, so no firewall prompt; port 0 lets the operating system pick a free port, which
+  # the ready line reports.
+  address: 127.0.0.1
+  port: 0
+  external-port: 0
+  protocol: http
+  domain: 127.0.0.1
+  max-sessions: 1
+  # stdin end of input must end the process within seconds; graceful shutdown waits for requests.
+  shutdown: immediate
+
+management:
+  server:
+    port: -1
+
+spring:
+  main:
+    banner-mode: off
+  # LocalProfileConfiguration builds the H2 data source; these only replace the PostgreSQL
+  # placeholders of application.yml so nothing refers to DATABASE_* variables.
+  datasource:
+    driver-class-name: org.h2.Driver
+    url: jdbc:h2:mem:unused
+    username: sa
+    password: ""
+  sql:
+    init:
+      mode: never
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+
+# Console output would mix with the protocol lines on stdout; logs go to dataDir/logs only.
+logging:
+  config: classpath:logback-local.xml
+  discord-webhook-url: ""
+
+bot:
+  # Never read a key on the player's machine, even if LLM_KEY_SECRET happens to be set there:
+  # every LLM persona plays with the rule brain locally.
+  llm:
+    key-secret: ""
+  auto-match:
+    enabled: false
+
+team6515:
+  server:
+    account:
+      url: http://127.0.0.1
+
+lobby:
+  base-url: ""
+  service-token-path: ""
+
+alert:
+  enabled: false
+
+playground:
+  enabled: false

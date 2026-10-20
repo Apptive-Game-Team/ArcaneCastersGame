@@ -7,6 +7,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 
 import org.springframework.boot.SpringApplication;
+import org.springframework.context.annotation.Profile;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -17,8 +18,10 @@ import com.wordonline.server.session.service.SessionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+// A locally hosted server is not one of the shared servers and never publishes a servers row.
 @Slf4j
 @Component
+@Profile("!local")
 @RequiredArgsConstructor
 public class ServerStatusTracker {
 
