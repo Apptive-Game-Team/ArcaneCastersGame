@@ -5,6 +5,7 @@ import com.wordonline.server.game.domain.SessionObject;
 import com.wordonline.server.game.domain.SessionType;
 import com.wordonline.server.game.domain.map.GameMap;
 import com.wordonline.server.game.domain.map.GameMapSelector;
+import com.wordonline.server.game.repository.MagicRepository;
 import com.wordonline.server.session.dto.SessionDto;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
@@ -17,9 +18,11 @@ public class SessionObjectFactory {
     private final SimpMessagingTemplate simpMessagingTemplate;
     private final DeckService deckService;
     private final GameMapSelector gameMapSelector;
+    private final MagicRepository magicRepository;
 
     public SessionObjectFactory(SimpMessagingTemplate simpMessagingTemplate, DeckService deckService,
-                                GameMapSelector gameMapSelector) {
+                                GameMapSelector gameMapSelector, MagicRepository magicRepository) {
+        this.magicRepository = magicRepository;
         this.simpMessagingTemplate = simpMessagingTemplate;
         this.deckService = deckService;
         this.gameMapSelector = gameMapSelector;
@@ -36,7 +39,7 @@ public class SessionObjectFactory {
         // loop both read it from the session, so neither can disagree with the other.
         GameMap map = gameMapSelector.choose(sessionType, sessionDto.scenarioId());
 
-        return switch (sessionType) {
+        SessionObject sessionObject = switch (sessionType) {
             case PVE -> createPveSessionObject(sessionId, uid1, sessionDto.scenarioId(), map);
             case Playground -> {
                 if (!sessionId.startsWith("playground-") || uid1 <= 0 || uid2 != -1)
@@ -48,6 +51,17 @@ public class SessionObjectFactory {
             case PVP -> createPvpSessionObject(sessionId, uid1, uid2,
                     sessionDto.leftDeckCardIds(), sessionDto.rightDeckCardIds(), map);
         };
+        loadOwnedMagics(sessionObject, uid1);
+        loadOwnedMagics(sessionObject, uid2);
+        return sessionObject;
+    }
+
+    // Bots and the empty slot carry negative ids and cast through the bot path, so only a human
+    // user costs a query. This runs on the request thread, before the loop starts.
+    private void loadOwnedMagics(SessionObject sessionObject, Long userId) {
+        if (userId != null && userId > 0) {
+            sessionObject.setOwnedMagicIds(userId, magicRepository.findUserMagicIds(userId));
+        }
     }
 
     private SessionType resolveSessionType(SessionDto sessionDto, String sessionId, Long uid1, Long uid2) {

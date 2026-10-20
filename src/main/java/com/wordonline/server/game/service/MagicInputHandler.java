@@ -53,7 +53,8 @@ public class MagicInputHandler {
             return new InputResponseDto("Cannot use cards.", false, InputResultCode.FAIL_LACK_OF_CARD, playerData.mana, inputRequestDto.getId(), -1);
         }
 
-        Magic magic = magicParser.parseMagic(userId, magicId);
+        Magic magic = magicParser.parseMagic(userId, magicId,
+                gameContext.getSessionObject().getOwnedMagicIds(userId));
 
         if (magic == null) {
             // The card names a magic the server does not know or the player does not own. Nothing

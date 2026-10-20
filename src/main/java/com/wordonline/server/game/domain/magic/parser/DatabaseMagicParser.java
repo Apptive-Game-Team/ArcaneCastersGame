@@ -3,6 +3,7 @@ package com.wordonline.server.game.domain.magic.parser;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import jakarta.annotation.PostConstruct;
@@ -52,13 +53,13 @@ public class DatabaseMagicParser implements MagicParser {
     }
 
     @Override
-    public Magic parseMagic(long userId, long magicId) {
+    public Magic parseMagic(long userId, long magicId, Set<Long> ownedMagicIds) {
         Magic magic = getMagic(magicId);
         if (magic == null) {
             return null;
         }
 
-        if (!magicRepository.existUserMagic(userId, magic.id)) {
+        if (!ownedMagicIds.contains(magic.id)) {
             log.info("[Magic:NotOwned] User {} does not have Magic(id:{}) yet. Rejecting magic cast.", userId, magic.id);
             return null;
         }

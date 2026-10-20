@@ -67,7 +67,8 @@ class MapTypeConsistencyTest {
         when(deckService.getParticipantCards(any(Long.class))).thenReturn(List.of());
         when(deckService.getSelectedCards(any(Long.class))).thenReturn(List.of());
         SessionObjectFactory sessionObjectFactory =
-                new SessionObjectFactory(mock(SimpMessagingTemplate.class), deckService, selector);
+                new SessionObjectFactory(mock(SimpMessagingTemplate.class), deckService, selector,
+                        mock(com.wordonline.server.game.repository.MagicRepository.class));
 
         when(gameContext.getParameters()).thenReturn(mock(Parameters.class));
         GameLoopFactory gameLoopFactory = mock(GameLoopFactory.class);
