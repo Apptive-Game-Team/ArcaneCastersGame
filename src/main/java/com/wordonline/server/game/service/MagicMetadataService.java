@@ -13,19 +13,21 @@ import java.util.concurrent.ConcurrentHashMap;
 public class MagicMetadataService {
 
     private final TagRepository tagRepository;
-    private final Map<Long, Set<String>> magicTagsCache = new ConcurrentHashMap<>();
+    private volatile Map<Long, Set<String>> magicTagsCache = new ConcurrentHashMap<>();
 
     public Set<String> getMagicTags(long magicId) {
         return magicTagsCache.computeIfAbsent(magicId, tagRepository::getMagicTags);
     }
 
     /**
-     * Clears the memoised tag data, including the repository's, so an admin edit to the tag tables
-     * takes effect without a restart. Exposed like ParameterService.invalidateCache and
-     * DatabaseMagicParser.invalidateCache.
+     * Reloads the memoised tag data, the repository's first, so an admin edit to the tag tables
+     * takes effect without a restart and the next bot think still answers from memory. Exposed
+     * like ParameterService.invalidateCache and DatabaseMagicParser.invalidateCache.
      */
     public void invalidateCache() {
-        magicTagsCache.clear();
         tagRepository.invalidateCache();
+        Map<Long, Set<String>> reloaded = new ConcurrentHashMap<>();
+        magicTagsCache.keySet().forEach(magicId -> reloaded.put(magicId, tagRepository.getMagicTags(magicId)));
+        magicTagsCache = reloaded;
     }
 }
