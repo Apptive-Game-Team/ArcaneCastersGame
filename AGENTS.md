@@ -151,3 +151,18 @@ For in-depth explanations of the server systems, refer to the following develope
 - **Physics, Collisions & Movement**: [physics-system.md](file:///Users/jeong-yunseong/development/word-online/dev/game-server/docs/physics-system.md)
 - **Magic Spell Recipes & Input Flow**: [magic-system.md](file:///Users/jeong-yunseong/development/word-online/dev/game-server/docs/magic-system.md)
 - **Database Schema & Parameters**: [database-schema.md](file:///Users/jeong-yunseong/development/word-online/dev/game-server/docs/database-schema.md)
+
+## Code Review Rules
+
+- Write all code review titles, descriptions, comments, and summaries in Korean.
+- Preserve code identifiers, file paths, commands, error messages, and technical terms in their original form.
+- For each finding, concisely explain the cause, impact, and suggested fix.
+
+## Writing Style
+
+Follow [`.agents/docs/writing-style.md`](.agents/docs/writing-style.md) for chat
+replies, reviews, plans, handoffs, issues, commit titles and bodies, pull
+requests, release notes, source comments, and all frontend copy (including
+localization, errors, labels, and accessibility text).
+Its wording and title rules take precedence over older style examples;
+preserve project-specific technical constraints and workflows.
