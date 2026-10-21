@@ -81,7 +81,8 @@ public class WordOnlineLoop extends GameLoop {
     public void init(SessionObject sessionObject, Runnable onTerminated) {
         gameContext.init(sessionObject, this);
         super.init(sessionObject, onTerminated);
-        if(sessionObject.getSessionType() == SessionType.Practice) {
+        if (sessionObject.getSessionType() == SessionType.Practice
+                || sessionObject.getSessionType() == SessionType.PVP) {
             initializeBotAgents(sessionObject);
         }
     }
