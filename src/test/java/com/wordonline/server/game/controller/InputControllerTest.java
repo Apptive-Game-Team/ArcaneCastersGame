@@ -1,6 +1,7 @@
 package com.wordonline.server.game.controller;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -32,6 +33,8 @@ import com.wordonline.server.game.service.GameContext;
 import com.wordonline.server.game.service.PveLoop;
 import com.wordonline.server.game.service.WordOnlineLoop;
 import com.wordonline.server.game.service.MagicInputHandler;
+import com.wordonline.server.game.service.ResultChecker;
+import com.wordonline.server.game.service.PveResultChecker;
 import com.wordonline.server.service.LocalizationService;
 import com.wordonline.server.session.service.SessionService;
 
@@ -259,6 +262,66 @@ class InputControllerTest {
         dto.setMagicId(34L);
         dto.setPosition(Vector3.ZERO);
         dto.setId(1);
+        return dto;
+    }
+
+    @Test
+    void surrenderIsQueuedAndLosesOnlyTheSubmittingSide() {
+        for (Master side : new Master[] {Master.LeftPlayer, Master.RightPlayer}) {
+            InputControllerTest fixture = new InputControllerTest();
+            ResultChecker result = new ResultChecker(fixture.sessionObject);
+            fixture.prepareSurrender(side, result);
+            fixture.controller.handleInput("room-5", 7L, surrenderRequest(), principal(7L));
+            assertThat(result.getLoser()).isNull();
+            assertThat(result.checkResult()).isFalse();
+            fixture.drainQueuedAction("surrender");
+            assertThat(result.getLoser()).isEqualTo(side);
+            assertThat(result.checkResult()).isTrue();
+        }
+    }
+
+    @Test
+    void surrenderFailsPveThroughNormalResultChecker() {
+        ResultChecker result = new PveResultChecker(sessionObject);
+        prepareSurrender(Master.LeftPlayer, result);
+        controller.handleInput("room-5", 7L, surrenderRequest(), principal(7L));
+        drainQueuedAction("surrender");
+        assertThat(result.checkResult()).isTrue();
+        assertThat(result.getLoser()).isEqualTo(Master.LeftPlayer);
+    }
+
+    @Test
+    void surrenderPreservesAlreadyDeterminedLossOrDraw() {
+        for (boolean draw : new boolean[] {true, false}) {
+            InputControllerTest fixture = new InputControllerTest();
+            ResultChecker result = new ResultChecker(fixture.sessionObject);
+            if (draw) result.setEnd();
+            else result.setLoser(Master.RightPlayer);
+            fixture.prepareSurrender(Master.LeftPlayer, result);
+            fixture.controller.handleInput("room-5", 7L, surrenderRequest(), principal(7L));
+            fixture.drainQueuedAction("surrender");
+            assertThat(result.getLoser()).isEqualTo(draw ? null : Master.RightPlayer);
+        }
+    }
+
+    @Test
+    void rejectsForgedAndNonParticipantSurrender() {
+        assertThatThrownBy(() -> controller.handleInput("room-5", 7L, surrenderRequest(), principal(8L)))
+                .isInstanceOf(AuthorizationDeniedException.class);
+        assertThatThrownBy(() -> controller.handleInput("room-5", 7L, surrenderRequest(), principal(7L)))
+                .isInstanceOf(AuthorizationDeniedException.class);
+        verifyNoInteractions(gameContext);
+    }
+
+    private void prepareSurrender(Master side, ResultChecker result) {
+        when(sessionObject.getUserSide(7L)).thenReturn(side);
+        when(sessionObject.getGameContext()).thenReturn(gameContext);
+        when(gameContext.getResultChecker()).thenReturn(result);
+    }
+
+    private static InputRequestDto surrenderRequest() {
+        InputRequestDto dto = new InputRequestDto();
+        dto.setType("surrender");
         return dto;
     }
 
