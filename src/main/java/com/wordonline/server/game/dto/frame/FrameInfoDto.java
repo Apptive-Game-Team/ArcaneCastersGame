@@ -13,6 +13,7 @@ import java.util.List;
 public class FrameInfoDto {
     private final String type = "frame";
     private int remainingTime;
+    private boolean practicePaused;
     private int updatedMana;
     private int leftPlayerHp;
     private int rightPlayerHp;

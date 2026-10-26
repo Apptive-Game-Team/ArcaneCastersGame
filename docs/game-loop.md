@@ -13,6 +13,23 @@ This document details the fixed-rate simulation loop, tick rate, and system upda
 
 ## The Tick Update Sequence
 
+### 연습경기 카드 호버 일시정지
+
+인증된 실제 참가자는 `cardHover` 입력에 `hovering` boolean을 보낸다.
+`SessionType.Practice`만 허용하며, 클라이언트는 0.5초마다 갱신한다.
+참가자별 lease는 갱신 없이 2초가 지나면 만료된다.
+
+`WordOnlineLoop`는 외부 입력을 처리한 뒤 정지 여부를 판단하고 simulation
+frame 번호를 증가시킨다. 정지 중에는 번호와 `GameTimer`를 멈추고 마나 충전,
+카드 드로우, 시뮬레이션 갱신을 건너뛴다. 최신 snapshot을 만들어 sync로 보낸다.
+이 전송은 `isSyncFrame`과 독립적으로 유지해야 한다. sync 사이의 번호에서
+정지하면 재접속 클라이언트가 오래된 snapshot만 받을 수 있기 때문이다.
+전송마다 새 DTO를 만들어 투사체와 이벤트를 한 번만 소비한다. 경기 결과는
+호버 정지보다 우선한다.
+
+`BotAction`도 loop thread에서 정지를 확인한다. 정지 전에 시작한 executor
+작업이 봇 시스템을 건너뛰는 동안에도 시전 입력을 넣을 수 있기 때문이다.
+
 [WordOnlineLoop.update()](file:///Users/jeong-yunseong/development/word-online/dev/game-server/src/main/java/com/wordonline/server/game/service/WordOnlineLoop.java#L127-L159) defines the precise execution order of systems during each tick:
 
 ### 1. Early State & Card/Mana Operations

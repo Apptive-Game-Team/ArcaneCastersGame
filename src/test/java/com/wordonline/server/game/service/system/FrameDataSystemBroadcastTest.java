@@ -127,4 +127,24 @@ class FrameDataSystemBroadcastTest {
     private PlayerData playerData() {
         return new PlayerData(mock(ManaCharger.class));
     }
+
+    @Test
+    void pauseSendsFreshStateWithoutChargingManaOrDrawingCards() {
+        var loop = mock(com.wordonline.server.game.service.WordOnlineLoop.class);
+        when(gameContext.getGameLoop()).thenReturn(loop);
+        when(loop.isPracticePaused()).thenReturn(true);
+        var data = gameContext.getGameSessionData();
+        data.leftPlayerData.mana = 17;
+        data.rightPlayerData.mana = 23;
+        frameDataSystem.earlyUpdate(gameContext);
+        frameDataSystem.lateUpdate(gameContext);
+        FrameInfoDto first = frameDataSystem.getLeftFrameInfoDto();
+        frameDataSystem.earlyUpdate(gameContext);
+        assertThat(frameDataSystem.getLeftFrameInfoDto()).isNotSameAs(first);
+        assertThat(first.isPracticePaused()).isTrue();
+        assertThat(first.getUpdatedMana()).isEqualTo(17);
+        assertThat(frameDataSystem.getRightFrameInfoDto().getUpdatedMana()).isEqualTo(23);
+        org.mockito.Mockito.verifyNoInteractions(data.leftPlayerData.manaCharger, data.rightPlayerData.manaCharger,
+                data.leftCardDeck, data.rightCardDeck);
+    }
 }

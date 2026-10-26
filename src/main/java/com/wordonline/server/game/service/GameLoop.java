@@ -248,8 +248,6 @@ public abstract class GameLoop implements Runnable {
             long frameStart = System.nanoTime();
             long nextFrameStart = frameStart + frameNanos;
             while (!stopRequested) {
-                gameContext.incrementFrameNum();
-
                 try {
                     // Every write to game state happens on this thread. update() runs
                     // GameActionSystem first, applying the input, bot and ping actions other
