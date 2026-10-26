@@ -77,6 +77,9 @@ public class DebugService {
         DebugGameResponseDto dto = new DebugGameResponseDto(session.getSessionId(), session.getMap());
         log.info("Entering test session userId: {}, side: {}", debugGameRequestDto.userId(), debugGameRequestDto.side());
         long userId = debugGameRequestDto.userId();
+        if (userId > 0) {
+            debugSession.setOwnedMagicIds(userId, magicRepository.findUserMagicIds(userId));
+        }
         if (debugGameRequestDto.side() == Master.LeftPlayer) {
             log.info("left");
             debugSession.setLeftUser(

@@ -17,6 +17,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -41,7 +42,7 @@ class MagicInputHandlerParameterKeyTest {
         Magic magic = mock(Magic.class);
         magic.id = LEAFAIR_ID;
         magic.name = LEAFAIR;
-        when(magicParser.parseMagic(1L, LEAFAIR_ID)).thenReturn(magic);
+        when(magicParser.parseMagic(eq(1L), eq(LEAFAIR_ID), any())).thenReturn(magic);
         when(parameters.getValue(LEAFAIR, "mana_cost")).thenReturn(20.0);
         when(parameters.getValue(LEAFAIR, "range")).thenReturn(18.0);
 
