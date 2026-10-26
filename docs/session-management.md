@@ -30,4 +30,4 @@ When the loop finishes executing (e.g., game end evaluated by `ResultChecker` or
 2. The session is removed from the `sessions` map.
 3. [StatisticService](file:///Users/jeong-yunseong/development/word-online/dev/game-server/src/main/java/com/wordonline/server/statistic/service/StatisticService.java) records match statistics (game duration, winner/loser, elements cast) in the DB.
 4. For PvE scenarios, the scenario is marked as completed in `userScenarioService` if the human player wins.
-5. MMR ratings are updated (for PvP sessions), and user status is reset back to `Online`.
+5. Ratings are not read here: both sides' ratings are read when the loop is initialized, and `GameLoop.handleGameEnd` computes the new ratings in memory and broadcasts the result before anything is written. The rating and `Online` status writes, then the statistics, end record, lobby notification, scenario and win count writes run in that order on `SessionTeardownExecutor` (virtual threads), not on the loop thread. Removing the session from the map, which decides ownership against the watchdog, and closing the ping checker stay synchronous on the loop thread.

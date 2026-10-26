@@ -1,12 +1,15 @@
 package com.wordonline.server.game.service;
 
 import com.wordonline.server.game.repository.ParameterRepository;
+import jakarta.annotation.PostConstruct;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
+@Slf4j
 @Service
 public class ParameterService {
 
@@ -17,7 +20,20 @@ public class ParameterService {
     }
 
     /**
-     * Both hits and misses are cached, the miss as an {@link Optional#empty()}.
+     * Every parameter row, read in one query when the server starts and keyed
+     * {@code "<object>.<parameter>"} as {@link ParameterRepository#snapshot()} returns it. While it is
+     * loaded, a lookup never touches the database: a key that is absent here has no row.
+     *
+     * <p>{@link #invalidateCache()} swaps in a freshly read map rather than clearing this one, so a
+     * game loop thread reading mid-reload sees either the old values or the new ones, never an
+     * empty map. It is {@code null} only when loading at startup failed; lookups then fall back to
+     * {@link #parameterCaches}.
+     */
+    private volatile Map<String, Double> loadedParameters;
+
+    /**
+     * Fallback for when {@link #loadedParameters} could not be read. Both hits and misses are
+     * cached, the miss as an {@link Optional#empty()}.
      * A parameter the database has no row for is a normal outcome for callers such as
      * {@code BotSpellStats} and the prefab initializers, and caching only hits left every one of
      * those lookups doing a blocking JDBC round trip on the game loop thread, forever, inside a
@@ -30,8 +46,22 @@ public class ParameterService {
      */
     private final Map<String, Map<String, Optional<Double>>> parameterCaches = new ConcurrentHashMap<>();
 
+    @PostConstruct
+    void loadAll() {
+        try {
+            loadedParameters = parameterRepository.snapshot();
+            log.info("[Parameter:Loaded] {} values", loadedParameters.size());
+        } catch (RuntimeException e) {
+            // At startup this leaves per-row lookups, which are slower but still play; refusing to
+            // start is not. On an admin reload it keeps the values already loaded.
+            log.warn("[Parameter:Loading] could not read all parameters; {}", loadedParameters == null
+                    ? "falling back to per-row lookups" : "keeping the values loaded before", e);
+        }
+    }
+
     public void invalidateCache() {
         parameterCaches.clear();
+        loadAll();
     }
 
     public double getValue(String gameObject, String parameterName) {
@@ -45,6 +75,11 @@ public class ParameterService {
 
     private Optional<Double> findValue(String gameObject, String parameterName) {
         String objectKey = gameObject.toLowerCase();
+
+        Map<String, Double> loaded = loadedParameters;
+        if (loaded != null) {
+            return Optional.ofNullable(loaded.get(objectKey + "." + parameterName));
+        }
 
         Map<String, Optional<Double>> objectParameters = parameterCaches.get(objectKey);
         if (objectParameters != null) {

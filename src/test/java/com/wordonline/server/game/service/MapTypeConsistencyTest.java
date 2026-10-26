@@ -93,7 +93,7 @@ class MapTypeConsistencyTest {
 
         sessionService = new SessionService(sessionObjectFactory, gameLoopFactory, mock(StatisticService.class),
                 mock(GameSessionRecordService.class), mock(UserService.class), mock(BotPersonaService.class),
-                mock(UserScenarioService.class), mock(LobbySessionClient.class));
+                mock(UserScenarioService.class), mock(LobbySessionClient.class), Runnable::run);
         sessionService.clearSessions();
 
         ServerStatusService serverStatusService = mock(ServerStatusService.class);

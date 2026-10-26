@@ -1,0 +1,268 @@
+// localServerDist: the server bundle the desktop client downloads and runs as its child process
+// (root plan, local hosting contracts, section 4). One zip per platform:
+//
+//   local-server/
+//     VERSION             the game server version, one line
+//     local-server.jar    the boot jar
+//     jre/                a jlink image of Temurin 21 for that platform
+//
+// next to it a .sha256 file holding the zip's sha256 as one line of hex. The JDKs are downloaded
+// from Adoptium at a pinned release, checked against pinned checksums and cached under
+// build/local-server/jdk-cache. Every image is linked by the jlink of the host's own copy of the same
+// release, because jlink refuses jmods of another JDK version; the host must be one of the four
+// platforms (CI runs on linux-x64).
+//
+// ./gradlew localServerDist                                  all four platforms
+// ./gradlew localServerDist -PlocalServerPlatforms=linux-x64  a comma separated subset
+
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpResponse
+import java.security.MessageDigest
+
+def temurinRelease = 'jdk-21.0.12.1+1'
+def temurinBase = 'https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.12.1%2B1/'
+
+def localServerPlatforms = [
+        'windows-x64': [file: 'OpenJDK21U-jdk_x64_windows_hotspot_21.0.12.1_1.zip',
+                        sha256: 'f9d6e191ab098c0d416e7d588a24420a8621cd2f4720dab2459b8b7b2d2d8b4e',
+                        javaHome: ''],
+        'macos-x64'  : [file: 'OpenJDK21U-jdk_x64_mac_hotspot_21.0.12.1_1.tar.gz',
+                        sha256: '44db0f08196daf19a47f90d13388b0c943b67663cb537f998fe29e836fa842ce',
+                        javaHome: 'Contents/Home'],
+        'macos-arm64': [file: 'OpenJDK21U-jdk_aarch64_mac_hotspot_21.0.12.1_1.tar.gz',
+                        sha256: '3623232f33a9c3baadf304480b2535f9a3cba8a58d42ecbb438ba267315d9998',
+                        javaHome: 'Contents/Home'],
+        'linux-x64'  : [file: 'OpenJDK21U-jdk_x64_linux_hotspot_21.0.12.1_1.tar.gz',
+                        sha256: 'ce79869e1307ed8ee1e2baa86a412b1eb5b75d10a01006d788a6f968bcfaee94',
+                        javaHome: ''],
+]
+
+// Reviewed against `jdeps --print-module-deps` of the boot jar and then checked by running the jar on
+// the linux-x64 image through a whole local match. Kept explicit rather than computed: jdeps misses
+// what is loaded reflectively (JDBC drivers, JNDI, the attach and management beans Spring Boot
+// touches), and a missing module only shows up at run time on a player's machine.
+//   jdk.management   com.sun.management.OperatingSystemMXBean (ApplicationLogger)
+//   jdk.unsupported  sun.misc.Unsafe for Netty, Hibernate, Byte Buddy and Objenesis
+//   jdk.crypto.ec    elliptic curve TLS, if anything ever calls out over https
+//   jdk.random       RandomGenerator algorithms; once missing from a runtime image (GameMapSelector)
+//   jdk.localedata   ko locale data for the message bundles, trimmed by --include-locales
+//   java.sql.rowset, jdk.jfr  reported by jdeps -recursive for Spring JDBC and Spring Core
+def jreModules = [
+        'java.base', 'java.compiler', 'java.datatransfer', 'java.desktop', 'java.instrument',
+        'java.logging', 'java.management', 'java.naming', 'java.net.http', 'java.prefs', 'java.rmi',
+        'java.scripting', 'java.security.jgss', 'java.security.sasl', 'java.sql', 'java.sql.rowset',
+        'java.transaction.xa', 'java.xml', 'jdk.charsets', 'jdk.crypto.ec', 'jdk.jfr', 'jdk.localedata',
+        'jdk.management', 'jdk.naming.dns', 'jdk.net', 'jdk.random', 'jdk.unsupported', 'jdk.zipfs',
+]
+
+def localServerDir = layout.buildDirectory.dir('local-server')
+def jdkCacheDir = layout.buildDirectory.dir('local-server/jdk-cache')
+def jdkDir = layout.buildDirectory.dir('local-server/jdk')
+
+def requestedPlatforms = providers.gradleProperty('localServerPlatforms')
+        .map { it.split(',').collect { it.trim() }.findAll { !it.isEmpty() } }
+        .getOrElse(localServerPlatforms.keySet() as List)
+requestedPlatforms.each { platform ->
+    if (!localServerPlatforms.containsKey(platform)) {
+        throw new GradleException("Unknown local server platform ${platform}; expected one of ${localServerPlatforms.keySet()}")
+    }
+}
+
+def hostPlatform = {
+    String os = System.getProperty('os.name').toLowerCase(Locale.ROOT)
+    String arch = System.getProperty('os.arch').toLowerCase(Locale.ROOT)
+    boolean arm = arch == 'aarch64' || arch == 'arm64'
+    if (os.contains('linux') && !arm) return 'linux-x64'
+    if (os.contains('mac')) return arm ? 'macos-arm64' : 'macos-x64'
+    if (os.contains('windows') && !arm) return 'windows-x64'
+    throw new GradleException("localServerDist cannot run on ${os}/${arch}: no JDK of that platform is pinned")
+}
+
+def taskSuffix = { String platform -> platform.split('-').collect { it.capitalize() }.join('') }
+
+def sha256Of = { File file ->
+    MessageDigest digest = MessageDigest.getInstance('SHA-256')
+    file.withInputStream { input ->
+        byte[] buffer = new byte[1 << 16]
+        int read
+        while ((read = input.read(buffer)) > 0) {
+            digest.update(buffer, 0, read)
+        }
+    }
+    digest.digest().encodeHex().toString()
+}
+
+// Runs a command with its output on the build's console; a non-zero exit fails the task.
+def run = { List<String> command ->
+    Process process = new ProcessBuilder(command).inheritIO().start()
+    int status = process.waitFor()
+    if (status != 0) {
+        throw new GradleException("${command[0]} exited with ${status}")
+    }
+}
+
+// Extracts a zip without the Project API, which task actions may no longer call.
+def unzip = { File archive, File destination ->
+    String root = destination.canonicalPath + File.separator
+    new java.util.zip.ZipFile(archive).withCloseable { zip ->
+        zip.entries().each { entry ->
+            File target = new File(destination, entry.name)
+            if (!target.canonicalPath.startsWith(root)) {
+                throw new GradleException("${archive.name} has an entry outside its directory: ${entry.name}")
+            }
+            if (entry.directory) {
+                target.mkdirs()
+            } else {
+                target.parentFile.mkdirs()
+                zip.getInputStream(entry).withCloseable { input -> target.withOutputStream { it << input } }
+            }
+        }
+    }
+}
+
+// The extracted JDK's home: the archive's single top directory, plus Contents/Home on macOS.
+def jdkHome = { String platform ->
+    File root = jdkDir.get().dir(platform).asFile
+    File[] tops = root.listFiles({ File file -> file.isDirectory() } as FileFilter)
+    if (tops == null || tops.length != 1) {
+        throw new GradleException("Expected one directory in ${root}")
+    }
+    String javaHome = localServerPlatforms[platform].javaHome
+    javaHome.isEmpty() ? tops[0] : new File(tops[0], javaHome)
+}
+
+localServerPlatforms.each { platform, jdk ->
+    String suffix = taskSuffix(platform)
+
+    def download = tasks.register("downloadLocalServerJdk${suffix}") {
+        group = 'distribution'
+        description = "Downloads ${temurinRelease} for ${platform}."
+        def archive = jdkCacheDir.map { it.file(jdk.file) }
+        inputs.property('sha256', jdk.sha256)
+        outputs.file(archive)
+        doLast {
+            File target = archive.get().asFile
+            // The checksum is the cache key: a file already here is reused only when it still
+            // matches, which is also what makes a restored CI cache safe.
+            if (target.isFile() && sha256Of(target) == jdk.sha256) {
+                return
+            }
+            target.parentFile.mkdirs()
+            File partial = new File(target.path + '.part')
+            HttpClient client = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NORMAL).build()
+            HttpResponse<java.nio.file.Path> response = client.send(
+                    HttpRequest.newBuilder(URI.create(temurinBase + jdk.file)).build(),
+                    HttpResponse.BodyHandlers.ofFile(partial.toPath()))
+            if (response.statusCode() != 200) {
+                throw new GradleException("Downloading ${jdk.file} failed with HTTP ${response.statusCode()}")
+            }
+            String actual = sha256Of(partial)
+            if (actual != jdk.sha256) {
+                partial.delete()
+                throw new GradleException("${jdk.file} has sha256 ${actual}, expected ${jdk.sha256}")
+            }
+            target.delete()
+            if (!partial.renameTo(target)) {
+                throw new GradleException("Cannot move ${partial} to ${target}")
+            }
+        }
+    }
+
+    tasks.register("extractLocalServerJdk${suffix}") {
+        group = 'distribution'
+        description = "Extracts the ${platform} JDK."
+        dependsOn download
+        def archive = jdkCacheDir.map { it.file(jdk.file) }
+        def target = jdkDir.map { it.dir(platform) }
+        inputs.file(archive)
+        outputs.dir(target)
+        doLast {
+            File destination = target.get().asFile
+            destination.deleteDir()
+            destination.mkdirs()
+            File source = archive.get().asFile
+            // tar keeps the permissions and symbolic links a JDK needs to run; only the host's JDK
+            // is ever run, and only a zip on Windows, where neither matters.
+            if (source.name.endsWith('.zip')) {
+                unzip(source, destination)
+            } else {
+                run(['tar', '-xzf', source.absolutePath, '-C', destination.absolutePath])
+            }
+        }
+    }
+}
+
+requestedPlatforms.each { platform ->
+    String suffix = taskSuffix(platform)
+    def imageDir = localServerDir.map { it.dir("image/${platform}/local-server") }
+
+    def jlink = tasks.register("jlinkLocalServer${suffix}") {
+        group = 'distribution'
+        description = "Links the ${platform} runtime image of the local server."
+        // Resolved only when this task runs, so an unsupported host fails here and not in every build.
+        dependsOn "extractLocalServerJdk${suffix}", { "extractLocalServerJdk${taskSuffix(hostPlatform())}" }
+        inputs.property('modules', jreModules)
+        inputs.property('release', temurinRelease)
+        def jre = imageDir.map { it.dir('jre') }
+        outputs.dir(jre)
+        doLast {
+            File output = jre.get().asFile
+            output.deleteDir()
+            output.parentFile.mkdirs()
+            File host = jdkHome(hostPlatform())
+            String jlinkExecutable = new File(host, hostPlatform().startsWith('windows') ? 'bin/jlink.exe' : 'bin/jlink').absolutePath
+            run([jlinkExecutable,
+                 '--module-path', new File(jdkHome(platform), 'jmods').absolutePath,
+                 '--add-modules', jreModules.join(','),
+                 '--include-locales', 'en,ko',
+                 '--strip-debug',
+                 '--no-header-files',
+                 '--no-man-pages',
+                 '--compress', 'zip-6',
+                 '--output', output.absolutePath])
+        }
+    }
+
+    def zip = tasks.register("localServerDist${suffix}", Zip) {
+        group = 'distribution'
+        description = "Packs local-server-${platform}.zip and its .sha256."
+        dependsOn jlink
+        archiveFileName = "local-server-${platform}.zip"
+        destinationDirectory = localServerDir
+        preserveFileTimestamps = false
+        reproducibleFileOrder = true
+        into('local-server') {
+            from(tasks.named('bootJar')) {
+                rename { 'local-server.jar' }
+            }
+            from(localServerDir.map { it.file('VERSION') })
+            from(imageDir.map { it.dir('jre') }) {
+                into 'jre'
+            }
+        }
+        doLast {
+            File archive = archiveFile.get().asFile
+            new File(archive.path + '.sha256').text = sha256Of(archive) + '\n'
+        }
+    }
+    zip.configure { dependsOn 'localServerVersionFile' }
+}
+
+tasks.register('localServerVersionFile') {
+    group = 'distribution'
+    description = 'Writes the VERSION file of the local server bundle.'
+    def versionFile = localServerDir.map { it.file('VERSION') }
+    def version = project.version.toString()
+    inputs.property('version', version)
+    outputs.file(versionFile)
+    doLast {
+        versionFile.get().asFile.text = version + '\n'
+    }
+}
+
+tasks.register('localServerDist') {
+    group = 'distribution'
+    description = 'Builds the local server bundle for every requested platform.'
+    dependsOn requestedPlatforms.collect { "localServerDist${taskSuffix(it)}" }
+}
