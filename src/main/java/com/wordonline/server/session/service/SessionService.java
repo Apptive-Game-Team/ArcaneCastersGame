@@ -328,7 +328,7 @@ public class SessionService {
             long loserId = winnerId == sessionObject.getLeftUserId()
                     ? sessionObject.getRightUserId()
                     : sessionObject.getLeftUserId();
-            if (isHospitalityBot(loserId)) {
+            if (isHospitalityBot(sessionObject, loserId)) {
                 userService.advanceNoviceProgress(winnerId);
             }
         } catch (Exception e) {
@@ -340,9 +340,11 @@ public class SessionService {
         }
     }
 
-    private boolean isHospitalityBot(long participantId) {
+    // The persona was loaded when the session was created; this runs on the loop thread, which
+    // must not wait on the database.
+    private boolean isHospitalityBot(SessionObject sessionObject, long participantId) {
         return BotParticipant.isBot(participantId)
-                && botPersonaService.findByParticipantIdOrDefault(participantId).hospitality();
+                && sessionObject.getBotPersona(participantId).hospitality();
     }
 
     // The lobby's match ticket lives in Redis and stays MATCHED until it hears the session ended,
