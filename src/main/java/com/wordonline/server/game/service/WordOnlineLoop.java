@@ -89,7 +89,8 @@ public class WordOnlineLoop extends GameLoop {
         if (sessionObject.getSessionType() != SessionType.Playground) {
             loadBotTakeoverInfo(sessionObject);
         }
-        if(sessionObject.getSessionType() == SessionType.Practice) {
+        if (sessionObject.getSessionType() == SessionType.Practice
+                || sessionObject.getSessionType() == SessionType.PVP) {
             initializeBotAgents(sessionObject);
         }
     }

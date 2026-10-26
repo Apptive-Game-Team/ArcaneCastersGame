@@ -65,7 +65,8 @@ class SessionServiceTest {
             userService,
             botPersonaService,
             mock(UserScenarioService.class),
-            lobbySessionClient);
+            lobbySessionClient,
+            Runnable::run);
 
     private SessionDto sessionDto;
     private SessionObject sessionObject;
@@ -239,7 +240,7 @@ class SessionServiceTest {
 
     @Test
     void reportsInactiveForUnknownSessionId() {
-        SessionService service = new SessionService(null, null, null, null, null, null, null, null);
+        SessionService service = new SessionService(null, null, null, null, null, null, null, null, null);
 
         assertThat(service.isSessionActive("no-such-session")).isFalse();
     }
@@ -336,6 +337,93 @@ class SessionServiceTest {
 
         verify(statisticService, times(0)).saveGameResult(any(), any(), any());
         verify(lobbySessionClient, times(1)).notifySessionEnded(any());
+    }
+
+    // Only the database and lobby calls leave the loop thread. Removing the session, closing the
+    // ping checker and publishing the count happen before onTerminated returns, so the watchdog
+    // still loses the race even while the writes are queued.
+    @Test
+    void teardownWritesRunOnTheTeardownExecutorAfterTheOwnershipIsDecided() {
+        List<Runnable> queued = new CopyOnWriteArrayList<>();
+        SessionService queuedService = queuedSessionService(queued::add);
+        ArgumentCaptor<Runnable> onTerminated = ArgumentCaptor.forClass(Runnable.class);
+        queuedService.createSession("attempt-1", sessionDto);
+        verify(gameLoop).init(eq(sessionObject), onTerminated.capture());
+        PingChecker pingChecker = mock(PingChecker.class);
+        ResultChecker resultChecker = stubTeardownCollaborators();
+        when(sessionObject.getPingChecker()).thenReturn(pingChecker);
+        when(resultChecker.getLoser()).thenReturn(Master.RightPlayer);
+        when(resultChecker.getWinnerId()).thenReturn(1L);
+
+        onTerminated.getValue().run();
+
+        verify(pingChecker).close();
+        assertThat(queuedService.getSessionObject(sessionDto.sessionId())).isNull();
+        verify(statisticService, never()).saveGameResult(any(), any(), any());
+        verify(gameSessionRecordService, never()).recordEnd(any(), any(), any(), any(), any());
+        org.mockito.Mockito.verifyNoInteractions(lobbySessionClient);
+        assertThat(queued).hasSize(1);
+
+        assertFalse(queuedService.reapStuckSession(sessionObject, "stalled"));
+        verify(statisticService, never()).saveAbandonedGameResult(any(), any());
+        verify(userService, never()).markOnline(anyLong());
+
+        queued.remove(0).run();
+
+        org.mockito.InOrder order = org.mockito.Mockito.inOrder(
+                statisticService, gameSessionRecordService, lobbySessionClient, userService);
+        order.verify(statisticService).saveGameResult(any(), eq(Master.RightPlayer), eq(SessionType.PVP));
+        order.verify(gameSessionRecordService).recordEnd(eq(sessionDto.sessionId()), any(), any(), any(), any());
+        order.verify(lobbySessionClient).notifySessionEnded(sessionDto.sessionId());
+        order.verify(userService).incrementTotalWins(1L);
+    }
+
+    // handleGameEnd's rating and status writes ran before this teardown when both were inline;
+    // the teardown waits for them so the order of the writes does not change.
+    @Test
+    void teardownWritesWaitForTheWritesTheGameEndStarted() {
+        java.util.concurrent.CompletableFuture<Void> gameEndWrites = new java.util.concurrent.CompletableFuture<>();
+        when(gameLoop.getEndPersistence()).thenReturn(gameEndWrites);
+        ArgumentCaptor<Runnable> onTerminated = ArgumentCaptor.forClass(Runnable.class);
+        sessionService.createSession("attempt-1", sessionDto);
+        verify(gameLoop).init(eq(sessionObject), onTerminated.capture());
+        stubTeardownCollaborators();
+
+        onTerminated.getValue().run();
+        verify(statisticService, never()).saveGameResult(any(), any(), any());
+
+        gameEndWrites.complete(null);
+        verify(statisticService).saveGameResult(any(), any(), eq(SessionType.PVP));
+        verify(lobbySessionClient).notifySessionEnded(sessionDto.sessionId());
+    }
+
+    @Test
+    void teardownWritesDoNotRunOnTheLoopThread() throws Exception {
+        java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newSingleThreadExecutor();
+        try {
+            SessionService asyncService = queuedSessionService(executor::execute);
+            List<Thread> writers = new CopyOnWriteArrayList<>();
+            org.mockito.Mockito.doAnswer(invocation -> {
+                writers.add(Thread.currentThread());
+                return null;
+            }).when(lobbySessionClient).notifySessionEnded(any());
+            ArgumentCaptor<Runnable> onTerminated = ArgumentCaptor.forClass(Runnable.class);
+            asyncService.createSession("attempt-1", sessionDto);
+            verify(gameLoop).init(eq(sessionObject), onTerminated.capture());
+            stubTeardownCollaborators();
+
+            onTerminated.getValue().run();
+
+            await().atMost(Duration.ofSeconds(5)).until(() -> !writers.isEmpty());
+            assertThat(writers).doesNotContain(Thread.currentThread());
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    private SessionService queuedSessionService(java.util.concurrent.Executor executor) {
+        return new SessionService(sessionObjectFactory, gameLoopFactory, statisticService, gameSessionRecordService,
+                userService, botPersonaService, mock(UserScenarioService.class), lobbySessionClient, executor);
     }
 
     @Test

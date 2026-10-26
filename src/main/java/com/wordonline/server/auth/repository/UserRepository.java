@@ -35,6 +35,12 @@ public class UserRepository {
             WHERE id = :userId;
             """;
 
+    private static final String ADD_MMR = """
+            UPDATE users
+            SET mmr = COALESCE(mmr, :fallbackMmr) + :delta
+            WHERE id = :userId;
+            """;
+
     private static final String INCREMENT_TOTAL_WINS = """
             update users
             set total_wins = coalesce(total_wins, 0) + 1
@@ -74,6 +80,16 @@ public class UserRepository {
         jdbcClient.sql(SET_MMR)
                 .param("userId", userId)
                 .param("mmr", mmr)
+                .update();
+    }
+
+    // Moves the stored rating by delta in one statement, so two overlapping matches of the same
+    // participant both count. fallbackMmr stands in for a rating that was never set.
+    public void addMmr(long userId, short delta, short fallbackMmr) {
+        jdbcClient.sql(ADD_MMR)
+                .param("userId", userId)
+                .param("delta", delta)
+                .param("fallbackMmr", fallbackMmr)
                 .update();
     }
 
