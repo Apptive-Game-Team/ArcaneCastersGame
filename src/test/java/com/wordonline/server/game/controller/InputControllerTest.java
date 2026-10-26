@@ -62,6 +62,23 @@ class InputControllerTest {
         return dto;
     }
 
+    @Test
+    void queuesHoverOnlyAfterAuthenticatingTheParticipant() {
+        when(sessionObject.getUserSide(7L)).thenReturn(Master.LeftPlayer);
+        when(sessionObject.getGameContext()).thenReturn(gameContext);
+        var loop = mock(WordOnlineLoop.class);
+        when(gameContext.getGameLoop()).thenReturn(loop);
+        var request = new InputRequestDto();
+        request.setType("cardHover");
+        request.setHovering(true);
+        controller.handleInput("room-5", 7L, request, principal(7L));
+        verifyNoInteractions(loop);
+        drainQueuedAction("cardHover");
+        verify(loop).setCardHover(7L, true);
+        assertThatThrownBy(() -> controller.handleInput("room-5", 7L, request, principal(8L)))
+                .isInstanceOf(AuthorizationDeniedException.class);
+    }
+
     private static PrincipalDetails principal(long uid) {
         PrincipalDetails principalDetails = mock(PrincipalDetails.class);
         when(principalDetails.getUid()).thenReturn(uid);

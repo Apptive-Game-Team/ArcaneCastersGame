@@ -17,7 +17,10 @@ public class BotAction {
                 botSide, inputRequestDto.getType(), inputRequestDto.getMagicId(), inputRequestDto.getPosition());
 
         GameContext gameContext = sessionObject.getGameContext();
-        gameContext.submitAction("botUseMagic", () ->
-                gameContext.getMagicInputHandler().handleBotPlayerInput(gameContext, botSide, inputRequestDto));
+        gameContext.submitAction("botUseMagic", () -> {
+            // 호버 전에 시작된 비동기 판단도 정지 중에는 시전하지 않는다.
+            if (gameContext.getGameLoop() != null && gameContext.getGameLoop().isPracticePaused()) return;
+            gameContext.getMagicInputHandler().handleBotPlayerInput(gameContext, botSide, inputRequestDto);
+        });
     }
 }

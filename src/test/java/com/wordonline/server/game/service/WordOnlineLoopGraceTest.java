@@ -32,6 +32,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.spy;
 
 class WordOnlineLoopGraceTest {
 
@@ -122,6 +123,56 @@ class WordOnlineLoopGraceTest {
         };
         loop.sessionObject = sessionObject;
         return loop;
+    }
+
+    @Test
+    void practiceHoverFreezesSimulationButStillBuildsAndSendsSnapshots() {
+        WordOnlineLoop loop = spy(loop());
+        when(sessionObject.getSessionType()).thenReturn(SessionType.Practice);
+        when(sessionObject.getUserSide(1L)).thenReturn(Master.LeftPlayer);
+        loop.setCardHover(1L, true);
+        update(loop, 3);
+        assertThat(loop.isPracticePaused()).isTrue();
+        verify(gameTimer).setPaused(true);
+        verify(gameContext, never()).incrementFrameNum();
+        verify(botSystem, never()).update(gameContext);
+        verify(frameDataSystem).earlyUpdate(gameContext);
+        verify(frameDataSystem).lateUpdate(gameContext);
+        verify(loop).buildSnapshot();
+        loop.setCardHover(1L, false);
+        update(loop, 3);
+        assertThat(loop.isPracticePaused()).isFalse();
+        verify(gameContext).incrementFrameNum();
+        verify(botSystem).update(gameContext);
+    }
+
+    @Test
+    void surrenderEndsAPausedMatchWithoutWaitingForHoverToEnd() {
+        WordOnlineLoop loop = loop();
+        when(sessionObject.getSessionType()).thenReturn(SessionType.Practice);
+        when(sessionObject.getUserSide(1L)).thenReturn(Master.LeftPlayer);
+        loop.setCardHover(1L, true);
+        update(loop, 3);
+        resultChecker.setLoser(Master.LeftPlayer);
+        update(loop, 3);
+        assertThat(loop.isPracticePaused()).isFalse();
+        update(loop, TICK_RATE + 3);
+        verify(sessionObject, times(2)).sendFrameInfo(anyLong(), any(ResultDto.class));
+    }
+
+    @Test
+    void refusesHoverForPvpPveSpectatorsAndBots() {
+        WordOnlineLoop loop = loop();
+        when(sessionObject.getUserSide(1L)).thenReturn(Master.LeftPlayer);
+        for (SessionType type : new SessionType[]{SessionType.PVP, SessionType.PVE, SessionType.Playground}) {
+            when(sessionObject.getSessionType()).thenReturn(type);
+            loop.setCardHover(1L, true);
+            assertThat(loop.isPracticePaused()).isFalse();
+        }
+        when(sessionObject.getSessionType()).thenReturn(SessionType.Practice);
+        loop.setCardHover(-1L, true);
+        loop.setCardHover(77L, true);
+        assertThat(loop.isPracticePaused()).isFalse();
     }
 
     private void update(WordOnlineLoop loop, int frameNum) {

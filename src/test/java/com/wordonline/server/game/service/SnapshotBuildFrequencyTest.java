@@ -75,7 +75,7 @@ class SnapshotBuildFrequencyTest {
     }
 
     private WordOnlineLoop loop() {
-        return new WordOnlineLoop(mock(MmrService.class), mock(UserService.class), gameContext,
+        WordOnlineLoop loop = new WordOnlineLoop(mock(MmrService.class), mock(UserService.class), gameContext,
                 mock(Parameters.class), mock(SyncFrameDataSystem.class), mock(GameActionSystem.class),
                 mock(BotAgentSystem.class),
                 mock(FeverTimeSystem.class), mock(GameObjectStateInitialSystem.class),
@@ -88,5 +88,7 @@ class SnapshotBuildFrequencyTest {
                 snapshotsBuilt.incrementAndGet();
             }
         };
+        loop.sessionObject = mock(com.wordonline.server.game.domain.SessionObject.class);
+        return loop;
     }
 }

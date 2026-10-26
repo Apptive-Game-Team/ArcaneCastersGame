@@ -26,7 +26,8 @@ public class SyncFrameDataSystem extends FrameDataSystem {
 
     @Override
     public void lateUpdate(GameContext gameContext) {
-        if (!GameLoop.isSyncFrame(gameContext.getFrameNum(), gameContext.getTickRate())) {
+        if (!gameContext.getGameLoop().isPracticePaused()
+                && !GameLoop.isSyncFrame(gameContext.getFrameNum(), gameContext.getTickRate())) {
             super.lateUpdate(gameContext);
         } else {
             SnapshotResponseDto leftSnapshotResponseDto = gameContext.getGameLoop().getLastSnapshot(gameContext.getSessionObject().getLeftUserId());

@@ -118,6 +118,20 @@ class SyncFrameDataSystemBroadcastTest {
         return (SyncInfoDto) payload.getValue();
     }
 
+    @Test
+    void sendsLatestPauseSnapshotEvenBetweenScheduledSyncFrames() {
+        when(gameContext.getFrameNum()).thenReturn(3);
+        when(gameLoop.isPracticePaused()).thenReturn(true);
+        when(gameLoop.getLastSnapshot(LEFT_USER_ID)).thenReturn(new SnapshotResponseDto(3, List.of(), LEFT_HAND));
+        syncFrameDataSystem.earlyUpdate(gameContext);
+        syncFrameDataSystem.lateUpdate(gameContext);
+        SyncInfoDto sync = captureSyncSentTo("/game/session-1/frameInfos/11");
+        assertThat(sync.isPracticePaused()).isTrue();
+        assertThat(sync.getSnapshotResponseDto().frame()).isEqualTo(3);
+        assertThat(sync.getSnapshotResponseDto().myCards()).isEqualTo(LEFT_HAND);
+        assertThat(captureSyncSentTo(BROADCAST_DESTINATION).getSnapshotResponseDto().myCards()).isEmpty();
+    }
+
     private PlayerData playerData() {
         return new PlayerData(mock(ManaCharger.class));
     }

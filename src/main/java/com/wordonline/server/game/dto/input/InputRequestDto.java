@@ -10,6 +10,7 @@ import lombok.Setter;
 @NoArgsConstructor
 public class InputRequestDto {
     private String type;
+    private boolean hovering;
     // magics.id of the one card this message is about.
     private long magicId;
     private int id;

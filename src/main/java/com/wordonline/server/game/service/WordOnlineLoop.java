@@ -52,6 +52,15 @@ public class WordOnlineLoop extends GameLoop {
     private volatile BotAgent rightBotAgent;
     private Integer endDetectedFrame;
     private boolean gameEndHandled;
+    private final PracticeHoverPause hoverPause = new PracticeHoverPause();
+    private boolean practicePaused;
+
+    public void setCardHover(long userId, boolean hovering) {
+        if (sessionObject.getSessionType() != SessionType.Practice || userId <= 0
+                || sessionObject.getUserSide(userId) == null) return;
+        hoverPause.setHovering(userId, hovering);
+        practicePaused = hoverPause.isPaused();
+    }
 
     public WordOnlineLoop(MmrService mmrService,
                           UserService userService, GameContext gameContext,
@@ -209,8 +218,21 @@ public class WordOnlineLoop extends GameLoop {
         // thread before any system reads or mutates the frame's game state.
         gameActionSystem.update(gameContext);
 
+        boolean ended = gameContext.getResultChecker().checkResult();
+        if (ended) hoverPause.clear();
+        practicePaused = !ended && sessionObject.getSessionType() == SessionType.Practice && hoverPause.isPaused();
+        gameContext.getGameTimer().setPaused(practicePaused);
+        if (!practicePaused) gameContext.incrementFrameNum();
+
         // Initial DTOs
         frameDataSystem.earlyUpdate(gameContext);
+
+        if (practicePaused) {
+            // 정지 중에도 최신 상태와 연결 유지용 프레임을 보낸다.
+            buildSnapshot();
+            frameDataSystem.lateUpdate(gameContext);
+            return;
+        }
 
         feverTimeSystem.update(gameContext);
 
