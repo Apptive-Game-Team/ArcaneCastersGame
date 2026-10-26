@@ -1,6 +1,7 @@
 package com.wordonline.server.game.service;
 
 import com.wordonline.server.game.config.GameConfig;
+import com.wordonline.server.game.config.SessionTeardownExecutor;
 import com.wordonline.server.game.domain.*;
 import com.wordonline.server.game.domain.map.GameMap;
 import com.wordonline.server.game.domain.map.Terrain;
@@ -17,12 +18,15 @@ import com.wordonline.server.websocket.SpectatorSubscriptionRegistry;
 
 import lombok.Getter;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
 // GameLoop is the main class that runs the game loop
@@ -82,6 +86,21 @@ public abstract class GameLoop implements Runnable {
     private SpectatorSubscriptionRegistry spectatorSubscriptionRegistry;
     private Runnable onTerminated;
 
+    // The database writes that follow the result broadcast run here, off the loop thread. Setter
+    // injection for the same reason as the spectator registry; a loop built by hand in a test runs
+    // them inline.
+    private Executor teardownExecutor = Runnable::run;
+
+    // Both sides' ratings as the session started, read on the thread that creates the session.
+    // A player is in one session at a time, so they are still the stored ratings when the match
+    // ends, and the result needs no query on the loop thread.
+    private MmrService.RatingRef leftRatingAtStart;
+    private MmrService.RatingRef rightRatingAtStart;
+
+    // Completes when the writes handleGameEnd started have finished. SessionService runs the rest
+    // of the teardown after it, so the writes keep the order they had when all of them ran inline.
+    private volatile CompletableFuture<Void> endPersistence = CompletableFuture.completedFuture(null);
+
     private final MmrService mmrService;
     private final UserService userService;
 
@@ -104,11 +123,40 @@ public abstract class GameLoop implements Runnable {
 
     public void init(SessionObject sessionObject, Runnable onTerminated) {
         initializeLoop(sessionObject, onTerminated, true);
+        // A playground session never reaches a rating and must not read one.
+        if (sessionObject.getSessionType() != SessionType.Playground) {
+            leftRatingAtStart = mmrService.resolveRatingRef(sessionObject.getLeftUserId());
+            rightRatingAtStart = mmrService.resolveRatingRef(sessionObject.getRightUserId());
+        }
     }
 
     @Autowired
     public void setSpectatorSubscriptionRegistry(SpectatorSubscriptionRegistry spectatorSubscriptionRegistry) {
         this.spectatorSubscriptionRegistry = spectatorSubscriptionRegistry;
+    }
+
+    @Autowired
+    public void setTeardownExecutor(@Qualifier(SessionTeardownExecutor.BEAN_NAME) Executor teardownExecutor) {
+        this.teardownExecutor = teardownExecutor;
+    }
+
+    public CompletableFuture<Void> getEndPersistence() {
+        return endPersistence;
+    }
+
+    // Runs the database work that follows the result broadcast off the loop thread. Each step
+    // catches its own failure so the steps after it still run.
+    protected final void persistAfterGameEnd(Runnable... steps) {
+        endPersistence = CompletableFuture.runAsync(() -> {
+            for (Runnable step : steps) {
+                try {
+                    step.run();
+                } catch (Exception e) {
+                    log.warn("[GameEnd] Failed to persist a match end step; sessionId: {}",
+                            sessionObject.getSessionId(), e);
+                }
+            }
+        }, teardownExecutor);
     }
 
     protected final void initializeLoop(SessionObject sessionObject, Runnable onTerminated, boolean createRightPlayer) {
@@ -200,8 +248,6 @@ public abstract class GameLoop implements Runnable {
             long frameStart = System.nanoTime();
             long nextFrameStart = frameStart + frameNanos;
             while (!stopRequested) {
-                gameContext.incrementFrameNum();
-
                 try {
                     // Every write to game state happens on this thread. update() runs
                     // GameActionSystem first, applying the input, bot and ping actions other
@@ -281,17 +327,28 @@ public abstract class GameLoop implements Runnable {
             outcomeLeft = ResultType.Draw;
         }
 
-        short leftMmr = mmrService.fetchRating(leftId);
-        short rightMmr = mmrService.fetchRating(rightId);
-        ResultMmrDto mmrDto = new ResultMmrDto(leftMmr, rightMmr, leftMmr, rightMmr);
+        // Read now only when init did not run, which is a loop built by hand.
+        MmrService.RatingRef left = leftRatingAtStart != null ? leftRatingAtStart : mmrService.resolveRatingRef(leftId);
+        MmrService.RatingRef right = rightRatingAtStart != null ? rightRatingAtStart : mmrService.resolveRatingRef(rightId);
 
-        if (sessionObject.getSessionType() == SessionType.PVP || sessionObject.getSessionType() == SessionType.Practice) {
-            mmrDto = mmrService.updateMatchResult(leftId, rightId, outcomeLeft);
-        }
+        boolean rated = sessionObject.getSessionType() == SessionType.PVP
+                || sessionObject.getSessionType() == SessionType.Practice;
+        ResultMmrDto mmrDto = rated
+                ? MmrService.computeMatchResult(left, right, outcomeLeft,
+                        sessionObject.getSessionType() == SessionType.PVP)
+                : new ResultMmrDto(left.rating(), right.rating(), left.rating(), right.rating());
+        // The result goes out before anything is written: the player sees the numbers that are
+        // about to be stored, not the ones that have been.
         gameContext.getResultChecker().broadcastResult(mmrDto);
 
-        userService.markOnline(leftId);
-        userService.markOnline(rightId);
+        persistAfterGameEnd(
+                () -> {
+                    if (rated) {
+                        mmrService.saveMatchResult(left, right, mmrDto);
+                    }
+                },
+                () -> userService.markOnline(leftId),
+                () -> userService.markOnline(rightId));
 
         // 3) Loop end
         close();

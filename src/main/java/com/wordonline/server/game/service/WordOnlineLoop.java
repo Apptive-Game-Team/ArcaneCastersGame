@@ -1,5 +1,6 @@
 package com.wordonline.server.game.service;
 
+import com.wordonline.server.bot.domain.BotParticipant;
 import com.wordonline.server.bot.domain.BotPersona;
 import com.wordonline.server.bot.llm.BotDecisionSourceFactory;
 import com.wordonline.server.bot.service.BotPersonaService;
@@ -51,6 +52,15 @@ public class WordOnlineLoop extends GameLoop {
     private volatile BotAgent rightBotAgent;
     private Integer endDetectedFrame;
     private boolean gameEndHandled;
+    private final PracticeHoverPause hoverPause = new PracticeHoverPause();
+    private boolean practicePaused;
+
+    public void setCardHover(long userId, boolean hovering) {
+        if (sessionObject.getSessionType() != SessionType.Practice || userId <= 0
+                || sessionObject.getUserSide(userId) == null) return;
+        hoverPause.setHovering(userId, hovering);
+        practicePaused = hoverPause.isPaused();
+    }
 
     public WordOnlineLoop(MmrService mmrService,
                           UserService userService, GameContext gameContext,
@@ -81,9 +91,30 @@ public class WordOnlineLoop extends GameLoop {
     public void init(SessionObject sessionObject, Runnable onTerminated) {
         gameContext.init(sessionObject, this);
         super.init(sessionObject, onTerminated);
-        if(sessionObject.getSessionType() == SessionType.Practice) {
+        // A human can be swapped for a bot on the loop thread at any time (ping timeout), and the
+        // match end reads the bot persona there too. Both lookups hit the database, so they are
+        // done here, on the request thread, and kept on the session.
+        // Playground sessions never touch user data and close their ping checker, so nothing takes over.
+        if (sessionObject.getSessionType() != SessionType.Playground) {
+            loadBotTakeoverInfo(sessionObject);
+        }
+        if (sessionObject.getSessionType() == SessionType.Practice
+                || sessionObject.getSessionType() == SessionType.PVP) {
             initializeBotAgents(sessionObject);
         }
+    }
+
+    void loadBotTakeoverInfo(SessionObject sessionObject) {
+        loadBotTakeoverInfo(sessionObject, sessionObject.getLeftUserId());
+        loadBotTakeoverInfo(sessionObject, sessionObject.getRightUserId());
+    }
+
+    private void loadBotTakeoverInfo(SessionObject sessionObject, long participantId) {
+        BotPersona persona = BotParticipant.isBot(participantId)
+                ? botPersonaService.findByParticipantIdOrDefault(participantId)
+                : BotPersona.DEFAULT;
+        sessionObject.putBotPersona(participantId, persona);
+        sessionObject.putNoviceProgress(participantId, getUserService().noviceProgress(participantId));
     }
 
     private void initializeBotAgents(SessionObject sessionObject) {
@@ -96,7 +127,7 @@ public class WordOnlineLoop extends GameLoop {
     }
 
     private BotAgent newBotAgent(SessionObject sessionObject, Master side, long participantId) {
-        BotPersona persona = botPersonaService.findByParticipantIdOrDefault(participantId);
+        BotPersona persona = sessionObject.getBotPersona(participantId);
         return new BotAgent(
                 sessionObject,
                 side,
@@ -116,7 +147,7 @@ public class WordOnlineLoop extends GameLoop {
         long opponentId = botSide == Master.LeftPlayer
                 ? sessionObject.getRightUserId()
                 : sessionObject.getLeftUserId();
-        return getUserService().noviceProgress(opponentId);
+        return sessionObject.getNoviceProgress(opponentId);
     }
 
     /** The bot playing that side, or {@code null} when a human has it. */
@@ -187,8 +218,21 @@ public class WordOnlineLoop extends GameLoop {
         // thread before any system reads or mutates the frame's game state.
         gameActionSystem.update(gameContext);
 
+        boolean ended = gameContext.getResultChecker().checkResult();
+        if (ended) hoverPause.clear();
+        practicePaused = !ended && sessionObject.getSessionType() == SessionType.Practice && hoverPause.isPaused();
+        gameContext.getGameTimer().setPaused(practicePaused);
+        if (!practicePaused) gameContext.incrementFrameNum();
+
         // Initial DTOs
         frameDataSystem.earlyUpdate(gameContext);
+
+        if (practicePaused) {
+            // 정지 중에도 최신 상태와 연결 유지용 프레임을 보낸다.
+            buildSnapshot();
+            frameDataSystem.lateUpdate(gameContext);
+            return;
+        }
 
         feverTimeSystem.update(gameContext);
 

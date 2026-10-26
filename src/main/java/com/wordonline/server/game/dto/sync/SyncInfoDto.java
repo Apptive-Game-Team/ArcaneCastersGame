@@ -15,6 +15,7 @@ import lombok.Data;
 public class SyncInfoDto {
     private final String type = "sync";
     private int remainingTime;
+    private boolean practicePaused;
     private int updatedMana;
     private int leftPlayerHp;
     private int rightPlayerHp;
@@ -27,7 +28,7 @@ public class SyncInfoDto {
     private final int tickRate;
 
     public SyncInfoDto(FrameInfoDto frameInfoDto, SnapshotResponseDto snapshotResponseDto, int tickRate) {
-        this(frameInfoDto.getRemainingTime(), frameInfoDto.getUpdatedMana(), frameInfoDto.getLeftPlayerHp(),
+        this(frameInfoDto.getRemainingTime(), frameInfoDto.isPracticePaused(), frameInfoDto.getUpdatedMana(), frameInfoDto.getLeftPlayerHp(),
                 frameInfoDto.getRightPlayerHp(), snapshotResponseDto, frameInfoDto.getObjects().projectile(),
                 frameInfoDto.getEvents(), tickRate);
     }

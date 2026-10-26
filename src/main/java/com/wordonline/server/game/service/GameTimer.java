@@ -15,6 +15,7 @@ public class GameTimer {
     private long endTime;
     private long duration;
     private final long feverTimeDuration;
+    private Long pausedAt;
 
     public GameTimer(Parameters parameters) {
         var gameParameters = parameters.object(GameObjectKey.GAME);
@@ -25,13 +26,26 @@ public class GameTimer {
     }
 
     public long getRemainingTimeMillis() {
-        return endTime - System.currentTimeMillis();
+        return endTime - (pausedAt != null ? pausedAt : System.currentTimeMillis());
+    }
+
+    public void setPaused(boolean paused) {
+        setPaused(paused, System.currentTimeMillis());
+    }
+
+    void setPaused(boolean paused, long now) {
+        if (paused && pausedAt == null) pausedAt = now;
+        else if (!paused && pausedAt != null) {
+            endTime += now - pausedAt;
+            pausedAt = null;
+        }
     }
 
     // Session initialization only; ordinary matches keep their database duration.
     public void overrideDuration(long durationMillis) {
         if (durationMillis <= 0) throw new IllegalArgumentException("Duration must be positive.");
         duration = durationMillis;
+        pausedAt = null;
         startTime = System.currentTimeMillis();
         endTime = startTime + duration;
     }

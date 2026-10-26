@@ -2,6 +2,7 @@ package com.wordonline.server.game.repository;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
@@ -19,13 +20,10 @@ public class MagicRepository {
 
     private final JdbcClient jdbcClient;
 
-    private final static String USER_MAGIC_EXIST = """
-            SELECT EXISTS (
-                 SELECT 1
-                 FROM user_magics
-                 WHERE user_id = :userId
-                   AND magic_id = :magicId
-             );
+    private final static String USER_MAGIC_IDS = """
+            SELECT magic_id
+            FROM user_magics
+            WHERE user_id = :userId;
             """;
 
     // magic_cards and cards are gone: a magic is looked up by its own id, and the element it
@@ -35,13 +33,12 @@ public class MagicRepository {
             FROM magics;
             """;
 
-    public boolean existUserMagic(long userId, long magicId) {
-        return jdbcClient.sql(USER_MAGIC_EXIST)
+    /** Every magic id the user owns. Read once when a session is created, never during a cast. */
+    public Set<Long> findUserMagicIds(long userId) {
+        return Set.copyOf(jdbcClient.sql(USER_MAGIC_IDS)
                 .param("userId", userId)
-                .param("magicId", magicId)
-                .query(Boolean.class)
-                .optional()
-                .orElse(false);
+                .query(Long.class)
+                .list());
     }
 
     public List<MagicInfoDto> getAllMagic() {

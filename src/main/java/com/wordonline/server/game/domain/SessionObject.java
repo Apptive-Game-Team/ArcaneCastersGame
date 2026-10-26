@@ -1,5 +1,6 @@
 package com.wordonline.server.game.domain;
 
+import com.wordonline.server.bot.domain.BotPersona;
 import com.wordonline.server.game.domain.map.GameMap;
 import com.wordonline.server.game.dto.Master;
 import com.wordonline.server.game.dto.PingChecker;
@@ -16,7 +17,10 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
@@ -58,6 +62,20 @@ public class SessionObject {
     private final AtomicLong leftEmoteCooldownUntilMillis = new AtomicLong(0);
     private final AtomicLong rightEmoteCooldownUntilMillis = new AtomicLong(0);
 
+    // Magic ids each human user owns, read once on the request thread when the session is created
+    // (or when a debug user joins) so the cast on the loop thread is a set lookup, not a query.
+    // A magic bought mid-match is not seen until the next session.
+    private final Map<Long, Set<Long>> ownedMagicIdsByUser = new ConcurrentHashMap<>();
+
+    public void setOwnedMagicIds(long userId, Set<Long> magicIds) {
+        ownedMagicIdsByUser.put(userId, Set.copyOf(magicIds));
+    }
+
+    /** Empty for a user whose owned magics were never loaded, so such a user owns nothing. */
+    public Set<Long> getOwnedMagicIds(long userId) {
+        return ownedMagicIdsByUser.getOrDefault(userId, Set.of());
+    }
+
     public Master getUserSide(long userId) {
         if (userId == leftUserId) {
             return Master.LeftPlayer;
@@ -93,6 +111,30 @@ public class SessionObject {
 
     @Setter
     private GameLoop gameLoop;
+
+    // Resolved by the loop's init on the request thread and read on the loop thread afterwards, so
+    // a bot takeover or the match end never queries the database. Per session on purpose: the admin
+    // server edits bot_personas directly, so a shared cache would go stale.
+    private final Map<Long, BotPersona> botPersonas = new ConcurrentHashMap<>();
+    private final Map<Long, Double> noviceProgresses = new ConcurrentHashMap<>();
+
+    public void putBotPersona(long participantId, BotPersona persona) {
+        botPersonas.put(participantId, persona);
+    }
+
+    /** The persona loaded for that participant at session creation; humans and unknown ids get DEFAULT. */
+    public BotPersona getBotPersona(long participantId) {
+        return botPersonas.getOrDefault(participantId, BotPersona.DEFAULT);
+    }
+
+    public void putNoviceProgress(long participantId, double progress) {
+        noviceProgresses.put(participantId, progress);
+    }
+
+    /** The tutorial progress loaded for that participant at session creation; 1.0 when none was loaded. */
+    public double getNoviceProgress(long participantId) {
+        return noviceProgresses.getOrDefault(participantId, 1.0);
+    }
 
     // Wired by GameLoop.initializeLoop. Written on the session creation thread and read by the
     // loop thread every frame, so it is volatile; a session with no registry has no spectators.

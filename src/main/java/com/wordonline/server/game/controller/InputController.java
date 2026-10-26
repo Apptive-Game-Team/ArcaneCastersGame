@@ -63,6 +63,16 @@ public class InputController {
         GameContext gameContext = sessionObject.getGameContext();
 
         switch (inputRequestDto.getType()) {
+            case "cardHover" -> {
+                boolean hovering = inputRequestDto.isHovering();
+                gameContext.submitAction("cardHover", () -> gameContext.getGameLoop().setCardHover(userId, hovering));
+            }
+            case "surrender" -> gameContext.submitAction("surrender", () -> {
+                var resultChecker = gameContext.getResultChecker();
+                if (!resultChecker.checkResult()) {
+                    resultChecker.setLoser(sessionObject.getUserSide(userId));
+                }
+            });
             case "useMagic" -> {
                 log.trace("useMagic arrived {}", userId);
                 MagicUseRequestDto magicUse = inputRequestDto.toMagicUse();

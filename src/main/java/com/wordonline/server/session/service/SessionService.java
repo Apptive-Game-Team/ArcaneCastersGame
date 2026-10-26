@@ -3,6 +3,7 @@ package com.wordonline.server.session.service;
 import com.wordonline.server.game.domain.SessionObject;
 import com.wordonline.server.bot.domain.BotParticipant;
 import com.wordonline.server.bot.service.BotPersonaService;
+import com.wordonline.server.game.config.SessionTeardownExecutor;
 import com.wordonline.server.game.domain.SessionType;
 import com.wordonline.server.game.dto.Master;
 import com.wordonline.server.game.service.GameContext;
@@ -20,6 +21,7 @@ import com.wordonline.server.statistic.service.GameSessionRecordService;
 import com.wordonline.server.statistic.service.StatisticService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -29,7 +31,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.Flow;
 import java.util.concurrent.SubmissionPublisher;
 
@@ -51,6 +55,7 @@ public class SessionService {
     private final BotPersonaService botPersonaService;
     private final UserScenarioService userScenarioService;
     private final LobbySessionClient lobbySessionClient;
+    private final Executor teardownExecutor;
 
     public SessionService(SessionObjectFactory sessionObjectFactory,
                           GameLoopFactory gameLoopFactory,
@@ -59,7 +64,8 @@ public class SessionService {
                           UserService userService,
                           BotPersonaService botPersonaService,
                           UserScenarioService userScenarioService,
-                          LobbySessionClient lobbySessionClient) {
+                          LobbySessionClient lobbySessionClient,
+                          @Qualifier(SessionTeardownExecutor.BEAN_NAME) Executor teardownExecutor) {
         this.sessionObjectFactory = sessionObjectFactory;
         this.gameLoopFactory = gameLoopFactory;
         this.statisticService = statisticService;
@@ -68,6 +74,7 @@ public class SessionService {
         this.botPersonaService = botPersonaService;
         this.userScenarioService = userScenarioService;
         this.lobbySessionClient = lobbySessionClient;
+        this.teardownExecutor = teardownExecutor;
     }
 
     public void subscribeSessionNumChange(Flow.Subscriber<Integer> subscriber) {
@@ -178,11 +185,34 @@ public class SessionService {
         sessionObject.getPingChecker().close();
         submitSessionNumChange();
 
-        GameContext gameContext = sessionObject.getGameContext();
         if (sessionObject.getSessionType() == SessionType.Playground) {
             sessionIdsByAttemptId.values().removeIf(sessionObject.getSessionId()::equals);
             return;
         }
+
+        // Everything above decides who owns the teardown and releases what this server holds in
+        // memory, so it stays on the loop thread and ahead of the watchdog. What follows only
+        // writes to the database and the lobby; it runs on the teardown executor so that a
+        // session's end does not hold its loop thread for a dozen round trips. It waits for the
+        // rating and user status writes handleGameEnd started, which ran first when all of this
+        // was inline.
+        GameLoop loop = sessionObject.getGameLoop();
+        CompletableFuture<Void> endPersistence = loop == null || loop.getEndPersistence() == null
+                ? CompletableFuture.completedFuture(null)
+                : loop.getEndPersistence();
+        endPersistence.whenCompleteAsync((ignored, error) -> persistSessionEnd(sessionObject), teardownExecutor);
+    }
+
+    private void persistSessionEnd(SessionObject sessionObject) {
+        try {
+            persistSessionEndSteps(sessionObject);
+        } catch (Exception e) {
+            log.warn("[Session] Failed to persist the session end; sessionId: {}", sessionObject.getSessionId(), e);
+        }
+    }
+
+    private void persistSessionEndSteps(SessionObject sessionObject) {
+        GameContext gameContext = sessionObject.getGameContext();
         ResultChecker resultChecker = gameContext.getResultChecker();
         Master loser = resultChecker.getLoser();
 
@@ -195,9 +225,13 @@ public class SessionService {
             log.warn("[Session] Failed to save game statistics; sessionId: {}", sessionObject.getSessionId(), e);
         }
 
-        gameSessionRecordService.recordEnd(sessionObject.getSessionId(),
-                loser == null ? GameSessionStatus.DRAW : GameSessionStatus.COMPLETED,
-                null, null, statisticGameId);
+        try {
+            gameSessionRecordService.recordEnd(sessionObject.getSessionId(),
+                    loser == null ? GameSessionStatus.DRAW : GameSessionStatus.COMPLETED,
+                    null, null, statisticGameId);
+        } catch (Exception e) {
+            log.warn("[Session] Failed to record the session end; sessionId: {}", sessionObject.getSessionId(), e);
+        }
 
         notifyLobbySessionEnded(sessionObject);
 
@@ -210,10 +244,20 @@ public class SessionService {
 
         if (!sessionObject.getSessionId().contains("debug")) {
             if (sessionObject.getSessionType() == SessionType.PVE && loser == Master.RightPlayer) {
-                userScenarioService.markFinished(sessionObject.getLeftUserId(), sessionObject.getScenarioId());
+                try {
+                    userScenarioService.markFinished(sessionObject.getLeftUserId(), sessionObject.getScenarioId());
+                } catch (Exception e) {
+                    log.warn("[Session] Failed to mark the scenario finished; sessionId: {}",
+                            sessionObject.getSessionId(), e);
+                }
             }
             if (winnerId >= 0) {
-                userService.incrementTotalWins(winnerId);
+                try {
+                    userService.incrementTotalWins(winnerId);
+                } catch (Exception e) {
+                    log.warn("[Session] Failed to increment total wins; sessionId: {}",
+                            sessionObject.getSessionId(), e);
+                }
                 advanceNoviceProgressAfterHospitalityWin(sessionObject, winnerId);
             }
         }
@@ -284,7 +328,7 @@ public class SessionService {
             long loserId = winnerId == sessionObject.getLeftUserId()
                     ? sessionObject.getRightUserId()
                     : sessionObject.getLeftUserId();
-            if (isHospitalityBot(loserId)) {
+            if (isHospitalityBot(sessionObject, loserId)) {
                 userService.advanceNoviceProgress(winnerId);
             }
         } catch (Exception e) {
@@ -296,9 +340,11 @@ public class SessionService {
         }
     }
 
-    private boolean isHospitalityBot(long participantId) {
+    // The persona was loaded when the session was created; this runs on the loop thread, which
+    // must not wait on the database.
+    private boolean isHospitalityBot(SessionObject sessionObject, long participantId) {
         return BotParticipant.isBot(participantId)
-                && botPersonaService.findByParticipantIdOrDefault(participantId).hospitality();
+                && sessionObject.getBotPersona(participantId).hospitality();
     }
 
     // The lobby's match ticket lives in Redis and stays MATCHED until it hears the session ended,

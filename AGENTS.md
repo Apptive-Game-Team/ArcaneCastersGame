@@ -10,6 +10,7 @@ For cross-repo context, see [related-repositories.md](air-file://g9ubn80st39rtru
 - `./gradlew bootRun`: start the server locally with Spring Boot.
 - `java -jar build/libs/*.jar`: run the packaged application after a build.
 - `./deploy.sh` or `./remote-deploy.sh`: deploy using the project scripts.
+- `scripts/ci/boot-check.sh <image> <database-repo>/migration`: boot a built image against a freshly migrated Postgres and wait for `/actuator/health` to report UP. CI runs it before pushing, because the tests run on a JDK and the image runs on a JRE that lacks some modules (for example `jdk.random`).
 
 ## Coding Style & Naming Conventions
 Use 4-space indentation and keep files in standard Java package layout. Follow existing naming patterns: `*Controller`, `*Service`, `*Repository`, `*Dto`, `*PrefabInitializer`, and `*System`. Classes use `PascalCase`, methods and fields use `camelCase`, and constants use `UPPER_SNAKE_CASE`. Prefer the helper methods already present on domain objects, such as `addComponent(...)` and `addCollider(...)`, instead of mutating internal lists directly. Lombok is used widely; keep annotations consistent with surrounding code.
@@ -150,3 +151,18 @@ For in-depth explanations of the server systems, refer to the following develope
 - **Physics, Collisions & Movement**: [physics-system.md](file:///Users/jeong-yunseong/development/word-online/dev/game-server/docs/physics-system.md)
 - **Magic Spell Recipes & Input Flow**: [magic-system.md](file:///Users/jeong-yunseong/development/word-online/dev/game-server/docs/magic-system.md)
 - **Database Schema & Parameters**: [database-schema.md](file:///Users/jeong-yunseong/development/word-online/dev/game-server/docs/database-schema.md)
+
+## Code Review Rules
+
+- Write all code review titles, descriptions, comments, and summaries in Korean.
+- Preserve code identifiers, file paths, commands, error messages, and technical terms in their original form.
+- For each finding, concisely explain the cause, impact, and suggested fix.
+
+## Writing Style
+
+Follow [`.agents/docs/writing-style.md`](.agents/docs/writing-style.md) for chat
+replies, reviews, plans, handoffs, issues, commit titles and bodies, pull
+requests, release notes, source comments, and all frontend copy (including
+localization, errors, labels, and accessibility text).
+Its wording and title rules take precedence over older style examples;
+preserve project-specific technical constraints and workflows.

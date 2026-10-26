@@ -2,8 +2,6 @@ package com.wordonline.server.game.service;
 
 import com.wordonline.server.game.domain.SessionObject;
 import com.wordonline.server.game.domain.SessionType;
-import com.wordonline.server.game.dto.result.ResultMmrDto;
-import com.wordonline.server.game.dto.result.ResultType;
 import org.junit.jupiter.api.Test;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -27,8 +25,10 @@ class GameLoopFailureEndTest {
         when(sessionObject.getLeftUserId()).thenReturn(1L);
         when(sessionObject.getRightUserId()).thenReturn(2L);
         when(sessionObject.getSessionType()).thenReturn(SessionType.PVP);
-        when(mmrService.updateMatchResult(anyLong(), anyLong(), any(ResultType.class)))
-                .thenReturn(new ResultMmrDto((short) 0, (short) 0, (short) 0, (short) 0));
+        when(mmrService.resolveRatingRef(anyLong())).thenAnswer(invocation -> {
+            long id = invocation.getArgument(0);
+            return new MmrService.RatingRef(id, id, id < 0, (short) 1000);
+        });
 
         GameLoop loop = new GameLoop(mmrService, userService, gameContext, null) {
             @Override

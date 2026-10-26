@@ -48,16 +48,34 @@ public class TagRepository {
 
     private final JdbcClient jdbcClient;
 
-    private final Map<Long, Set<String>> magicTagsCache = new ConcurrentHashMap<>();
-    private final Map<PrefabType, Set<String>> prefabTagsCache = new ConcurrentHashMap<>();
-    private final Map<String, Set<String>> gameObjectTagsCache = new ConcurrentHashMap<>();
-    private final Map<CounterWeightKey, Double> counterWeightCache = new ConcurrentHashMap<>();
+    private volatile Map<Long, Set<String>> magicTagsCache = new ConcurrentHashMap<>();
+    private volatile Map<PrefabType, Set<String>> prefabTagsCache = new ConcurrentHashMap<>();
+    private volatile Map<String, Set<String>> gameObjectTagsCache = new ConcurrentHashMap<>();
+    private volatile Map<CounterWeightKey, Double> counterWeightCache = new ConcurrentHashMap<>();
 
+    /**
+     * Reads every key the bots have already asked for again, then swaps the new maps in. Clearing
+     * instead left the next bot think to refill them one round trip at a time. The new maps are
+     * filled before any is swapped, so a failed reload keeps all the old values.
+     */
     public void invalidateCache() {
-        magicTagsCache.clear();
-        prefabTagsCache.clear();
-        gameObjectTagsCache.clear();
-        counterWeightCache.clear();
+        Map<Long, Set<String>> magicTags = new ConcurrentHashMap<>();
+        magicTagsCache.keySet().forEach(magicId -> magicTags.put(magicId, loadMagicTags(magicId)));
+
+        Map<String, Set<String>> gameObjectTags = new ConcurrentHashMap<>();
+        gameObjectTagsCache.keySet().forEach(name -> gameObjectTags.put(name, loadGameObjectTags(name)));
+        Map<PrefabType, Set<String>> prefabTags = new ConcurrentHashMap<>();
+        prefabTagsCache.keySet().forEach(type -> prefabTags.put(type,
+                gameObjectTags.computeIfAbsent(toGameObjectName(type), this::loadGameObjectTags)));
+
+        Map<CounterWeightKey, Double> counterWeights = new ConcurrentHashMap<>();
+        counterWeightCache.keySet().forEach(key -> counterWeights.put(key,
+                loadCounterWeight(key.attackerTags(), key.targetTags())));
+
+        magicTagsCache = magicTags;
+        gameObjectTagsCache = gameObjectTags;
+        prefabTagsCache = prefabTags;
+        counterWeightCache = counterWeights;
     }
 
     public Set<String> getMagicTags(long magicId) {

@@ -3,6 +3,8 @@ package com.wordonline.server.game.service.system;
 import com.wordonline.server.game.config.GameConfig;
 import com.wordonline.server.game.domain.object.GameObject;
 import com.wordonline.server.game.domain.object.Vector3;
+import com.wordonline.server.game.domain.object.component.Damageable;
+import com.wordonline.server.game.domain.object.component.mob.pathfinder.FlowFieldNavigation;
 import com.wordonline.server.game.domain.object.component.effect.receiver.LightningSummonEffectReceiver;
 import com.wordonline.server.game.domain.object.component.mob.detector.TargetMask;
 import com.wordonline.server.game.domain.object.component.mob.MovementSpeedTracker;
@@ -11,12 +13,14 @@ import com.wordonline.server.game.domain.object.component.mob.statemachine.attac
 import com.wordonline.server.game.domain.object.component.physic.CircleCollider;
 import com.wordonline.server.game.domain.object.component.physic.EdgeCollider;
 import com.wordonline.server.game.domain.object.component.physic.RigidBody;
+import com.wordonline.server.game.domain.object.component.physic.StaticObstacle;
 import com.wordonline.server.game.domain.object.component.physic.WallCollision;
 import com.wordonline.server.game.domain.object.prefab.PrefabType;
 import com.wordonline.server.game.dto.Effect;
 import com.wordonline.server.game.dto.Master;
 import com.wordonline.server.game.dto.Status;
 import com.wordonline.server.game.service.GameContext;
+import com.wordonline.server.game.service.ObjectsInfoDtoBuilder;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -25,6 +29,8 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
+import static org.mockito.ArgumentMatchers.any;
 
 class PhysicSystemWallCollisionTest {
 
@@ -104,6 +110,7 @@ class PhysicSystemWallCollisionTest {
     void stormStagResumesChargeAfterPanicHitsLeftWall() {
         GameContext gameContext = mock(GameContext.class);
         when(gameContext.getDeltaTime()).thenReturn(0.05f);
+        when(gameContext.getNavigation()).thenReturn(new FlowFieldNavigation(() -> 0, List::of));
 
         GameObject stag = new GameObject(
                 Master.LeftPlayer, PrefabType.StormStag, new Vector3(0.4f, 0f, 5f), gameContext);
@@ -148,5 +155,53 @@ class PhysicSystemWallCollisionTest {
         assertThat(ReflectionTestUtils.getField(mob, "currentState"))
                 .isInstanceOf(StormStagMob.ChargeState.class);
         assertThat(stag.getPosition().getX()).isGreaterThan(0.8f);
+    }
+
+    @Test
+    void stormStagChargesPastAnObstacleWithPhysicalCollisionResolution() {
+        GameContext context = mock(GameContext.class);
+        when(context.getDeltaTime()).thenReturn(0.05f);
+        when(context.getObjectsInfoDtoBuilder()).thenReturn(mock(ObjectsInfoDtoBuilder.class));
+        GameObject stag = new GameObject(
+                Master.LeftPlayer, PrefabType.StormStag, new Vector3(3f, 0f, 5f), context);
+        stag.addComponent(new RigidBody(stag, 3));
+        stag.addComponent(new MovementSpeedTracker(stag, 4f));
+        StormStagMob mob = new StormStagMob(stag, 150, 4f, TargetMask.GROUND.bit,
+                20, 2f, 2f, 2f);
+        stag.addComponent(mob);
+        stag.addCollider(new CircleCollider(stag, 0.8f, false));
+        stag.flushComponents();
+
+        GameObject rock = new GameObject(
+                Master.None, PrefabType.RockRemnant, new Vector3(9f, 0f, 5f), context);
+        rock.addComponent(new StaticObstacle(rock));
+        rock.addCollider(new CircleCollider(rock, 1f, false));
+        rock.flushComponents();
+        rock.setStatus(Status.Idle);
+        List<GameObject> objects = List.of(stag, rock);
+        when(context.getActiveGameObjects()).thenReturn(objects);
+        when(context.getNavigation()).thenReturn(new FlowFieldNavigation(() -> 0, () -> objects));
+
+        GameObject target = mock(GameObject.class);
+        when(target.getMaster()).thenReturn(Master.RightPlayer);
+        when(target.getStatus()).thenReturn(Status.Idle);
+        when(target.getPosition()).thenReturn(new Vector3(15f, 0f, 5f));
+        Damageable damageable = mock(Damageable.class);
+        when(target.getComponent(Damageable.class)).thenReturn(damageable);
+        ReflectionTestUtils.setField(mob, "target", target);
+        ReflectionTestUtils.setField(mob, "panicCooldownRemaining", 100f);
+        mob.setState(mob.new ChargeState());
+
+        PhysicSystem physics = new PhysicSystem();
+        for (int frame = 0; frame < 300; frame++) {
+            stag.update();
+            physics.update(context);
+            if (ReflectionTestUtils.getField(mob, "currentState") instanceof StormStagMob.PanicState) {
+                break;
+            }
+        }
+
+        verify(damageable).onDamaged(any());
+        assertThat(stag.getPosition().getX()).isGreaterThan(14f);
     }
 }

@@ -5,7 +5,7 @@ plugins {
 }
 
 group = 'com.wordonline'
-version = '1.4.0'
+version = '1.5.0'
 
 java {
     toolchain {
@@ -50,6 +50,8 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-jdbc'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     runtimeOnly 'org.postgresql:postgresql:42.7.7'
+    // The in-memory database of the local profile (LocalProfileConfiguration) and of the tests.
+    runtimeOnly 'com.h2database:h2'
     testImplementation 'com.h2database:h2'
 
     // web socket
@@ -69,4 +71,9 @@ tasks.named('test') {
     useJUnitPlatform()
     // Explicit offline example export; ordinary tests never overwrite preview assets.
     systemProperty 'preview.export', providers.gradleProperty('previewExport').getOrElse('false')
+    // LocalLauncherProcessTest runs the boot jar as the desktop client does.
+    dependsOn tasks.named('bootJar')
+    systemProperty 'localServer.jar', tasks.named('bootJar').flatMap { it.archiveFile }.get().asFile.absolutePath
 }
+
+apply from: 'gradle/local-server-dist.gradle'

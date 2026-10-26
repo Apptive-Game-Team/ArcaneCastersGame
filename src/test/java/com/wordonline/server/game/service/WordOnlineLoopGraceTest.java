@@ -11,7 +11,6 @@ import com.wordonline.server.game.domain.magic.parser.DatabaseMagicParser;
 import com.wordonline.server.game.dto.Master;
 import com.wordonline.server.game.dto.result.ResultDto;
 import com.wordonline.server.game.dto.result.ResultMmrDto;
-import com.wordonline.server.game.dto.result.ResultType;
 import com.wordonline.server.game.service.bot.BotCounterEvaluator;
 import com.wordonline.server.game.service.system.BotAgentSystem;
 import com.wordonline.server.game.service.system.ComponentUpdateSystem;
@@ -26,12 +25,14 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.spy;
 
 class WordOnlineLoopGraceTest {
 
@@ -65,7 +66,9 @@ class WordOnlineLoopGraceTest {
         update(loop, TICK_RATE + 2);
         assertThat(resultChecker.getLoser()).isEqualTo(Master.LeftPlayer);
         verify(sessionObject, times(2)).sendFrameInfo(anyLong(), any(ResultDto.class));
-        verify(mmrService, times(1)).updateMatchResult(1L, 2L, ResultType.Lose);
+        // Left lost 1000 against 1000, so 10 points move from left to right.
+        verify(mmrService, times(1)).saveMatchResult(any(), any(),
+                eq(new ResultMmrDto((short) 1000, (short) 1000, (short) 990, (short) 1010)));
         verify(frameDataSystem, times(TICK_RATE + 2)).lateUpdate(gameContext);
     }
 
@@ -102,8 +105,10 @@ class WordOnlineLoopGraceTest {
         when(sessionObject.getLeftUserId()).thenReturn(1L);
         when(sessionObject.getRightUserId()).thenReturn(2L);
         when(sessionObject.getSessionType()).thenReturn(SessionType.PVP);
-        when(mmrService.updateMatchResult(anyLong(), anyLong(), any(ResultType.class)))
-                .thenReturn(new ResultMmrDto((short) 0, (short) 0, (short) 0, (short) 0));
+        when(mmrService.resolveRatingRef(anyLong())).thenAnswer(invocation -> {
+            long id = invocation.getArgument(0);
+            return new MmrService.RatingRef(id, id, id < 0, (short) 1000);
+        });
 
         WordOnlineLoop loop = new WordOnlineLoop(mmrService, mock(UserService.class), gameContext,
                 mock(Parameters.class), frameDataSystem, mock(GameActionSystem.class), botSystem,
@@ -118,6 +123,56 @@ class WordOnlineLoopGraceTest {
         };
         loop.sessionObject = sessionObject;
         return loop;
+    }
+
+    @Test
+    void practiceHoverFreezesSimulationButStillBuildsAndSendsSnapshots() {
+        WordOnlineLoop loop = spy(loop());
+        when(sessionObject.getSessionType()).thenReturn(SessionType.Practice);
+        when(sessionObject.getUserSide(1L)).thenReturn(Master.LeftPlayer);
+        loop.setCardHover(1L, true);
+        update(loop, 3);
+        assertThat(loop.isPracticePaused()).isTrue();
+        verify(gameTimer).setPaused(true);
+        verify(gameContext, never()).incrementFrameNum();
+        verify(botSystem, never()).update(gameContext);
+        verify(frameDataSystem).earlyUpdate(gameContext);
+        verify(frameDataSystem).lateUpdate(gameContext);
+        verify(loop).buildSnapshot();
+        loop.setCardHover(1L, false);
+        update(loop, 3);
+        assertThat(loop.isPracticePaused()).isFalse();
+        verify(gameContext).incrementFrameNum();
+        verify(botSystem).update(gameContext);
+    }
+
+    @Test
+    void surrenderEndsAPausedMatchWithoutWaitingForHoverToEnd() {
+        WordOnlineLoop loop = loop();
+        when(sessionObject.getSessionType()).thenReturn(SessionType.Practice);
+        when(sessionObject.getUserSide(1L)).thenReturn(Master.LeftPlayer);
+        loop.setCardHover(1L, true);
+        update(loop, 3);
+        resultChecker.setLoser(Master.LeftPlayer);
+        update(loop, 3);
+        assertThat(loop.isPracticePaused()).isFalse();
+        update(loop, TICK_RATE + 3);
+        verify(sessionObject, times(2)).sendFrameInfo(anyLong(), any(ResultDto.class));
+    }
+
+    @Test
+    void refusesHoverForPvpPveSpectatorsAndBots() {
+        WordOnlineLoop loop = loop();
+        when(sessionObject.getUserSide(1L)).thenReturn(Master.LeftPlayer);
+        for (SessionType type : new SessionType[]{SessionType.PVP, SessionType.PVE, SessionType.Playground}) {
+            when(sessionObject.getSessionType()).thenReturn(type);
+            loop.setCardHover(1L, true);
+            assertThat(loop.isPracticePaused()).isFalse();
+        }
+        when(sessionObject.getSessionType()).thenReturn(SessionType.Practice);
+        loop.setCardHover(-1L, true);
+        loop.setCardHover(77L, true);
+        assertThat(loop.isPracticePaused()).isFalse();
     }
 
     private void update(WordOnlineLoop loop, int frameNum) {
