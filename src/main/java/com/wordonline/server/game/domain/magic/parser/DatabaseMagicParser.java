@@ -1,9 +1,9 @@
 package com.wordonline.server.game.domain.magic.parser;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 import jakarta.annotation.PostConstruct;
 
@@ -24,13 +24,16 @@ public class DatabaseMagicParser implements MagicParser {
     public static final long INVALID_MAGIC_ID = 0;
 
     // A card is a magic, so there is no combination to key on: the id on the card is the lookup.
-    private final Map<Long, Magic> magicIdMap = new ConcurrentHashMap<>();
+    // init builds a new map and swaps it in, so a loop thread reading during an admin reload sees
+    // the old map or the new one, never an empty one it would have to refill from the database.
+    private volatile Map<Long, Magic> magicIdMap = Map.of();
 
     private final MagicRepository magicRepository;
     private final ApplicationContext applicationContext;
 
     @PostConstruct
     private void init() {
+        Map<Long, Magic> loaded = new HashMap<>();
         magicRepository.getAllMagic()
                 .forEach(magicInfoDto -> {
                     if (!applicationContext.containsBean(magicInfoDto.name())) {
@@ -42,13 +45,16 @@ public class DatabaseMagicParser implements MagicParser {
                     magic.id = magicInfoDto.id();
                     magic.name = magicInfoDto.name();
                     magic.element = magicInfoDto.element();
-                    magicIdMap.put(magic.id, magic);
+                    loaded.put(magic.id, magic);
                 });
-        log.info("[Magic:Loaded]: {}", magicIdMap.values().stream().map(Magic::getClass).map(Class::getSimpleName).toList());
+        magicIdMap = Map.copyOf(loaded);
+        log.info("[Magic:Loaded]: {}", loaded.values().stream().map(Magic::getClass).map(Class::getSimpleName).toList());
     }
 
+    // Reloads now instead of leaving the map empty: an empty map is refilled by whichever thread
+    // asks next, which is usually a game loop thread. A failed reload keeps the old map.
     public void invalidateCache() {
-        magicIdMap.clear();
+        init();
     }
 
     @Override
