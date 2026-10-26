@@ -27,6 +27,7 @@ public class StormStagMob extends StateMachineMob implements Collidable {
     private static final float PANIC_COOLDOWN = 10f;
     private static final float PANIC_SPEED_MULTIPLIER = 1.25f;
     private static final float IMPACT_RANGE = 0.05f;
+    private static final float WAYPOINT_REACH_EPSILON = 1e-4f;
     private static final float ELECTRIC_HIT_DURATION = 0.2f;
     private static final String ELECTRIC_HIT_PROJECTILE = "ElectricShot";
     private static final List<TargetCategory> OBJECTIVE_PRIORITY = List.of(
@@ -98,7 +99,8 @@ public class StormStagMob extends StateMachineMob implements Collidable {
 
     @Override
     public void onCollisionWithEnemy(GameObject otherObject) {
-        if (!(currentState instanceof ChargeState) || !isValidTarget(otherObject)) {
+        if (!(currentState instanceof ChargeState) || !isValidTarget(otherObject)
+                || !otherObject.hasComponent(Damageable.class)) {
             return;
         }
 
@@ -223,11 +225,15 @@ public class StormStagMob extends StateMachineMob implements Collidable {
     public class ChargeState extends State {
         private float currentSpeed;
         private float threatTimer;
+        private float pathTimer;
+        private List<Vector3> path;
 
         @Override
         public void onEnter() {
             currentSpeed = 0f;
             threatTimer = Detector.DETECTING_INTERVAL;
+            pathTimer = 0f;
+            path = null;
             speedTracker.begin();
             gameObject.setStatus(Status.Move);
         }
@@ -265,14 +271,32 @@ public class StormStagMob extends StateMachineMob implements Collidable {
                 return;
             }
 
-            currentSpeed = Math.min(
-                    speed.total(),
-                    currentSpeed + acceleration * getGameContext().getDeltaTime());
-            Vector3 direction = target.getPosition()
-                    .subtract(gameObject.getPosition())
-                    .grounded()
-                    .normalize();
-            rigidBody.addVelocity(direction.multiply(currentSpeed));
+            float deltaTime = getGameContext().getDeltaTime();
+            Vector3 currentPosition = gameObject.getPosition().grounded();
+            pathTimer += deltaTime;
+            if (path == null || path.isEmpty() || pathTimer >= Detector.DETECTING_INTERVAL) {
+                path = getGameContext().getNavigation().findPath(
+                        currentPosition, target.getPosition().grounded());
+                pathTimer = 0f;
+            }
+            if (path.isEmpty()) {
+                setState(new TargetSearchState());
+                return;
+            }
+
+            // 경유점을 일찍 넘기면 장애물 모서리를 가로지른다. 마지막 지점은 충돌할 때까지 남긴다.
+            while (path.size() > 1
+                    && currentPosition.distance(path.getFirst()) <= WAYPOINT_REACH_EPSILON) {
+                path.removeFirst();
+            }
+
+            currentSpeed = Math.min(speed.total(), currentSpeed + acceleration * deltaTime);
+            Vector3 offset = path.getFirst().subtract(currentPosition);
+            // 가속 중에도 한 프레임에 경유점을 지나쳐 앞뒤로 왕복하지 않도록 제한한다.
+            float stepSpeed = deltaTime > 0f
+                    ? Math.min(currentSpeed, (float) currentPosition.distance(path.getFirst()) / deltaTime)
+                    : 0f;
+            rigidBody.addVelocity(offset.normalize().multiply(stepSpeed));
         }
     }
 

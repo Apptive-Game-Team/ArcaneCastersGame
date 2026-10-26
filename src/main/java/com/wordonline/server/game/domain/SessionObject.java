@@ -18,8 +18,9 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
@@ -60,6 +61,20 @@ public class SessionObject {
     private static final long EMOTE_COOLDOWN_MILLIS = 3_000;
     private final AtomicLong leftEmoteCooldownUntilMillis = new AtomicLong(0);
     private final AtomicLong rightEmoteCooldownUntilMillis = new AtomicLong(0);
+
+    // Magic ids each human user owns, read once on the request thread when the session is created
+    // (or when a debug user joins) so the cast on the loop thread is a set lookup, not a query.
+    // A magic bought mid-match is not seen until the next session.
+    private final Map<Long, Set<Long>> ownedMagicIdsByUser = new ConcurrentHashMap<>();
+
+    public void setOwnedMagicIds(long userId, Set<Long> magicIds) {
+        ownedMagicIdsByUser.put(userId, Set.copyOf(magicIds));
+    }
+
+    /** Empty for a user whose owned magics were never loaded, so such a user owns nothing. */
+    public Set<Long> getOwnedMagicIds(long userId) {
+        return ownedMagicIdsByUser.getOrDefault(userId, Set.of());
+    }
 
     public Master getUserSide(long userId) {
         if (userId == leftUserId) {
