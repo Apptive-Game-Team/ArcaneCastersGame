@@ -49,6 +49,19 @@ class VineColonyPrefabInitializerTest {
     }
 
     @Test
+    void preservesFractionalAttackInterval() {
+        GameObject vineColony = initializedVineColony();
+
+        SummonMob summonMob = components(vineColony)
+                .filter(SummonMob.class::isInstance)
+                .map(SummonMob.class::cast)
+                .findFirst()
+                .orElseThrow();
+
+        assertThat(summonMob.getAttackInterval().total()).isEqualTo(1.5f);
+    }
+
+    @Test
     void classifiesVineColonyAsBuildingByLeavingSummonMobSpeedAtZero() {
         GameObject vineColony = initializedVineColony();
 
@@ -74,6 +87,7 @@ class VineColonyPrefabInitializerTest {
         // classifiesVineColonyAsBuildingByLeavingSummonMobSpeedAtZero unnoticed.
         when(vineColonyParameters.intValue(ParameterKey.DAMAGE)).thenReturn(9);
         when(vineColonyParameters.intValue(ParameterKey.ATTACK_INTERVAL)).thenReturn(1);
+        when(vineColonyParameters.floatValue(ParameterKey.ATTACK_INTERVAL)).thenReturn(1.5f);
         when(vineColonyParameters.intValue(ParameterKey.ATTACK_RANGE)).thenReturn(3);
         when(vineColonyParameters.floatValue(ParameterKey.DURATION)).thenReturn(15f);
 
