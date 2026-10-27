@@ -35,7 +35,7 @@ public class VineColonyPrefabInitializer extends PrefabInitializer {
                         gameObject,
                         vineColonyParameters.intValue(ParameterKey.HP),
                         0,
-                        vineColonyParameters.intValue(ParameterKey.ATTACK_INTERVAL),
+                        vineColonyParameters.floatValue(ParameterKey.ATTACK_INTERVAL),
                         vineColonyParameters.intValue(ParameterKey.ATTACK_RANGE),
                         PrefabType.Vine
                 ));
