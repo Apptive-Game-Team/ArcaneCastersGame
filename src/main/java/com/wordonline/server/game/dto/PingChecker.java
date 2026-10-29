@@ -63,6 +63,10 @@ public class PingChecker {
     }
 
     // cancels every pending timeout owned by this session so they cannot outlive the match
+    public boolean isDisconnected(long userId) {
+        return nonPingUsers.contains(userId);
+    }
+
     public void close() {
         pingTasks.values().forEach(task -> task.cancel(false));
         pingTasks.clear();

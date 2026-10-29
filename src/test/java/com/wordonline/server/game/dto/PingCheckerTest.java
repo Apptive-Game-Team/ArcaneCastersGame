@@ -25,6 +25,9 @@ class PingCheckerTest {
         sessionB.ping(USER_ID, 1);
 
         await().atMost(Duration.ofSeconds(5)).untilTrue(sessionATimedOut);
+        assertThat(sessionA.isDisconnected(USER_ID)).isTrue();
+        sessionA.ping(USER_ID);
+        assertThat(sessionA.isDisconnected(USER_ID)).isFalse();
 
         sessionA.close();
         sessionB.close();

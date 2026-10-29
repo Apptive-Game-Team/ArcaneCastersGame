@@ -35,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import com.wordonline.server.bot.domain.BotPersona;
@@ -475,6 +476,19 @@ class SessionServiceTest {
         when(resultChecker.getLoser()).thenReturn(null);
 
         return resultChecker;
+    }
+
+    @Test
+    void teardownPersistsSurrenderReason() {
+        var terminated = ArgumentCaptor.forClass(Runnable.class);
+        sessionService.createSession(sessionDto);
+        verify(gameLoop).init(eq(sessionObject), terminated.capture());
+        var result = stubTeardownCollaborators();
+        when(result.getLoser()).thenReturn(Master.LeftPlayer);
+        when(result.getEndReason()).thenReturn("SURRENDER");
+        terminated.getValue().run();
+        verify(gameSessionRecordService).recordEnd(eq(sessionDto.sessionId()),
+                eq(com.wordonline.server.statistic.domain.GameSessionStatus.COMPLETED), eq("SURRENDER"), isNull(), any());
     }
 
     @Test
