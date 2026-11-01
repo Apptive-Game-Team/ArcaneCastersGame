@@ -31,6 +31,7 @@ public class WebSecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
         http
+                .cors(org.springframework.security.config.Customizer.withDefaults())
                 .headers(headers ->
                         headers
                                 .frameOptions(HeadersConfigurer.FrameOptionsConfig::disable)

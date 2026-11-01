@@ -130,6 +130,10 @@ This repository keeps its own skills under `.agents/skills/`. Read the one that 
 
 ## Architecture & Game Engine Reference
 
+Before changing the faction tutorial, read [tutorial-battles.md](docs/tutorial-battles.md).
+Keep tutorial combat on production prefabs and systems without routing its result
+through normal session, rating or reward persistence.
+
 Before modifying session creation, failure or teardown, read
 [developer-playground.md](docs/developer-playground.md). Playground sessions use
 the normal simulation but must never enter match statistics, MMR, user-status or
