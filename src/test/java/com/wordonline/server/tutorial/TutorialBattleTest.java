@@ -140,6 +140,18 @@ class TutorialBattleTest {
         }
     }
 
+    @Test void aCastArrivingAfterCombatClearedTheStepReturnsConflict() {
+        battle = create("HELL");
+        try (var running = battle) {
+            cast("fire_shot", 8, 5);
+            for (int i = 0; i < 100 && battle.state(0).status().equals("RUNNING"); i++) tick();
+            var cleared = battle.state(0);
+            assertThat(cleared.status()).isEqualTo("CLEARED");
+            assertThatThrownBy(() -> cast("fire_shot", 8, 5)).hasMessageContaining("409");
+            assertThat(battle.state(0).mana()).isEqualTo(cleared.mana());
+        }
+    }
+
     @Test void duplicateCommandDoesNotSpendTwiceAndCurrentStepCannotBeSkipped() {
         battle = create("HELL");
         try (var running = battle) {

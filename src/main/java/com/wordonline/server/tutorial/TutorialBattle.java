@@ -209,7 +209,9 @@ public final class TutorialBattle implements AutoCloseable {
     }
 
     private void cast(String name, Vector3 position) {
-        if (!status.equals("RUNNING") || !allowed().contains(name))
+        if (!status.equals("RUNNING"))
+            throw error(HttpStatus.CONFLICT, "Tutorial step is not running");
+        if (!allowed().contains(name))
             throw error(HttpStatus.BAD_REQUEST, "Magic is not available in this step");
         if (position == null || !Float.isFinite(position.getX()) || !Float.isFinite(position.getY())
                 || !Float.isFinite(position.getZ()) || position.getY() != 0 || position.getX() < 0
