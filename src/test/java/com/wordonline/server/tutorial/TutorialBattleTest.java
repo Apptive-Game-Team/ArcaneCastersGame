@@ -179,6 +179,24 @@ class TutorialBattleTest {
         }
     }
 
+    @Test void captureSequenceIncludesTheSimulationTickAndCastDoesNotAdvanceThatClock() {
+        battle = create("HELL");
+        try (var running = battle) {
+            var initial = battle.state(0);
+            assertThat(initial.tickRate()).isEqualTo(20);
+            assertThat(initial.tick()).isZero();
+            cast("fire_shot", 8, 1);
+            assertThat(battle.state(0).tick()).isZero();
+            tick();
+            cast("fire_shot", 8, 1);
+            var captured = battle.state(0);
+            assertThat(captured.tick()).isEqualTo(1);
+            assertThat(captured.lastFrame()).isEqualTo(initial.lastFrame() + 3);
+            assertThat(captured.frames()).extracting(frame -> frame.path("tick").asInt())
+                    .containsExactly(0, 0, 1, 1);
+        }
+    }
+
     @Test void retryResetsOnlyCurrentStepAndDoesNotReusePreviousCastHistory() {
         battle = create("HELL");
         try (var running = battle) {

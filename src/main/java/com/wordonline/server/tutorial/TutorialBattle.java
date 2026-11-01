@@ -29,8 +29,9 @@ public final class TutorialBattle implements AutoCloseable {
     static final List<String> HELL = List.of("fire_shot", "ember_spirit_swarm", "towerback", "rock_golem", "magma_explosion");
     static final List<String> NATURE = List.of("chain_lightning", "water_slime_swarm", "vine_spirit", "tree_golem", "water_explosion");
     static final List<String> STAGES = List.of("shot", "meteor", "tornado", "anti_air", "formation", "explosion", "final");
-    private static final float DT = 0.05f;
-    private static final long TICK_NANOS = 50_000_000L;
+    private static final int TICK_RATE = 20;
+    private static final float DT = 1f / TICK_RATE;
+    private static final long TICK_NANOS = 1_000_000_000L / TICK_RATE;
     private static final ObjectMapper JSON = new ObjectMapper();
     private final String id;
     private final long ownerId;
@@ -125,6 +126,7 @@ public final class TutorialBattle implements AutoCloseable {
         context.setObjectsInfoDtoBuilder(new ObjectsInfoDtoBuilder(context));
         context.setPhysics(new SimplePhysics(data.gameObjects));
         context.setDeltaTime(DT);
+        context.setTickRate(TICK_RATE);
         context.setObjectInitializer(object -> {
             if (object.getMaster() == Master.RightPlayer && object.getType() != PrefabType.Player
                     && object.getComponent(Mob.class) != null) {
@@ -293,6 +295,7 @@ public final class TutorialBattle implements AutoCloseable {
     private void capture() {
         ObjectNode entry = JSON.createObjectNode();
         entry.put("frame", ++frame);
+        entry.put("tick", stageTicks);
         entry.set("objects", JSON.valueToTree(context.getObjectsInfoDto()));
         entry.set("events", JSON.valueToTree(context.drainEvents()));
         history.addLast(entry);
@@ -317,7 +320,7 @@ public final class TutorialBattle implements AutoCloseable {
                 target == null ? 6 : target.getPosition().getX(), target == null ? 5 : target.getPosition().getZ(),
                 Math.max(0, 120 - stageTicks / 20),
                 history.stream().filter(entry -> entry.path("frame").asInt() > afterFrame).map(entry -> (JsonNode) entry).toList(),
-                snapshot, frame);
+                snapshot, frame, stageTicks, TICK_RATE);
     }
 
     private final class EnemyDeath extends Component implements CombatDeathListener {
@@ -344,5 +347,5 @@ public final class TutorialBattle implements AutoCloseable {
     public record Command(String commandId, int revision, String action, String magic, Vector3 position) { }
     public record State(String battleId, long ownerId, String faction, int revision, String stage, String status, int wave,
             int mana, List<Long> cards, String recommended, float targetX, float targetZ, int remainingSeconds, List<JsonNode> frames,
-            List<SnapshotObjectDto> snapshot, int lastFrame) { }
+            List<SnapshotObjectDto> snapshot, int lastFrame, int tick, int tickRate) { }
 }

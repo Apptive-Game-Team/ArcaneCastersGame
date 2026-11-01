@@ -12,6 +12,12 @@ component/physics/lifecycle 처리를 사용한다. 정상 `SessionService`와 `
 - `POST /api/tutorial/battles/{id}/command`: `{commandId,revision,action,magic,position}`. action은 CAST/NEXT/RETRY다.
 - `DELETE /api/tutorial/battles/{id}`: 소유자의 전투만 정리한다.
 
+state의 `tickRate`는 현재 20이며 `tick`은 현재 구간에서 진행한 simulation tick 수다.
+각 frames 항목에도 `tick`을 보낸다. `frame`은 CAST 직후 capture에도 증가하는 전송
+순번이므로 시간으로 환산하면 안 된다. 같은 tick의 capture는 서로 다른 시전 표현을
+포함할 수 있다. 클라이언트는 frame으로 중복을 제거하고 tick 간격에 맞춰 재생한다.
+구간 교체 시 tick은 0으로 돌아가지만 frame은 계속 증가한다.
+
 일반 사용자는 서버 전용 생성 API로 세력·사용자를 정할 수 없다. Lobby가 저장된
 세력을 조회해 생성한다. game 인스턴스는 사용자당 활성 전투 하나를 재사용한다.
 Lobby도 사용자별로 서버를 고정한다. 새 UUID만으로 다른 서버에 전투를 만들지 않는다.
