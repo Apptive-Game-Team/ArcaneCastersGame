@@ -228,7 +228,7 @@ public class SessionService {
         try {
             gameSessionRecordService.recordEnd(sessionObject.getSessionId(),
                     loser == null ? GameSessionStatus.DRAW : GameSessionStatus.COMPLETED,
-                    null, null, statisticGameId);
+                    resultChecker.getEndReason(), null, statisticGameId);
         } catch (Exception e) {
             log.warn("[Session] Failed to record the session end; sessionId: {}", sessionObject.getSessionId(), e);
         }

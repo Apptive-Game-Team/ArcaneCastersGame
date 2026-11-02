@@ -16,6 +16,8 @@ public class ResultChecker {
     private final SessionObject sessionObject;
     @Getter
     private Master loser = null;
+    @Getter
+    private String endReason;
     @Setter
     private boolean isEnd = false;
 
@@ -33,6 +35,14 @@ public class ResultChecker {
             return;
         }
         this.loser = loser;
+        long loserId = loser == Master.LeftPlayer ? sessionObject.getLeftUserId() : sessionObject.getRightUserId();
+        if (sessionObject.isDisconnected(loserId)) endReason = "DISCONNECT";
+    }
+
+    public void surrender(Master loser) {
+        if (loser == null || checkResult()) return;
+        setLoser(loser);
+        endReason = "SURRENDER";
     }
 
     public long getWinnerId()

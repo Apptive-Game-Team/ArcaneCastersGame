@@ -70,7 +70,7 @@ public class InputController {
             case "surrender" -> gameContext.submitAction("surrender", () -> {
                 var resultChecker = gameContext.getResultChecker();
                 if (!resultChecker.checkResult()) {
-                    resultChecker.setLoser(sessionObject.getUserSide(userId));
+                    resultChecker.surrender(sessionObject.getUserSide(userId));
                 }
             });
             case "useMagic" -> {

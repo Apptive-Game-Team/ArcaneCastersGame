@@ -105,6 +105,10 @@ public class SessionObject {
         return leftUserId < 0;
     }
 
+    public boolean isDisconnected(long userId) {
+        return pingChecker.isDisconnected(userId);
+    }
+
     public boolean isRightBot() {
         return rightUserId < 0;
     }
